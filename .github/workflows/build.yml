@@ -2,13 +2,16 @@ name: Build Garden Defense
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Get source
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Setup Java
@@ -20,19 +23,21 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
+          gradle-version: '8.9'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses || true
 
       - name: Build APK
-        run: gradle assembleDebug
+        run: gradle :app:assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: GardenDefense-APK
-          path: build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
