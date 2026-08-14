@@ -121,8 +121,8 @@ public class MainActivity extends Activity {
                     18,32,p
             );
 
-            float bx = 220;
-            float bw = getWidth() - 240;
+            float bx = 210;
+            float bw = getWidth() - 225;
 
             p.setColor(Color.DKGRAY);
 
@@ -158,10 +158,10 @@ public class MainActivity extends Activity {
                     bx+8,26,p
             );
 
-            card(c,10,55,1,"SUN 50",sunImg);
-            card(c,145,55,2,"PEA 100",peaImg);
-            card(c,280,55,3,"GIGA 150",gigaImg);
-            card(c,415,55,4,"CHOMP 175",chomperImg);
+            card(c,5,55,1,"SUN 50",sunImg);
+            card(c,125,55,2,"PEA 100",peaImg);
+            card(c,245,55,3,"GIGA 150",gigaImg);
+            card(c,365,55,4,"CHOMP 175",chomperImg);
         }
 
         void card(
@@ -181,7 +181,7 @@ public class MainActivity extends Activity {
             c.drawRoundRect(
                     new RectF(
                             x,y,
-                            x+120,y+90
+                            x+110,y+90
                     ),
                     12,12,p
             );
@@ -192,19 +192,19 @@ public class MainActivity extends Activity {
                         img,
                         null,
                         new RectF(
-                                x+5,y+5,
-                                x+60,y+80
+                                x+4,y+5,
+                                x+55,y+80
                         ),
                         p
                 );
             }
 
             p.setColor(Color.DKGRAY);
-            p.setTextSize(13);
+            p.setTextSize(12);
 
             c.drawText(
                     name,
-                    x+63,
+                    x+58,
                     y+50,
                     p
             );
@@ -464,10 +464,8 @@ public class MainActivity extends Activity {
                             new Bullet(
                                     left+a.col*cellW+
                                             cellW-10,
-
                                     top+a.row*cellH+
                                             cellH/2,
-
                                     a.row
                             )
                     );
@@ -577,7 +575,9 @@ public class MainActivity extends Activity {
                     it.remove();
                 }
             }
-                        }        void updateZombies() {
+        }
+
+        void updateZombies() {
 
             for (Zombie z : zombies) {
 
@@ -596,11 +596,8 @@ public class MainActivity extends Activity {
                     if (!z.stopped) {
 
                         if (z.x > stopX) {
-
                             z.x -= 0.75f;
-
                         } else {
-
                             z.x = stopX;
                             z.stopped = true;
                         }
@@ -625,7 +622,7 @@ public class MainActivity extends Activity {
 
                 if (target != null) {
 
-                    // ZOMTO CŨNG CHỈ CẮN CÂY
+                    // Zomto cũng cắn như zombie thường
                     long now =
                             System.currentTimeMillis();
 
@@ -634,18 +631,17 @@ public class MainActivity extends Activity {
                     ) {
 
                         target.hp -= 100;
-
                         target.lastBite = now;
                     }
 
                 } else {
 
-                    // ZOMTO CHẬM HƠN ZOMBIE THƯỜNG
                     z.x -=
                             z.big
                                     ? 0.6f
                                     : 0.8f;
 
+                    // Zomto: 12 bước kích hoạt kỹ năng
                     if (z.big) {
 
                         z.steps++;
@@ -663,9 +659,7 @@ public class MainActivity extends Activity {
                     }
                 }
             }
-        }
-
-        void updateChompers() {
+        }        void updateChompers() {
 
             for (Plant a : plants) {
 
@@ -698,10 +692,7 @@ public class MainActivity extends Activity {
 
                 if (target != null) {
 
-                    // Chomper ăn ngay 1 zombie
                     target.hp = 0;
-
-                    // Chờ khoảng 8 giây để ăn tiếp
                     a.eatTimer = 8f;
                 }
             }
@@ -709,8 +700,7 @@ public class MainActivity extends Activity {
 
         void bombAttack(Zombie z) {
 
-            // Zombie bom đứng ở ô thứ 2.
-            // Gây 200 damage vùng 3x3.
+            // Nổ vùng 3x3 quanh ô thứ 2
             int centerCol = 1;
 
             for (Plant a : plants) {
@@ -764,15 +754,16 @@ public class MainActivity extends Activity {
             int row =
                     r.nextInt(ROWS);
 
-            // ZOMTO CHỈ RA Ở SÓNG CUỐI
+            // Zomto chỉ xuất hiện ở 3 lượt cuối.
             boolean finalWave =
                     spawned >= TOTAL-3;
 
+            // Con cuối cùng chắc chắn là Zomto.
             boolean big =
                     finalWave &&
                     spawned == TOTAL-1;
 
-            // ZOMBIE BOM VẪN CÒN
+            // Zombie bom vẫn xuất hiện.
             boolean bomber =
                     !big &&
                     r.nextInt(4) == 0;
@@ -924,10 +915,8 @@ public class MainActivity extends Activity {
             if (
                     e.getAction() !=
                     MotionEvent.ACTION_DOWN
-            ) {
-
+            )
                 return true;
-            }
 
             float x = e.getX();
             float y = e.getY();
@@ -946,16 +935,16 @@ public class MainActivity extends Activity {
                     y <= 155
             ) {
 
-                if (x < 135)
+                if (x < 125)
                     selected = 1;
 
-                else if (x < 270)
+                else if (x < 245)
                     selected = 2;
 
-                else if (x < 405)
+                else if (x < 365)
                     selected = 3;
 
-                else if (x < 540)
+                else if (x < 485)
                     selected = 4;
 
                 invalidate();
@@ -1054,7 +1043,6 @@ public class MainActivity extends Activity {
         float y;
 
         float throwTimer;
-
         float skillTime;
         float skillDamageTimer;
 
@@ -1085,23 +1073,18 @@ public class MainActivity extends Activity {
             stopped = false;
             skillActive = false;
 
-            steps = 0;
+            throwTimer = 0;
             skillTime = 0;
             skillDamageTimer = 0;
-            throwTimer = 0;
+            steps = 0;
 
             if (big) {
-
                 hp = 1000;
                 max = 1000;
-
             } else if (bomber) {
-
                 hp = 150;
                 max = 150;
-
             } else {
-
                 hp = 300;
                 max = 300;
             }
@@ -1112,7 +1095,6 @@ public class MainActivity extends Activity {
 
         float x;
         float y;
-
         int row;
 
         Bullet(
@@ -1125,4 +1107,4 @@ public class MainActivity extends Activity {
             row = rr;
         }
     }
-        }
+                }
