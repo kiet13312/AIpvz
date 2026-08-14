@@ -20,7 +20,8 @@ public class MainActivity extends Activity {
         Random r = new Random();
 
         Bitmap sunImg, peaImg, gigaImg;
-        Bitmap bulletImg, zombieImg, bombImg, chomperImg;
+        Bitmap bulletImg, zombieImg;
+        Bitmap chomperImg, bomberImg;
 
         ArrayList<Plant> plants = new ArrayList<>();
         ArrayList<Zombie> zombies = new ArrayList<>();
@@ -31,9 +32,13 @@ public class MainActivity extends Activity {
         int spawned = 0;
         int killed = 0;
 
+        int level = 1;
+        boolean chomperUnlocked = false;
+        boolean lose = false;
+        boolean win = false;
+
         final int ROWS = 5;
         final int COLS = 9;
-        final int TOTAL = 15;
 
         float left = 20;
         float top = 185;
@@ -41,9 +46,6 @@ public class MainActivity extends Activity {
 
         long lastTime;
         long spawnTime;
-
-        boolean lose = false;
-        boolean win = false;
 
         GameView() {
             super(MainActivity.this);
@@ -53,8 +55,10 @@ public class MainActivity extends Activity {
             gigaImg = load("giganut");
             bulletImg = load("gigapea");
             zombieImg = load("zomplatz");
-            bombImg = load("zombom");
+
+            // TÊN ẢNH ĐÚNG
             chomperImg = load("chomper");
+            bomberImg = load("zomvinhhung");
 
             lastTime = System.currentTimeMillis();
             spawnTime = lastTime;
@@ -83,7 +87,7 @@ public class MainActivity extends Activity {
 
             p.setColor(Color.rgb(95,175,70));
             c.drawRect(
-                    0,0,
+                    0, 0,
                     getWidth(),
                     getHeight(),
                     p
@@ -114,54 +118,28 @@ public class MainActivity extends Activity {
             );
 
             p.setColor(Color.WHITE);
-            p.setTextSize(24);
+            p.setTextSize(22);
 
             c.drawText(
-                    "SUN: " + sun,
-                    18,32,p
+                    "MÀN " + level +
+                    "   SUN: " + sun,
+                    15,32,p
             );
 
-            float bx = 210;
-            float bw = getWidth() - 225;
+            card(c,10,55,1,"SUN",sunImg);
+            card(c,140,55,2,"PEA",peaImg);
+            card(c,270,55,3,"GIGA",gigaImg);
 
-            p.setColor(Color.DKGRAY);
-
-            c.drawRoundRect(
-                    new RectF(
-                            bx,10,
-                            bx+bw,32
-                    ),
-                    10,10,p
-            );
-
-            p.setColor(Color.GREEN);
-
-            float progress =
-                    Math.min(
-                            1f,
-                            killed/(float)TOTAL
-                    );
-
-            c.drawRoundRect(
-                    new RectF(
-                            bx,10,
-                            bx+bw*progress,32
-                    ),
-                    10,10,p
-            );
-
-            p.setColor(Color.WHITE);
-            p.setTextSize(13);
-
-            c.drawText(
-                    killed+"/"+TOTAL,
-                    bx+8,26,p
-            );
-
-            card(c,5,55,1,"SUN 50",sunImg);
-            card(c,125,55,2,"PEA 100",peaImg);
-            card(c,245,55,3,"GIGA 150",gigaImg);
-            card(c,365,55,4,"CHOMP 175",chomperImg);
+            if (chomperUnlocked) {
+                card(
+                        c,
+                        400,
+                        55,
+                        4,
+                        "CHOMPER",
+                        chomperImg
+                );
+            }
         }
 
         void card(
@@ -170,7 +148,8 @@ public class MainActivity extends Activity {
                 float y,
                 int type,
                 String name,
-                Bitmap img) {
+                Bitmap img
+        ) {
 
             p.setColor(
                     selected == type
@@ -181,7 +160,7 @@ public class MainActivity extends Activity {
             c.drawRoundRect(
                     new RectF(
                             x,y,
-                            x+110,y+90
+                            x+120,y+90
                     ),
                     12,12,p
             );
@@ -192,19 +171,23 @@ public class MainActivity extends Activity {
                         img,
                         null,
                         new RectF(
-                                x+4,y+5,
-                                x+55,y+80
+                                x+5,y+5,
+                                x+60,y+80
                         ),
                         p
                 );
             }
 
             p.setColor(Color.DKGRAY);
-            p.setTextSize(12);
+            p.setTextSize(
+                    name.equals("CHOMPER")
+                            ? 10
+                            : 14
+            );
 
             c.drawText(
                     name,
-                    x+58,
+                    x+65,
                     y+50,
                     p
             );
@@ -212,9 +195,9 @@ public class MainActivity extends Activity {
 
         void drawBoard(Canvas c) {
 
-            for (int row=0; row<ROWS; row++) {
+            for (int row=0;row<ROWS;row++) {
 
-                for (int col=0; col<COLS; col++) {
+                for (int col=0;col<COLS;col++) {
 
                     p.setColor(
                             (row+col)%2==0
@@ -223,10 +206,10 @@ public class MainActivity extends Activity {
                     );
 
                     float x =
-                            left + col*cellW;
+                            left+col*cellW;
 
                     float y =
-                            top + row*cellH;
+                            top+row*cellH;
 
                     c.drawRect(
                             x,y,
@@ -240,7 +223,7 @@ public class MainActivity extends Activity {
 
         void drawPlants(Canvas c) {
 
-            for (Plant a : plants) {
+            for (Plant a:plants) {
 
                 Bitmap img;
 
@@ -286,7 +269,7 @@ public class MainActivity extends Activity {
 
         void drawBullets(Canvas c) {
 
-            for (Bullet b : bullets) {
+            for (Bullet b:bullets) {
 
                 if (bulletImg != null) {
 
@@ -294,22 +277,9 @@ public class MainActivity extends Activity {
                             bulletImg,
                             null,
                             new RectF(
-                                    b.x-21,
-                                    b.y-21,
-                                    b.x+21,
-                                    b.y+21
+                                    b.x-21,b.y-21,
+                                    b.x+21,b.y+21
                             ),
-                            p
-                    );
-
-                } else {
-
-                    p.setColor(Color.GREEN);
-
-                    c.drawCircle(
-                            b.x,
-                            b.y,
-                            18,
                             p
                     );
                 }
@@ -318,26 +288,30 @@ public class MainActivity extends Activity {
 
         void drawZombies(Canvas c) {
 
-            for (Zombie z : zombies) {
+            for (Zombie z:zombies) {
 
                 float w;
                 float h;
+                Bitmap img;
 
-                if (z.big) {
+                if (z.bomber) {
+
+                    w = 95;
+                    h = 125;
+                    img = bomberImg;
+
+                } else if (z.big) {
+
                     w = 110;
                     h = 150;
-                } else if (z.bomber) {
-                    w = 90;
-                    h = 120;
+                    img = zombieImg;
+
                 } else {
+
                     w = 82;
                     h = 112;
+                    img = zombieImg;
                 }
-
-                Bitmap img =
-                        z.bomber
-                                ? bombImg
-                                : zombieImg;
 
                 if (img != null) {
 
@@ -352,32 +326,12 @@ public class MainActivity extends Activity {
                             ),
                             p
                     );
-
-                } else {
-
-                    p.setColor(
-                            z.bomber
-                                    ? Color.rgb(80,60,60)
-                                    : z.big
-                                        ? Color.DKGRAY
-                                        : Color.GRAY
-                    );
-
-                    c.drawRoundRect(
-                            new RectF(
-                                    z.x-w/2,
-                                    z.y-h/2,
-                                    z.x+w/2,
-                                    z.y+h/2
-                            ),
-                            12,12,p
-                    );
                 }
 
                 drawHP(
                         c,
                         z.x-30,
-                        z.y-(z.big?80:62),
+                        z.y-(z.big?80:65),
                         60,
                         z.hp,
                         z.max
@@ -391,7 +345,8 @@ public class MainActivity extends Activity {
                 float y,
                 float w,
                 int hp,
-                int max) {
+                int max
+        ) {
 
             p.setColor(Color.RED);
 
@@ -403,14 +358,13 @@ public class MainActivity extends Activity {
 
             p.setColor(Color.GREEN);
 
-            float q =
-                    Math.max(
-                            0,
-                            Math.min(
-                                    1,
-                                    hp/(float)max
-                            )
-                    );
+            float q = Math.max(
+                    0,
+                    Math.min(
+                            1,
+                            hp/(float)max
+                    )
+            );
 
             c.drawRect(
                     x,y,
@@ -432,16 +386,26 @@ public class MainActivity extends Activity {
 
             lastTime = now;
 
+            int total =
+                    level == 1 ? 10 :
+                    level == 2 ? 15 :
+                    22;
+
+            int delay =
+                    level == 1 ? 3500 :
+                    level == 2 ? 2800 :
+                    2200;
+
             if (
-                    spawned < TOTAL &&
-                    now-spawnTime >= 4000
+                    spawned < total &&
+                    now-spawnTime >= delay
             ) {
 
                 spawnZombie();
                 spawnTime = now;
             }
 
-            for (Plant a : plants) {
+            for (Plant a:plants) {
 
                 a.timer += dt;
 
@@ -473,57 +437,45 @@ public class MainActivity extends Activity {
                     a.timer = 0;
                 }
 
-                if (a.type == 4) {
+                if (
+                        a.type == 4 &&
+                        a.timer >= 2
+                ) {
 
-                    if (a.eatTimer > 0) {
+                    Zombie target =
+                            chomperTarget(a);
 
-                        a.eatTimer -= dt;
+                    if (target != null) {
 
-                        if (a.eatTimer < 0)
-                            a.eatTimer = 0;
+                        target.hp = 0;
+                        a.timer = 0;
                     }
                 }
             }
 
-            for (Zombie z : zombies) {
+            for (Zombie z:zombies) {
 
-                if (
-                        z.big &&
-                        z.skillActive
-                ) {
+                if (z.big) {
 
-                    z.skillTime += dt;
-                    z.skillDamageTimer += dt;
+                    z.damageTimer += dt;
 
-                    if (
-                            z.skillDamageTimer >= 1f
-                    ) {
+                    if (z.damageTimer >= 1) {
 
-                        for (Plant a : plants)
+                        for (Plant a:plants)
                             a.hp -= 10;
 
-                        z.skillDamageTimer = 0;
-                    }
-
-                    if (z.skillTime >= 5f) {
-
-                        z.skillActive = false;
-                        z.skillTime = 0;
-                        z.skillDamageTimer = 0;
-                        z.steps = 0;
+                        z.damageTimer = 0;
                     }
                 }
             }
 
             updateBullets();
             updateZombies();
-            updateChompers();
             clean();
 
             if (
-                    spawned >= TOTAL &&
-                    zombies.isEmpty() &&
-                    killed >= TOTAL
+                    spawned >= total &&
+                    zombies.isEmpty()
             ) {
 
                 win = true;
@@ -532,7 +484,7 @@ public class MainActivity extends Activity {
 
         boolean rowHasZombie(int row) {
 
-            for (Zombie z : zombies) {
+            for (Zombie z:zombies) {
 
                 if (z.row == row)
                     return true;
@@ -554,11 +506,11 @@ public class MainActivity extends Activity {
 
                 boolean hit = false;
 
-                for (Zombie z : zombies) {
+                for (Zombie z:zombies) {
 
                     if (
                             z.row == b.row &&
-                            Math.abs(z.x-b.x) < 35
+                            Math.abs(z.x-b.x)<35
                     ) {
 
                         z.hp -= 25;
@@ -575,11 +527,9 @@ public class MainActivity extends Activity {
                     it.remove();
                 }
             }
-        }
+                }        void updateZombies() {
 
-        void updateZombies() {
-
-            for (Zombie z : zombies) {
+            for (Zombie z:zombies) {
 
                 if (z.x < -70) {
 
@@ -596,22 +546,25 @@ public class MainActivity extends Activity {
                     if (!z.stopped) {
 
                         if (z.x > stopX) {
-                            z.x -= 0.75f;
+
+                            z.x -= 0.6f;
+
                         } else {
+
                             z.x = stopX;
                             z.stopped = true;
                         }
                     }
 
-                    z.throwTimer += 0.03f;
+                    if (z.stopped) {
 
-                    if (
-                            z.stopped &&
-                            z.throwTimer >= 8f
-                    ) {
+                        z.throwTimer += 30;
 
-                        bombAttack(z);
-                        z.throwTimer = 0;
+                        if (z.throwTimer >= 8000) {
+
+                            bombAttack(z);
+                            z.throwTimer = 0;
+                        }
                     }
 
                     continue;
@@ -622,7 +575,6 @@ public class MainActivity extends Activity {
 
                 if (target != null) {
 
-                    // Zomto cũng cắn như zombie thường
                     long now =
                             System.currentTimeMillis();
 
@@ -638,86 +590,25 @@ public class MainActivity extends Activity {
 
                     z.x -=
                             z.big
-                                    ? 0.6f
-                                    : 0.8f;
-
-                    // Zomto: 12 bước kích hoạt kỹ năng
-                    if (z.big) {
-
-                        z.steps++;
-
-                        if (
-                                z.steps >= 12 &&
-                                !z.skillActive
-                        ) {
-
-                            z.skillActive = true;
-                            z.skillTime = 0;
-                            z.skillDamageTimer = 0;
-                            z.steps = 0;
-                        }
-                    }
-                }
-            }
-        }        void updateChompers() {
-
-            for (Plant a : plants) {
-
-                if (a.type != 4)
-                    continue;
-
-                if (a.eatTimer > 0)
-                    continue;
-
-                Zombie target = null;
-
-                for (Zombie z : zombies) {
-
-                    if (z.row != a.row)
-                        continue;
-
-                    float px =
-                            left+
-                            a.col*cellW+
-                            cellW/2;
-
-                    if (
-                            Math.abs(z.x-px) < 75
-                    ) {
-
-                        target = z;
-                        break;
-                    }
-                }
-
-                if (target != null) {
-
-                    target.hp = 0;
-                    a.eatTimer = 8f;
+                                    ? 0.55f
+                                    : 1.0f;
                 }
             }
         }
 
         void bombAttack(Zombie z) {
 
-            // Nổ vùng 3x3 quanh ô thứ 2
             int centerCol = 1;
 
-            for (Plant a : plants) {
-
-                int dc =
-                        Math.abs(
-                                a.col-centerCol
-                        );
-
-                int dr =
-                        Math.abs(
-                                a.row-z.row
-                        );
+            for (Plant a:plants) {
 
                 if (
-                        dc <= 1 &&
-                        dr <= 1
+                        Math.abs(
+                                a.col-centerCol
+                        ) <= 1 &&
+                        Math.abs(
+                                a.row-z.row
+                        ) <= 1
                 ) {
 
                     a.hp -= 200;
@@ -727,7 +618,7 @@ public class MainActivity extends Activity {
 
         Plant findPlant(Zombie z) {
 
-            for (Plant a : plants) {
+            for (Plant a:plants) {
 
                 if (a.row != z.row)
                     continue;
@@ -739,10 +630,34 @@ public class MainActivity extends Activity {
 
                 if (
                         Math.abs(z.x-px) <
-                        (z.big ? 70 : 55)
+                        (z.big?70:55)
                 ) {
 
                     return a;
+                }
+            }
+
+            return null;
+        }
+
+        Zombie chomperTarget(Plant a) {
+
+            for (Zombie z:zombies) {
+
+                if (z.row != a.row)
+                    continue;
+
+                float px =
+                        left+
+                        a.col*cellW+
+                        cellW/2;
+
+                if (
+                        z.x > px-20 &&
+                        z.x < px+cellW*1.5f
+                ) {
+
+                    return z;
                 }
             }
 
@@ -754,26 +669,50 @@ public class MainActivity extends Activity {
             int row =
                     r.nextInt(ROWS);
 
-            // Zomto chỉ xuất hiện ở 3 lượt cuối.
-            boolean finalWave =
-                    spawned >= TOTAL-3;
+            boolean bomber = false;
+            boolean big = false;
 
-            // Con cuối cùng chắc chắn là Zomto.
-            boolean big =
-                    finalWave &&
-                    spawned == TOTAL-1;
+            // MÀN 1: zombie thường
+            if (level == 1) {
 
-            // Zombie bom vẫn xuất hiện.
-            boolean bomber =
-                    !big &&
-                    r.nextInt(4) == 0;
+                bomber = false;
+                big = false;
+
+            // MÀN 2: bắt đầu có zombie to
+            } else if (level == 2) {
+
+                if (
+                        spawned > 0 &&
+                        spawned % 5 == 0
+                ) {
+
+                    big = true;
+                }
+
+            // MÀN 3: có cả zombie to và zomvinhhung
+            } else {
+
+                if (
+                        spawned > 0 &&
+                        spawned % 4 == 0
+                ) {
+
+                    bomber = true;
+
+                } else if (
+                        spawned % 5 == 0
+                ) {
+
+                    big = true;
+                }
+            }
 
             zombies.add(
                     new Zombie(
-                            getWidth()+60,
+                            getWidth()+70,
                             top+
-                            row*cellH+
-                            cellH/2,
+                                    row*cellH+
+                                    cellH/2,
                             row,
                             big,
                             bomber
@@ -813,27 +752,14 @@ public class MainActivity extends Activity {
                     sun += 25;
                 }
             }
-
-            Iterator<Bullet> bi =
-                    bullets.iterator();
-
-            while (bi.hasNext()) {
-
-                if (
-                        bi.next().x >
-                        getWidth()+60
-                ) {
-
-                    bi.remove();
-                }
-            }
         }
 
         boolean occupied(
                 int row,
-                int col) {
+                int col
+        ) {
 
-            for (Plant a : plants) {
+            for (Plant a:plants) {
 
                 if (
                         a.row == row &&
@@ -863,23 +789,50 @@ public class MainActivity extends Activity {
             );
 
             p.setColor(Color.WHITE);
-            p.setTextSize(42);
+            p.setTextSize(38);
 
-            c.drawText(
-                    win
-                            ? "CHIẾN THẮNG!"
-                            : "THUA!",
-                    getWidth()/2f,
-                    getHeight()/2f-20,
-                    p
-            );
+            if (win) {
+
+                if (
+                        level == 2 &&
+                        !chomperUnlocked
+                ) {
+
+                    c.drawText(
+                            "MỞ KHÓA CHOMPER!",
+                            getWidth()/2f,
+                            getHeight()/2f-25,
+                            p
+                    );
+
+                } else {
+
+                    c.drawText(
+                            "THẮNG MÀN "+level,
+                            getWidth()/2f,
+                            getHeight()/2f-25,
+                            p
+                    );
+                }
+
+            } else {
+
+                c.drawText(
+                        "THUA!",
+                        getWidth()/2f,
+                        getHeight()/2f-25,
+                        p
+                );
+            }
 
             p.setTextSize(18);
 
             c.drawText(
-                    "CHẠM ĐỂ CHƠI LẠI",
+                    win && level < 3
+                            ? "CHẠM ĐỂ SANG MÀN TIẾP"
+                            : "CHẠM ĐỂ CHƠI LẠI",
                     getWidth()/2f,
-                    getHeight()/2f+45,
+                    getHeight()/2f+30,
                     p
             );
 
@@ -888,16 +841,40 @@ public class MainActivity extends Activity {
             );
         }
 
-        void restart() {
+        void nextLevel() {
 
             plants.clear();
             zombies.clear();
             bullets.clear();
 
-            selected = 0;
-            sun = 500;
             spawned = 0;
             killed = 0;
+            selected = 0;
+
+            lose = false;
+            win = false;
+
+            level++;
+
+            lastTime =
+                    System.currentTimeMillis();
+
+            spawnTime = lastTime;
+        }
+
+        void restart() {
+
+            level = 1;
+            chomperUnlocked = false;
+            sun = 500;
+
+            plants.clear();
+            zombies.clear();
+            bullets.clear();
+
+            spawned = 0;
+            killed = 0;
+            selected = 0;
 
             lose = false;
             win = false;
@@ -910,7 +887,8 @@ public class MainActivity extends Activity {
 
         @Override
         public boolean onTouchEvent(
-                MotionEvent e) {
+                MotionEvent e
+        ) {
 
             if (
                     e.getAction() !=
@@ -921,11 +899,28 @@ public class MainActivity extends Activity {
             float x = e.getX();
             float y = e.getY();
 
-            if (lose || win) {
+            if (lose) {
 
                 restart();
                 invalidate();
+                return true;
+            }
 
+            if (win) {
+
+                if (level == 2)
+                    chomperUnlocked = true;
+
+                if (level < 3) {
+
+                    nextLevel();
+
+                } else {
+
+                    restart();
+                }
+
+                invalidate();
                 return true;
             }
 
@@ -935,20 +930,27 @@ public class MainActivity extends Activity {
                     y <= 155
             ) {
 
-                if (x < 125)
+                if (x < 140) {
+
                     selected = 1;
 
-                else if (x < 245)
+                } else if (x < 275) {
+
                     selected = 2;
 
-                else if (x < 365)
+                } else if (x < 410) {
+
                     selected = 3;
 
-                else if (x < 485)
+                } else if (
+                        x < 550 &&
+                        chomperUnlocked
+                ) {
+
                     selected = 4;
+                }
 
                 invalidate();
-
                 return true;
             }
 
@@ -973,7 +975,7 @@ public class MainActivity extends Activity {
                             selected == 1 ? 50 :
                             selected == 2 ? 100 :
                             selected == 3 ? 150 :
-                            175;
+                            150;
 
                     if (sun >= cost) {
 
@@ -981,7 +983,7 @@ public class MainActivity extends Activity {
                                 selected == 1 ? 300 :
                                 selected == 2 ? 400 :
                                 selected == 3 ? 3000 :
-                                500;
+                                800;
 
                         plants.add(
                                 new Plant(
@@ -1009,31 +1011,24 @@ public class MainActivity extends Activity {
         int type;
         int row;
         int col;
-
         int hp;
         int max;
 
         float timer;
-        float eatTimer;
-
         long lastBite;
 
         Plant(
                 int t,
                 int r,
                 int c,
-                int h) {
+                int h
+        ) {
 
             type = t;
             row = r;
             col = c;
-
             hp = h;
             max = h;
-
-            timer = 0;
-            eatTimer = 0;
-            lastBite = 0;
         }
     }
 
@@ -1042,26 +1037,24 @@ public class MainActivity extends Activity {
         float x;
         float y;
 
+        float damageTimer;
         float throwTimer;
-        float skillTime;
-        float skillDamageTimer;
 
         int row;
         int hp;
         int max;
-        int steps;
 
         boolean big;
         boolean bomber;
         boolean stopped;
-        boolean skillActive;
 
         Zombie(
                 float xx,
                 float yy,
                 int rr,
                 boolean b,
-                boolean bo) {
+                boolean bo
+        ) {
 
             x = xx;
             y = yy;
@@ -1070,21 +1063,18 @@ public class MainActivity extends Activity {
             big = b;
             bomber = bo;
 
-            stopped = false;
-            skillActive = false;
+            if (bomber) {
 
-            throwTimer = 0;
-            skillTime = 0;
-            skillDamageTimer = 0;
-            steps = 0;
-
-            if (big) {
-                hp = 1000;
-                max = 1000;
-            } else if (bomber) {
                 hp = 150;
                 max = 150;
+
+            } else if (big) {
+
+                hp = 1000;
+                max = 1000;
+
             } else {
+
                 hp = 300;
                 max = 300;
             }
@@ -1100,11 +1090,12 @@ public class MainActivity extends Activity {
         Bullet(
                 float xx,
                 float yy,
-                int rr) {
+                int rr
+        ) {
 
             x = xx;
             y = yy;
             row = rr;
         }
     }
-                }
+            }
