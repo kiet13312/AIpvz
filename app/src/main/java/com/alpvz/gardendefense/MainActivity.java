@@ -26,13 +26,14 @@ public class MainActivity extends Activity {
         ArrayList<Plant> plants = new ArrayList<>();
         ArrayList<Zombie> zombies = new ArrayList<>();
         ArrayList<Bullet> bullets = new ArrayList<>();
+        ArrayList<BombBullet> bombBullets = new ArrayList<>();
 
         int selected = 0;
         int sun = 500;
         int spawned = 0;
         int killed = 0;
-
         int level = 1;
+
         boolean chomperUnlocked = false;
         boolean lose = false;
         boolean win = false;
@@ -56,7 +57,6 @@ public class MainActivity extends Activity {
             bulletImg = load("gigapea");
             zombieImg = load("zomplatz");
 
-            // TÊN ẢNH ĐÚNG
             chomperImg = load("chomper");
             bomberImg = load("zomvinhhung");
 
@@ -87,7 +87,7 @@ public class MainActivity extends Activity {
 
             p.setColor(Color.rgb(95,175,70));
             c.drawRect(
-                    0, 0,
+                    0,0,
                     getWidth(),
                     getHeight(),
                     p
@@ -97,6 +97,7 @@ public class MainActivity extends Activity {
             drawBoard(c);
             drawPlants(c);
             drawBullets(c);
+            drawBombBullets(c);
             drawZombies(c);
 
             if (!lose && !win) {
@@ -132,11 +133,8 @@ public class MainActivity extends Activity {
 
             if (chomperUnlocked) {
                 card(
-                        c,
-                        400,
-                        55,
-                        4,
-                        "CHOMPER",
+                        c,400,55,
+                        4,"CHOMPER",
                         chomperImg
                 );
             }
@@ -166,7 +164,6 @@ public class MainActivity extends Activity {
             );
 
             if (img != null) {
-
                 c.drawBitmap(
                         img,
                         null,
@@ -181,8 +178,7 @@ public class MainActivity extends Activity {
             p.setColor(Color.DKGRAY);
             p.setTextSize(
                     name.equals("CHOMPER")
-                            ? 10
-                            : 14
+                            ? 10 : 14
             );
 
             c.drawText(
@@ -196,7 +192,6 @@ public class MainActivity extends Activity {
         void drawBoard(Canvas c) {
 
             for (int row=0;row<ROWS;row++) {
-
                 for (int col=0;col<COLS;col++) {
 
                     p.setColor(
@@ -282,7 +277,39 @@ public class MainActivity extends Activity {
                             ),
                             p
                     );
+                } else {
+
+                    p.setColor(Color.GREEN);
+
+                    c.drawCircle(
+                            b.x,b.y,18,p
+                    );
                 }
+            }
+        }
+
+        void drawBombBullets(Canvas c) {
+
+            for (BombBullet b:bombBullets) {
+
+                // ĐẠN ZOMVINHHUNG MÀU ĐỎ/CAM
+                p.setColor(Color.rgb(255,70,20));
+
+                c.drawCircle(
+                        b.x,
+                        b.y,
+                        13,
+                        p
+                );
+
+                p.setColor(Color.YELLOW);
+
+                c.drawCircle(
+                        b.x-4,
+                        b.y-4,
+                        4,
+                        p
+                );
             }
         }
 
@@ -296,8 +323,9 @@ public class MainActivity extends Activity {
 
                 if (z.bomber) {
 
-                    w = 95;
-                    h = 125;
+                    // NHỎ HƠN ĐỂ ĐỠ LAG
+                    w = 65;
+                    h = 85;
                     img = bomberImg;
 
                 } else if (z.big) {
@@ -331,7 +359,7 @@ public class MainActivity extends Activity {
                 drawHP(
                         c,
                         z.x-30,
-                        z.y-(z.big?80:65),
+                        z.y-(z.big?80:55),
                         60,
                         z.hp,
                         z.max
@@ -470,7 +498,9 @@ public class MainActivity extends Activity {
             }
 
             updateBullets();
+            updateBombBullets();
             updateZombies();
+
             clean();
 
             if (
@@ -527,7 +557,54 @@ public class MainActivity extends Activity {
                     it.remove();
                 }
             }
-                }        void updateZombies() {
+                }        void updateBombBullets() {
+
+            Iterator<BombBullet> it =
+                    bombBullets.iterator();
+
+            while (it.hasNext()) {
+
+                BombBullet b = it.next();
+
+                b.x += b.speed;
+
+                if (b.x >= b.targetX) {
+
+                    bombAttackAt(
+                            b.targetX,
+                            b.targetY
+                    );
+
+                    it.remove();
+                }
+            }
+        }
+
+        void bombAttackAt(
+                float x,
+                float y
+        ) {
+
+            int centerCol = 1;
+
+            for (Plant a:plants) {
+
+                if (
+                        Math.abs(
+                                a.col-centerCol
+                        ) <= 1 &&
+                        Math.abs(
+                                a.row-
+                                (int)((y-top)/cellH)
+                        ) <= 1
+                ) {
+
+                    a.hp -= 200;
+                }
+            }
+        }
+
+        void updateZombies() {
 
             for (Zombie z:zombies) {
 
@@ -537,7 +614,6 @@ public class MainActivity extends Activity {
                     return;
                 }
 
-                // ZOMBIE NÉM BOM
                 if (z.bomber) {
 
                     float stopX =
@@ -560,9 +636,11 @@ public class MainActivity extends Activity {
 
                         z.throwTimer += 30;
 
-                        if (z.throwTimer >= 8000) {
+                        if (
+                                z.throwTimer >= 8000
+                        ) {
 
-                            bombAttack(z);
+                            throwBomb(z);
                             z.throwTimer = 0;
                         }
                     }
@@ -596,24 +674,24 @@ public class MainActivity extends Activity {
             }
         }
 
-        void bombAttack(Zombie z) {
+        void throwBomb(Zombie z) {
 
-            int centerCol = 1;
+            float targetX =
+                    left+cellW*1.5f;
 
-            for (Plant a:plants) {
+            float targetY =
+                    top+
+                    z.row*cellH+
+                    cellH/2;
 
-                if (
-                        Math.abs(
-                                a.col-centerCol
-                        ) <= 1 &&
-                        Math.abs(
-                                a.row-z.row
-                        ) <= 1
-                ) {
-
-                    a.hp -= 200;
-                }
-            }
+            bombBullets.add(
+                    new BombBullet(
+                            z.x,
+                            z.y,
+                            targetX,
+                            targetY
+                    )
+            );
         }
 
         Plant findPlant(Zombie z) {
@@ -672,13 +750,11 @@ public class MainActivity extends Activity {
             boolean bomber = false;
             boolean big = false;
 
-            // MÀN 1: zombie thường
             if (level == 1) {
 
                 bomber = false;
                 big = false;
 
-            // MÀN 2: bắt đầu có zombie to
             } else if (level == 2) {
 
                 if (
@@ -689,7 +765,6 @@ public class MainActivity extends Activity {
                     big = true;
                 }
 
-            // MÀN 3: có cả zombie to và zomvinhhung
             } else {
 
                 if (
@@ -711,8 +786,8 @@ public class MainActivity extends Activity {
                     new Zombie(
                             getWidth()+70,
                             top+
-                                    row*cellH+
-                                    cellH/2,
+                            row*cellH+
+                            cellH/2,
                             row,
                             big,
                             bomber
@@ -747,7 +822,6 @@ public class MainActivity extends Activity {
                 if (z.hp <= 0) {
 
                     zi.remove();
-
                     killed++;
                     sun += 25;
                 }
@@ -798,6 +872,8 @@ public class MainActivity extends Activity {
                         !chomperUnlocked
                 ) {
 
+                    chomperUnlocked = true;
+
                     c.drawText(
                             "MỞ KHÓA CHOMPER!",
                             getWidth()/2f,
@@ -846,6 +922,7 @@ public class MainActivity extends Activity {
             plants.clear();
             zombies.clear();
             bullets.clear();
+            bombBullets.clear();
 
             spawned = 0;
             killed = 0;
@@ -871,6 +948,7 @@ public class MainActivity extends Activity {
             plants.clear();
             zombies.clear();
             bullets.clear();
+            bombBullets.clear();
 
             spawned = 0;
             killed = 0;
@@ -924,7 +1002,6 @@ public class MainActivity extends Activity {
                 return true;
             }
 
-            // CHỌN CÂY
             if (
                     y >= 45 &&
                     y <= 155
@@ -954,7 +1031,6 @@ public class MainActivity extends Activity {
                 return true;
             }
 
-            // ĐẶT CÂY
             if (
                     selected != 0 &&
                     x >= left &&
@@ -1098,4 +1174,28 @@ public class MainActivity extends Activity {
             row = rr;
         }
     }
-            }
+
+    class BombBullet {
+
+        float x;
+        float y;
+
+        float targetX;
+        float targetY;
+
+        float speed = 5;
+
+        BombBullet(
+                float xx,
+                float yy,
+                float tx,
+                float ty
+        ) {
+
+            x = xx;
+            y = yy;
+            targetX = tx;
+            targetY = ty;
+        }
+    }
+                    }
