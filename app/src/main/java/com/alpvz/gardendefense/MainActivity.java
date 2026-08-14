@@ -29,7 +29,7 @@ public class MainActivity extends Activity {
         ArrayList<Bullet> bullets = new ArrayList<>();
 
         int selected = 0;
-        int sun = 300;
+        int sun = 500;
 
         int rows = 5;
         int cols = 9;
@@ -52,6 +52,7 @@ public class MainActivity extends Activity {
             zombieImg = load("zomplatz");
 
             lastUpdate = System.currentTimeMillis();
+            lastSpawn = lastUpdate;
         }
 
         Bitmap load(String name) {
@@ -203,6 +204,22 @@ public class MainActivity extends Activity {
                             ),
                             p
                     );
+                } else {
+
+                    if (plant.type == 1) {
+                        p.setColor(Color.YELLOW);
+                    } else if (plant.type == 2) {
+                        p.setColor(Color.GREEN);
+                    } else {
+                        p.setColor(Color.rgb(230, 190, 30));
+                    }
+
+                    c.drawCircle(
+                            x + cellW / 2,
+                            y + cellH / 2,
+                            28,
+                            p
+                    );
                 }
 
                 drawHealth(
@@ -296,7 +313,7 @@ public class MainActivity extends Activity {
                 float y,
                 float width,
                 int hp,
-                int max
+                int maxHp
         ) {
 
             p.setColor(Color.RED);
@@ -313,10 +330,10 @@ public class MainActivity extends Activity {
 
             float percent =
                     Math.max(
-                            0,
+                            0f,
                             Math.min(
                                     1f,
-                                    hp / (float) max
+                                    hp / (float) maxHp
                             )
                     );
 
@@ -336,20 +353,27 @@ public class MainActivity extends Activity {
             float dt =
                     (now - lastUpdate) / 1000f;
 
-            if (dt > 0.1f) dt = 0.1f;
+            if (dt > 0.1f) {
+                dt = 0.1f;
+            }
 
             lastUpdate = now;
 
             if (now - lastSpawn > 4000) {
-
                 spawnZombie();
-
                 lastSpawn = now;
             }
 
             for (Plant plant : plants) {
 
                 plant.timer += dt;
+
+                if (plant.type == 1 &&
+                        plant.timer >= 5f) {
+
+                    sun += 25;
+                    plant.timer = 0;
+                }
 
                 if (plant.type == 2 &&
                         plant.timer >= 1.2f) {
@@ -371,19 +395,10 @@ public class MainActivity extends Activity {
                         plant.timer = 0;
                     }
                 }
-
-                if (plant.type == 1 &&
-                        plant.timer >= 5) {
-
-                    sun += 25;
-                    plant.timer = 0;
-                }
             }
 
             updateBullets();
-
             updateZombies();
-
             removeDead();
         }
 
@@ -418,9 +433,7 @@ public class MainActivity extends Activity {
                             Math.abs(z.x - b.x) < 30) {
 
                         z.hp -= 25;
-
                         hit = true;
-
                         break;
                     }
                 }
@@ -447,7 +460,6 @@ public class MainActivity extends Activity {
                     if (now - target.lastHit > 700) {
 
                         target.hp -= 15;
-
                         target.lastHit = now;
                     }
 
@@ -486,7 +498,9 @@ public class MainActivity extends Activity {
 
             while (pi.hasNext()) {
 
-                if (pi.next().hp <= 0) {
+                Plant plant = pi.next();
+
+                if (plant.hp <= 0) {
                     pi.remove();
                 }
             }
@@ -509,7 +523,9 @@ public class MainActivity extends Activity {
 
             while (bi.hasNext()) {
 
-                if (bi.next().x > getWidth() + 50) {
+                Bullet b = bi.next();
+
+                if (b.x > getWidth() + 50) {
                     bi.remove();
                 }
             }
@@ -545,29 +561,40 @@ public class MainActivity extends Activity {
             float x = event.getX();
             float y = event.getY();
 
-            if (y >= 60 && y <= 150) {
+            /*
+             * Chọn cây.
+             * Vùng bấm rộng hơn hình nút để cả 3 cây
+             * đều chọn được ổn định.
+             */
 
-                if (x >= 20 && x <= 140) {
+            if (y >= 50 && y <= 160) {
+
+                if (x >= 10 && x < 145) {
                     selected = 1;
                     return true;
                 }
 
-                if (x >= 155 && x <= 275) {
+                if (x >= 145 && x < 285) {
                     selected = 2;
                     return true;
                 }
 
-                if (x >= 290 && x <= 410) {
+                if (x >= 285 && x < 440) {
                     selected = 3;
                     return true;
                 }
             }
 
+            /*
+             * Đặt cây.
+             * Tất cả 3 loại đều chỉ chiếm đúng 1 ô.
+             */
+
             if (selected != 0 &&
-                    y >= top &&
-                    y < top + rows * cellH &&
                     x >= left &&
-                    x < left + cols * cellW) {
+                    x < left + cols * cellW &&
+                    y >= top &&
+                    y < top + rows * cellH) {
 
                 int col =
                         (int)((x - left) / cellW);
@@ -575,34 +602,51 @@ public class MainActivity extends Activity {
                 int row =
                         (int)((y - top) / cellH);
 
-                if (!occupied(row, col)) {
+                if (row >= 0 &&
+                        row < rows &&
+                        col >= 0 &&
+                        col < cols) {
 
-                    int cost =
-                            selected == 1 ? 50 :
-                            selected == 2 ? 100 :
-                            150;
+                    if (!occupied(row, col)) {
 
-                    if (sun >= cost) {
+                        int cost;
 
-                        sun -= cost;
+                        if (selected == 1) {
+                            cost = 50;
+                        } else if (selected == 2) {
+                            cost = 100;
+                        } else {
+                            cost = 150;
+                        }
 
-                        int hp =
-                                selected == 3
-                                        ? 500
-                                        : 100;
+                        if (sun >= cost) {
 
-                        plants.add(
-                                new Plant(
-                                        selected,
-                                        row,
-                                        col,
-                                        hp
-                                )
-                        );
+                            int hp;
 
-                        selected = 0;
+                            if (selected == 3) {
+                                hp = 1500;
+                            } else if (selected == 1) {
+                                hp = 300;
+                            } else {
+                                hp = 400;
+                            }
+
+                            plants.add(
+                                    new Plant(
+                                            selected,
+                                            row,
+                                            col,
+                                            hp
+                                    )
+                            );
+
+                            sun -= cost;
+                            selected = 0;
+                        }
                     }
                 }
+
+                return true;
             }
 
             return true;
@@ -694,4 +738,4 @@ public class MainActivity extends Activity {
             this.row = row;
         }
     }
-                     }
+        }
