@@ -2,15 +2,10 @@ package com.alpvz.gardendefense;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.RectF;
-import android.view.MotionEvent;
-import android.view.View;
-
+import android.graphics.*;
+import android.graphics.drawable.Drawable;
+import android.view.*;
+import android.content.Context;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
@@ -20,397 +15,355 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(new BattleView());
+        setContentView(new GameView(this));
     }
 
-    private class BattleView extends View {
+    public static class GameView extends View {
 
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Random random = new Random();
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        ArrayList<Plant> plants = new ArrayList<>();
+        ArrayList<Zombie> zombies = new ArrayList<>();
+        ArrayList<Pea> peas = new ArrayList<>();
 
-        // ===== IMAGES =====
-        private Bitmap sunflower;
-        private Bitmap peashooter;
-        private Bitmap giganut;
-        private Bitmap gigapea;
-        private Bitmap zomplatz;
+        Bitmap sunflowerImg;
+        Bitmap peashootImg;
+        Bitmap giganutImg;
 
-        // ===== GAME =====
-        private final ArrayList<Plant> plants = new ArrayList<>();
-        private final ArrayList<Zombie> zombies = new ArrayList<>();
-        private final ArrayList<Projectile> projectiles = new ArrayList<>();
+        Random random = new Random();
 
-        private int selectedPlant = 0;
+        int selectedPlant = 0;
+        int money = 500;
 
-        private int sun = 250;
+        long lastTime;
+        long zombieTimer = 0;
+        long sunTimer = 0;
 
-        private final int rows = 5;
-        private final int cols = 8;
+        int rows = 5;
+        int cols = 9;
 
-        private float gridLeft;
-        private float gridTop;
-        private float cellWidth;
-        private float cellHeight;
+        float boardLeft;
+        float boardTop;
+        float cellW;
+        float cellH;
 
-        private long lastZombieSpawn = 0;
-        private long lastPlantShot = 0;
+        public GameView(Context context) {
+            super(context);
 
-        private boolean gameOver = false;
+            paint.setTypeface(Typeface.create("sans", Typeface.BOLD));
 
-        BattleView() {
-            super(MainActivity.this);
+            sunflowerImg = loadImage("sunflower");
+            peashootImg = loadImage("peashoot");
+            giganutImg = loadImage("giganut");
 
-            setBackgroundColor(Color.rgb(100, 175, 75));
-
-            sunflower = loadBitmap("sunflower");
-            peashooter = loadBitmap("peashooter");
-            giganut = loadBitmap("giganut");
-            gigapea = loadBitmap("gigapea");
-            zomplatz = loadBitmap("zomplatz");
+            lastTime = System.currentTimeMillis();
         }
 
-        private Bitmap loadBitmap(String name) {
-            int resourceId = getResources().getIdentifier(
+        Bitmap loadImage(String name) {
+            int id = getResources().getIdentifier(
                     name,
                     "drawable",
-                    getPackageName()
+                    getContext().getPackageName()
             );
 
-            if (resourceId == 0) {
+            if (id == 0) {
                 return null;
             }
 
-            return BitmapFactory.decodeResource(
-                    getResources(),
-                    resourceId
-            );
+            return BitmapFactory.decodeResource(getResources(), id);
         }
 
         @Override
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
 
-            calculateGrid();
+            float w = getWidth();
+            float h = getHeight();
 
-            drawBackground(canvas);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.rgb(102, 180, 70));
+            canvas.drawRect(0, 0, w, h, paint);
+
             drawTopBar(canvas);
-            drawPlantCards(canvas);
-            drawGrid(canvas);
-            drawPlants(canvas);
-            drawProjectiles(canvas);
-            drawZombies(canvas);
 
-            if (gameOver) {
-                drawGameOver(canvas);
+            boardLeft = 25;
+            boardTop = 190;
+            cellW = (w - 50) / cols;
+            cellH = (h - boardTop - 40) / rows;
+
+            drawBoard(canvas);
+
+            long now = System.currentTimeMillis();
+            float dt = (now - lastTime) / 1000f;
+
+            if (dt > 0.1f) {
+                dt = 0.1f;
             }
 
-            updateGame();
+            lastTime = now;
 
-            postInvalidateDelayed(30);
+            updateGame(dt);
+
+            drawObjects(canvas);
+
+            invalidate();
         }
 
-        private void calculateGrid() {
-            gridLeft = 20;
-            gridTop = 210;
-
-            cellWidth = (getWidth() - 40f) / cols;
-
-            float availableHeight = getHeight() - gridTop - 20f;
-            cellHeight = availableHeight / rows;
-        }
-
-        private void drawBackground(Canvas canvas) {
-            canvas.drawColor(Color.rgb(105, 180, 75));
-        }
-
-        private void drawTopBar(Canvas canvas) {
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.rgb(45, 100, 45));
-
-            canvas.drawRect(
-                    0,
-                    0,
-                    getWidth(),
-                    70,
-                    paint
-            );
+        void drawTopBar(Canvas canvas) {
+            paint.setColor(Color.rgb(72, 145, 45));
+            canvas.drawRect(0, 0, getWidth(), 170, paint);
 
             paint.setColor(Color.WHITE);
-            paint.setTextSize(28);
-            paint.setFakeBoldText(true);
+            paint.setTextSize(30);
+            canvas.drawText("GARDEN DEFENSE", 25, 45, paint);
 
-            canvas.drawText(
-                    "GARDEN DEFENSE",
-                    20,
-                    45,
-                    paint
-            );
+            paint.setTextSize(18);
+            canvas.drawText("SUN: " + money, 25, 75, paint);
 
-            paint.setColor(Color.YELLOW);
-
-            canvas.drawCircle(
-                    getWidth() - 120,
-                    35,
-                    17,
-                    paint
-            );
-
-            paint.setColor(Color.WHITE);
-            paint.setTextSize(22);
-            paint.setFakeBoldText(false);
-
-            canvas.drawText(
-                    String.valueOf(sun),
-                    getWidth() - 90,
-                    43,
-                    paint
-            );
+            drawCard(canvas, 20, 90, 150, 155, "SUNFLOWER", 1);
+            drawCard(canvas, 165, 90, 295, 155, "PEASHOOT", 2);
+            drawCard(canvas, 310, 90, 440, 155, "GIGANUT", 3);
         }
 
-        private void drawPlantCards(Canvas canvas) {
-
-            drawPlantCard(
-                    canvas,
-                    20,
-                    90,
-                    sunflower,
-                    "SUN",
-                    1
-            );
-
-            drawPlantCard(
-                    canvas,
-                    160,
-                    90,
-                    peashooter,
-                    "PEA",
-                    2
-            );
-
-            drawPlantCard(
-                    canvas,
-                    300,
-                    90,
-                    giganut,
-                    "GIGA",
-                    3
-            );
-        }
-
-        private void drawPlantCard(
+        void drawCard(
                 Canvas canvas,
-                float x,
-                float y,
-                Bitmap bitmap,
-                String text,
+                float left,
+                float top,
+                float right,
+                float bottom,
+                String name,
                 int type
         ) {
-
-            if (selectedPlant == type) {
-                paint.setColor(Color.YELLOW);
-            } else {
-                paint.setColor(Color.rgb(235, 240, 220));
-            }
+            paint.setColor(selectedPlant == type
+                    ? Color.rgb(255, 230, 120)
+                    : Color.rgb(220, 235, 205));
 
             canvas.drawRoundRect(
-                    new RectF(
-                            x,
-                            y,
-                            x + 120,
-                            y + 95
-                    ),
+                    left,
+                    top,
+                    right,
+                    bottom,
                     15,
                     15,
                     paint
             );
 
-            if (bitmap != null) {
+            Bitmap img = null;
 
-                canvas.drawBitmap(
-                        bitmap,
-                        null,
-                        new RectF(
-                                x + 12,
-                                y + 8,
-                                x + 68,
-                                y + 78
-                        ),
-                        paint
+            if (type == 1) img = sunflowerImg;
+            if (type == 2) img = peashootImg;
+            if (type == 3) img = giganutImg;
+
+            if (img != null) {
+                RectF dst = new RectF(
+                        left + 25,
+                        top + 3,
+                        right - 25,
+                        bottom - 25
+                );
+
+                canvas.drawBitmap(img, null, dst, paint);
+            } else {
+                drawFallbackPlant(
+                        canvas,
+                        (left + right) / 2,
+                        top + 25,
+                        type,
+                        35
                 );
             }
 
-            paint.setColor(Color.rgb(35, 80, 35));
-            paint.setTextSize(14);
-            paint.setFakeBoldText(true);
-
-            canvas.drawText(
-                    text,
-                    x + 76,
-                    y + 53,
-                    paint
-            );
-
-            paint.setFakeBoldText(false);
+            paint.setColor(Color.DKGRAY);
+            paint.setTextSize(12);
+            canvas.drawText(name, left + 12, bottom - 7, paint);
         }
 
-        private void drawGrid(Canvas canvas) {
+        void drawBoard(Canvas canvas) {
+            for (int r = 0; r < rows; r++) {
+                for (int c = 0; c < cols; c++) {
 
-            paint.setStyle(Paint.Style.FILL);
+                    paint.setStyle(Paint.Style.FILL);
 
-            for (int row = 0; row < rows; row++) {
-
-                for (int col = 0; col < cols; col++) {
-
-                    float left = gridLeft + col * cellWidth;
-                    float top = gridTop + row * cellHeight;
-
-                    if ((row + col) % 2 == 0) {
-                        paint.setColor(Color.rgb(125, 195, 85));
+                    if ((r + c) % 2 == 0) {
+                        paint.setColor(Color.rgb(116, 190, 75));
                     } else {
-                        paint.setColor(Color.rgb(115, 185, 75));
+                        paint.setColor(Color.rgb(108, 181, 68));
                     }
 
-                    canvas.drawRect(
-                            left,
-                            top,
-                            left + cellWidth - 2,
-                            top + cellHeight - 2,
-                            paint
-                    );
-                }
-            }
-        }
-
-        private void drawPlants(Canvas canvas) {
-
-            for (Plant plant : plants) {
-
-                Bitmap bitmap = null;
-
-                if (plant.type == 1) {
-                    bitmap = sunflower;
-                } else if (plant.type == 2) {
-                    bitmap = peashooter;
-                } else if (plant.type == 3) {
-                    bitmap = giganut;
-                }
-
-                if (bitmap != null) {
-
-                    float left =
-                            gridLeft + plant.col * cellWidth + 5;
-
-                    float top =
-                            gridTop + plant.row * cellHeight + 5;
-
-                    canvas.drawBitmap(
-                            bitmap,
-                            null,
-                            new RectF(
-                                    left,
-                                    top,
-                                    left + cellWidth - 10,
-                                    top + cellHeight - 10
-                            ),
-                            paint
-                    );
-                }
-
-                drawHealthBar(
-                        canvas,
-                        gridLeft + plant.col * cellWidth + 8,
-                        gridTop + plant.row * cellHeight + 4,
-                        cellWidth - 16,
-                        plant.hp,
-                        plant.maxHp
-                );
-            }
-        }
-
-        private void drawProjectiles(Canvas canvas) {
-
-            for (Projectile projectile : projectiles) {
-
-                if (gigapea != null) {
-
-                    canvas.drawBitmap(
-                            gigapea,
-                            null,
-                            new RectF(
-                                    projectile.x - 12,
-                                    projectile.y - 12,
-                                    projectile.x + 12,
-                                    projectile.y + 12
-                            ),
-                            paint
-                    );
-
-                } else {
-
-                    paint.setColor(Color.YELLOW);
-
-                    canvas.drawCircle(
-                            projectile.x,
-                            projectile.y,
-                            8,
-                            paint
-                    );
-                }
-            }
-        }
-
-        private void drawZombies(Canvas canvas) {
-
-            for (Zombie zombie : zombies) {
-
-                if (zomplatz != null) {
-
-                    canvas.drawBitmap(
-                            zomplatz,
-                            null,
-                            new RectF(
-                                    zombie.x,
-                                    zombie.y,
-                                    zombie.x + 65,
-                                    zombie.y + 95
-                            ),
-                            paint
-                    );
-
-                } else {
-
-                    paint.setColor(Color.GRAY);
-
-                    canvas.drawCircle(
-                            zombie.x + 32,
-                            zombie.y + 25,
-                            25,
-                            paint
-                    );
+                    float l = boardLeft + c * cellW;
+                    float t = boardTop + r * cellH;
 
                     canvas.drawRect(
-                            zombie.x + 10,
-                            zombie.y + 45,
-                            zombie.x + 55,
-                            zombie.y + 95,
+                            l,
+                            t,
+                            l + cellW,
+                            t + cellH,
                             paint
                     );
+
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(2);
+                    paint.setColor(Color.rgb(75, 145, 55));
+
+                    canvas.drawRect(
+                            l,
+                            t,
+                            l + cellW,
+                            t + cellH,
+                            paint
+                    );
+
+                    paint.setStyle(Paint.Style.FILL);
+                }
+            }
+
+            paint.setColor(Color.WHITE);
+            paint.setTextSize(15);
+            canvas.drawText(
+                    "Chọn cây rồi chạm vào ô sân",
+                    25,
+                    getHeight() - 15,
+                    paint
+            );
+        }
+
+        void updateGame(float dt) {
+
+            zombieTimer += (long)(dt * 1000);
+            sunTimer += (long)(dt * 1000);
+
+            if (sunTimer >= 5000) {
+                money += 25;
+                sunTimer = 0;
+            }
+
+            if (zombieTimer >= 3500) {
+                spawnZombie();
+                zombieTimer = 0;
+            }
+
+            for (Plant p : plants) {
+
+                p.timer += dt;
+
+                if (p.type == 1) {
+                    if (p.timer >= 6) {
+                        money += 25;
+                        p.timer = 0;
+                    }
                 }
 
-                drawHealthBar(
-                        canvas,
-                        zombie.x,
-                        zombie.y - 10,
-                        65,
-                        zombie.hp,
-                        zombie.maxHp
-                );
+                if (p.type == 2) {
+                    if (p.timer >= 1.2f) {
+
+                        Zombie target = findZombie(p.row);
+
+                        if (target != null) {
+                            peas.add(
+                                    new Pea(
+                                            p.x + 35,
+                                            p.y,
+                                            p.row
+                                    )
+                            );
+                        }
+
+                        p.timer = 0;
+                    }
+                }
+            }
+
+            for (Pea pea : peas) {
+
+                pea.x += 430 * dt;
+
+                Iterator<Zombie> zi = zombies.iterator();
+
+                while (zi.hasNext()) {
+
+                    Zombie z = zi.next();
+
+                    if (z.row == pea.row &&
+                            Math.abs(pea.x - z.x) < 35) {
+
+                        z.hp -= 25;
+                        pea.dead = true;
+
+                        if (z.hp <= 0) {
+                            zi.remove();
+                            money += 50;
+                        }
+
+                        break;
+                    }
+                }
+
+                if (pea.x > getWidth()) {
+                    pea.dead = true;
+                }
+            }
+
+            Iterator<Pea> pi = peas.iterator();
+
+            while (pi.hasNext()) {
+                if (pi.next().dead) {
+                    pi.remove();
+                }
+            }
+
+            for (Zombie z : zombies) {
+
+                Plant blocker = findBlockingPlant(z);
+
+                if (blocker != null) {
+
+                    if (blocker.type == 3) {
+                        blocker.hp -= 8 * dt;
+
+                        if (blocker.hp <= 0) {
+                            plants.remove(blocker);
+                        }
+                    }
+
+                } else {
+                    z.x -= 35 * dt;
+                }
+
+                if (z.x < boardLeft - 50) {
+                    z.x = boardLeft - 50;
+                }
             }
         }
 
-        private void drawHealthBar(
-                Canvas canvas,
-                float x,
-                float y,
-                float width,
-               
+        Zombie findZombie(int row) {
+            Zombie closest = null;
+
+            for (Zombie z : zombies) {
+
+                if (z.row == row && z.x > 0) {
+
+                    if (closest == null || z.x < closest.x) {
+                        closest = z;
+                    }
+                }
+            }
+
+            return closest;
+        }
+
+        Plant findBlockingPlant(Zombie z) {
+
+            for (Plant p : plants) {
+
+                if (p.row == z.row &&
+                        Math.abs(p.x - z.x) < 55) {
+
+                    return p;
+                }
+            }
+
+            return null;
+        }
+
+        void spawnZombie() {
+
+            int row =
