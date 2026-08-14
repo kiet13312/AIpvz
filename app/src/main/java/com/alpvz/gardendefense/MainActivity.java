@@ -7,6 +7,7 @@ import android.view.*;
 import java.util.*;
 
 public class MainActivity extends Activity {
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -14,24 +15,35 @@ public class MainActivity extends Activity {
     }
 
     class GameView extends View {
+
         Paint p = new Paint(3);
         Random r = new Random();
 
-        Bitmap sunImg, peaImg, gigaImg, bulletImg, zombieImg;
+        Bitmap sunImg, peaImg, gigaImg;
+        Bitmap bulletImg, zombieImg, bombImg, chomperImg;
 
         ArrayList<Plant> plants = new ArrayList<>();
         ArrayList<Zombie> zombies = new ArrayList<>();
         ArrayList<Bullet> bullets = new ArrayList<>();
 
-        int selected = 0, sun = 500, spawned = 0, killed = 0;
+        int selected = 0;
+        int sun = 500;
+        int spawned = 0;
+        int killed = 0;
 
-        final int ROWS = 5, COLS = 9, TOTAL = 10;
+        final int ROWS = 5;
+        final int COLS = 9;
+        final int TOTAL = 15;
 
-        float left = 20, top = 185, cellW, cellH;
+        float left = 20;
+        float top = 185;
+        float cellW, cellH;
 
-        long last, spawnTime;
+        long lastTime;
+        long spawnTime;
 
-        boolean lose = false, win = false;
+        boolean lose = false;
+        boolean win = false;
 
         GameView() {
             super(MainActivity.this);
@@ -41,36 +53,35 @@ public class MainActivity extends Activity {
             gigaImg = load("giganut");
             bulletImg = load("gigapea");
             zombieImg = load("zomplatz");
+            bombImg = load("zombom");
+            chomperImg = load("chomper");
 
-            last = spawnTime =
-                    System.currentTimeMillis();
+            lastTime = System.currentTimeMillis();
+            spawnTime = lastTime;
         }
 
-        Bitmap load(String n) {
+        Bitmap load(String name) {
             int id = getResources().getIdentifier(
-                    n,
+                    name,
                     "drawable",
                     getPackageName()
             );
 
-            return id == 0
-                    ? null
-                    : BitmapFactory.decodeResource(
-                            getResources(), id
-                    );
+            if (id == 0) return null;
+
+            return BitmapFactory.decodeResource(
+                    getResources(),
+                    id
+            );
         }
 
         @Override
         protected void onDraw(Canvas c) {
 
-            cellW =
-                    (getWidth() - 40f) / COLS;
-
-            cellH =
-                    (getHeight() - top - 20f) / ROWS;
+            cellW = (getWidth() - 40f) / COLS;
+            cellH = (getHeight() - top - 20f) / ROWS;
 
             p.setColor(Color.rgb(95,175,70));
-
             c.drawRect(
                     0,0,
                     getWidth(),
@@ -78,24 +89,23 @@ public class MainActivity extends Activity {
                     p
             );
 
-            topUI(c);
-            board(c);
+            drawTop(c);
+            drawBoard(c);
             drawPlants(c);
             drawBullets(c);
             drawZombies(c);
 
             if (!lose && !win) {
-                update();
+                updateGame();
                 postInvalidateDelayed(30);
             } else {
-                end(c);
+                drawEnd(c);
             }
         }
 
-        void topUI(Canvas c) {
+        void drawTop(Canvas c) {
 
             p.setColor(Color.rgb(55,120,50));
-
             c.drawRect(
                     0,0,
                     getWidth(),
@@ -126,7 +136,7 @@ public class MainActivity extends Activity {
 
             p.setColor(Color.GREEN);
 
-            float prog =
+            float progress =
                     Math.min(
                             1f,
                             killed/(float)TOTAL
@@ -135,7 +145,7 @@ public class MainActivity extends Activity {
             c.drawRoundRect(
                     new RectF(
                             bx,10,
-                            bx+bw*prog,32
+                            bx+bw*progress,32
                     ),
                     10,10,p
             );
@@ -148,20 +158,10 @@ public class MainActivity extends Activity {
                     bx+8,26,p
             );
 
-            card(
-                    c,10,55,
-                    1,"SUN",sunImg
-            );
-
-            card(
-                    c,145,55,
-                    2,"PEA",peaImg
-            );
-
-            card(
-                    c,280,55,
-                    3,"GIGA",gigaImg
-            );
+            card(c,10,55,1,"SUN 50",sunImg);
+            card(c,145,55,2,"PEA 100",peaImg);
+            card(c,280,55,3,"GIGA 150",gigaImg);
+            card(c,415,55,4,"CHOMP 175",chomperImg);
         }
 
         void card(
@@ -186,7 +186,7 @@ public class MainActivity extends Activity {
                     12,12,p
             );
 
-            if(img != null) {
+            if (img != null) {
 
                 c.drawBitmap(
                         img,
@@ -200,39 +200,33 @@ public class MainActivity extends Activity {
             }
 
             p.setColor(Color.DKGRAY);
-            p.setTextSize(14);
+            p.setTextSize(13);
 
             c.drawText(
                     name,
-                    x+67,
+                    x+63,
                     y+50,
                     p
             );
         }
 
-        void board(Canvas c) {
+        void drawBoard(Canvas c) {
 
-            for(int row=0;
-                    row<ROWS;
-                    row++) {
+            for (int row=0; row<ROWS; row++) {
 
-                for(int col=0;
-                        col<COLS;
-                        col++) {
+                for (int col=0; col<COLS; col++) {
 
                     p.setColor(
                             (row+col)%2==0
-                                    ? Color.rgb(
-                                            115,190,75)
-                                    : Color.rgb(
-                                            105,180,68)
+                                    ? Color.rgb(115,190,75)
+                                    : Color.rgb(105,180,68)
                     );
 
                     float x =
-                            left+col*cellW;
+                            left + col*cellW;
 
                     float y =
-                            top+row*cellH;
+                            top + row*cellH;
 
                     c.drawRect(
                             x,y,
@@ -246,14 +240,18 @@ public class MainActivity extends Activity {
 
         void drawPlants(Canvas c) {
 
-            for(Plant a:plants) {
+            for (Plant a : plants) {
 
-                Bitmap img =
-                        a.type==1
-                                ? sunImg
-                                : a.type==2
-                                    ? peaImg
-                                    : gigaImg;
+                Bitmap img;
+
+                if (a.type == 1)
+                    img = sunImg;
+                else if (a.type == 2)
+                    img = peaImg;
+                else if (a.type == 3)
+                    img = gigaImg;
+                else
+                    img = chomperImg;
 
                 float x =
                         left+a.col*cellW;
@@ -261,7 +259,7 @@ public class MainActivity extends Activity {
                 float y =
                         top+a.row*cellH;
 
-                if(img != null) {
+                if (img != null) {
 
                     c.drawBitmap(
                             img,
@@ -275,7 +273,7 @@ public class MainActivity extends Activity {
                     );
                 }
 
-                hp(
+                drawHP(
                         c,
                         x+cellW*.3f,
                         y+4,
@@ -288,9 +286,9 @@ public class MainActivity extends Activity {
 
         void drawBullets(Canvas c) {
 
-            for(Bullet b:bullets) {
+            for (Bullet b : bullets) {
 
-                if(bulletImg != null) {
+                if (bulletImg != null) {
 
                     c.drawBitmap(
                             bulletImg,
@@ -320,18 +318,31 @@ public class MainActivity extends Activity {
 
         void drawZombies(Canvas c) {
 
-            for(Zombie z:zombies) {
+            for (Zombie z : zombies) {
 
-                float w =
-                        z.big ? 110 : 82;
+                float w;
+                float h;
 
-                float h =
-                        z.big ? 150 : 112;
+                if (z.big) {
+                    w = 110;
+                    h = 150;
+                } else if (z.bomber) {
+                    w = 90;
+                    h = 120;
+                } else {
+                    w = 82;
+                    h = 112;
+                }
 
-                if(zombieImg != null) {
+                Bitmap img =
+                        z.bomber
+                                ? bombImg
+                                : zombieImg;
+
+                if (img != null) {
 
                     c.drawBitmap(
-                            zombieImg,
+                            img,
                             null,
                             new RectF(
                                     z.x-w/2,
@@ -344,7 +355,13 @@ public class MainActivity extends Activity {
 
                 } else {
 
-                    p.setColor(Color.GRAY);
+                    p.setColor(
+                            z.bomber
+                                    ? Color.rgb(80,60,60)
+                                    : z.big
+                                        ? Color.DKGRAY
+                                        : Color.GRAY
+                    );
 
                     c.drawRoundRect(
                             new RectF(
@@ -357,26 +374,23 @@ public class MainActivity extends Activity {
                     );
                 }
 
-                float hw =
-                        z.big ? 70 : 55;
-
-                hp(
+                drawHP(
                         c,
-                        z.x-hw/2,
+                        z.x-30,
                         z.y-(z.big?80:62),
-                        hw,
+                        60,
                         z.hp,
                         z.max
                 );
             }
         }
 
-        void hp(
+        void drawHP(
                 Canvas c,
                 float x,
                 float y,
                 float w,
-                int value,
+                int hp,
                 int max) {
 
             p.setColor(Color.RED);
@@ -394,7 +408,7 @@ public class MainActivity extends Activity {
                             0,
                             Math.min(
                                     1,
-                                    value/(float)max
+                                    hp/(float)max
                             )
                     );
 
@@ -405,204 +419,327 @@ public class MainActivity extends Activity {
             );
         }
 
-        void update() {
+        void updateGame() {
 
             long now =
                     System.currentTimeMillis();
 
             float dt =
-                    (now-last)/1000f;
+                    (now-lastTime)/1000f;
 
-            if(dt>.1f)
-                dt=.1f;
+            if (dt > 0.1f)
+                dt = 0.1f;
 
-            last=now;
+            lastTime = now;
 
-            if(
-                    spawned<TOTAL &&
-                    now-spawnTime>=4000
+            if (
+                    spawned < TOTAL &&
+                    now-spawnTime >= 4000
             ) {
 
-                spawn();
-                spawnTime=now;
+                spawnZombie();
+                spawnTime = now;
             }
 
-            for(Plant a:plants) {
+            for (Plant a : plants) {
 
-                a.timer+=dt;
+                a.timer += dt;
 
-                if(
-                        a.type==1 &&
-                        a.timer>=5
+                if (
+                        a.type == 1 &&
+                        a.timer >= 5
                 ) {
 
-                    sun+=100;
-                    a.timer=0;
+                    sun += 100;
+                    a.timer = 0;
                 }
 
-                if(
-                        a.type==2 &&
-                        a.timer>=1.2f &&
+                if (
+                        a.type == 2 &&
+                        a.timer >= 1.2f &&
                         rowHasZombie(a.row)
                 ) {
 
                     bullets.add(
                             new Bullet(
-                                    left+
-                                    a.col*cellW+
-                                    cellW-10,
+                                    left+a.col*cellW+
+                                            cellW-10,
 
-                                    top+
-                                    a.row*cellH+
-                                    cellH/2,
+                                    top+a.row*cellH+
+                                            cellH/2,
 
                                     a.row
                             )
                     );
 
-                    a.timer=0;
+                    a.timer = 0;
+                }
+
+                if (a.type == 4) {
+
+                    if (a.eatTimer > 0) {
+
+                        a.eatTimer -= dt;
+
+                        if (a.eatTimer < 0)
+                            a.eatTimer = 0;
+                    }
                 }
             }
 
-            // ZOMTO SKILL
-            for(Zombie z:zombies) {
+            for (Zombie z : zombies) {
 
-                if(
+                if (
                         z.big &&
                         z.skillActive
                 ) {
 
-                    z.skillTime+=dt;
-                    z.skillDamageTimer+=dt;
+                    z.skillTime += dt;
+                    z.skillDamageTimer += dt;
 
-                    if(
-                            z.skillDamageTimer>=1f
+                    if (
+                            z.skillDamageTimer >= 1f
                     ) {
 
-                        for(Plant a:plants)
-                            a.hp-=10;
+                        for (Plant a : plants)
+                            a.hp -= 10;
 
-                        z.skillDamageTimer=0;
+                        z.skillDamageTimer = 0;
                     }
 
-                    if(z.skillTime>=5f) {
+                    if (z.skillTime >= 5f) {
 
-                        z.skillActive=false;
-                        z.skillTime=0;
-                        z.skillDamageTimer=0;
-                        z.steps=0;
+                        z.skillActive = false;
+                        z.skillTime = 0;
+                        z.skillDamageTimer = 0;
+                        z.steps = 0;
                     }
                 }
             }
 
-            bullets();
-            zombies();
+            updateBullets();
+            updateZombies();
+            updateChompers();
             clean();
 
-            if(
-                    spawned>=TOTAL &&
+            if (
+                    spawned >= TOTAL &&
                     zombies.isEmpty() &&
-                    killed>=TOTAL
-            )
-                win=true;
+                    killed >= TOTAL
+            ) {
+
+                win = true;
+            }
         }
 
         boolean rowHasZombie(int row) {
 
-            for(Zombie z:zombies)
-                if(z.row==row)
+            for (Zombie z : zombies) {
+
+                if (z.row == row)
                     return true;
+            }
 
             return false;
         }
 
-        void bullets() {
+        void updateBullets() {
 
             Iterator<Bullet> it =
                     bullets.iterator();
 
-            while(it.hasNext()) {
+            while (it.hasNext()) {
 
-                Bullet b=it.next();
+                Bullet b = it.next();
 
-                b.x+=8;
+                b.x += 8;
 
-                boolean hit=false;
+                boolean hit = false;
 
-                for(Zombie z:zombies) {
+                for (Zombie z : zombies) {
 
-                    if(
-                            z.row==b.row &&
-                            Math.abs(z.x-b.x)<35
+                    if (
+                            z.row == b.row &&
+                            Math.abs(z.x-b.x) < 35
                     ) {
 
-                        z.hp-=25;
-                        hit=true;
+                        z.hp -= 25;
+                        hit = true;
                         break;
                     }
                 }
 
-                if(
+                if (
                         hit ||
-                        b.x>getWidth()+60
-                )
+                        b.x > getWidth()+60
+                ) {
+
                     it.remove();
+                }
             }
-        }
+                        }        void updateZombies() {
 
-        void zombies() {
+            for (Zombie z : zombies) {
 
-            for(Zombie z:zombies) {
+                if (z.x < -70) {
 
-                if(z.x<-70) {
-
-                    lose=true;
+                    lose = true;
                     return;
                 }
 
-                Plant a=findPlant(z);
+                // ZOMBIE NÉM BOM
+                if (z.bomber) {
 
-                if(a!=null) {
+                    float stopX =
+                            left+cellW*1.5f;
 
-                    // ZOMTO CẮN NHƯ ZOMBIE THƯỜNG
+                    if (!z.stopped) {
+
+                        if (z.x > stopX) {
+
+                            z.x -= 0.75f;
+
+                        } else {
+
+                            z.x = stopX;
+                            z.stopped = true;
+                        }
+                    }
+
+                    z.throwTimer += 0.03f;
+
+                    if (
+                            z.stopped &&
+                            z.throwTimer >= 8f
+                    ) {
+
+                        bombAttack(z);
+                        z.throwTimer = 0;
+                    }
+
+                    continue;
+                }
+
+                Plant target =
+                        findPlant(z);
+
+                if (target != null) {
+
+                    // ZOMTO CŨNG CHỈ CẮN CÂY
                     long now =
                             System.currentTimeMillis();
 
-                    if(
-                            now-a.lastBite>=500
+                    if (
+                            now-target.lastBite >= 500
                     ) {
 
-                        a.hp-=100;
-                        a.lastBite=now;
+                        target.hp -= 100;
+
+                        target.lastBite = now;
                     }
 
                 } else {
 
-                    // ZOMTO ĐI CHẬM HƠN
-                    z.x -= z.big ? 0.6f : 1.2f;
+                    // ZOMTO CHẬM HƠN ZOMBIE THƯỜNG
+                    z.x -=
+                            z.big
+                                    ? 0.6f
+                                    : 0.8f;
 
-                    if(z.big) {
+                    if (z.big) {
 
                         z.steps++;
 
-                        if(
-                                z.steps>=12 &&
+                        if (
+                                z.steps >= 12 &&
                                 !z.skillActive
                         ) {
 
-                            z.skillActive=true;
-                            z.skillTime=0;
-                            z.skillDamageTimer=0;
-                            z.steps=0;
+                            z.skillActive = true;
+                            z.skillTime = 0;
+                            z.skillDamageTimer = 0;
+                            z.steps = 0;
                         }
                     }
                 }
             }
-        }        Plant findPlant(Zombie z) {
+        }
 
-            for(Plant a:plants) {
+        void updateChompers() {
 
-                if(a.row!=z.row)
+            for (Plant a : plants) {
+
+                if (a.type != 4)
+                    continue;
+
+                if (a.eatTimer > 0)
+                    continue;
+
+                Zombie target = null;
+
+                for (Zombie z : zombies) {
+
+                    if (z.row != a.row)
+                        continue;
+
+                    float px =
+                            left+
+                            a.col*cellW+
+                            cellW/2;
+
+                    if (
+                            Math.abs(z.x-px) < 75
+                    ) {
+
+                        target = z;
+                        break;
+                    }
+                }
+
+                if (target != null) {
+
+                    // Chomper ăn ngay 1 zombie
+                    target.hp = 0;
+
+                    // Chờ khoảng 8 giây để ăn tiếp
+                    a.eatTimer = 8f;
+                }
+            }
+        }
+
+        void bombAttack(Zombie z) {
+
+            // Zombie bom đứng ở ô thứ 2.
+            // Gây 200 damage vùng 3x3.
+            int centerCol = 1;
+
+            for (Plant a : plants) {
+
+                int dc =
+                        Math.abs(
+                                a.col-centerCol
+                        );
+
+                int dr =
+                        Math.abs(
+                                a.row-z.row
+                        );
+
+                if (
+                        dc <= 1 &&
+                        dr <= 1
+                ) {
+
+                    a.hp -= 200;
+                }
+            }
+        }
+
+        Plant findPlant(Zombie z) {
+
+            for (Plant a : plants) {
+
+                if (a.row != z.row)
                     continue;
 
                 float px =
@@ -610,71 +747,35 @@ public class MainActivity extends Activity {
                         a.col*cellW+
                         cellW/2;
 
-                if(
-                        Math.abs(z.x-px)<
-                        (z.big?70:55)
-                )
+                if (
+                        Math.abs(z.x-px) <
+                        (z.big ? 70 : 55)
+                ) {
+
                     return a;
+                }
             }
 
             return null;
         }
 
-        void clean() {
-
-            Iterator<Plant> pi =
-                    plants.iterator();
-
-            while(pi.hasNext()) {
-
-                if(
-                        pi.next().hp<=0
-                )
-                    pi.remove();
-            }
-
-            Iterator<Zombie> zi =
-                    zombies.iterator();
-
-            while(zi.hasNext()) {
-
-                Zombie z=zi.next();
-
-                if(z.hp<=0) {
-
-                    zi.remove();
-
-                    killed++;
-
-                    sun+=25;
-                }
-            }
-
-            Iterator<Bullet> bi =
-                    bullets.iterator();
-
-            while(bi.hasNext()) {
-
-                if(
-                        bi.next().x>
-                        getWidth()+60
-                )
-                    bi.remove();
-            }
-        }
-
-        void spawn() {
+        void spawnZombie() {
 
             int row =
                     r.nextInt(ROWS);
 
             // ZOMTO CHỈ RA Ở SÓNG CUỐI
             boolean finalWave =
-                    spawned>=TOTAL-3;
+                    spawned >= TOTAL-3;
 
             boolean big =
                     finalWave &&
-                    spawned==TOTAL-1;
+                    spawned == TOTAL-1;
+
+            // ZOMBIE BOM VẪN CÒN
+            boolean bomber =
+                    !big &&
+                    r.nextInt(4) == 0;
 
             zombies.add(
                     new Zombie(
@@ -683,29 +784,79 @@ public class MainActivity extends Activity {
                             row*cellH+
                             cellH/2,
                             row,
-                            big
+                            big,
+                            bomber
                     )
             );
 
             spawned++;
         }
 
+        void clean() {
+
+            Iterator<Plant> pi =
+                    plants.iterator();
+
+            while (pi.hasNext()) {
+
+                if (
+                        pi.next().hp <= 0
+                ) {
+
+                    pi.remove();
+                }
+            }
+
+            Iterator<Zombie> zi =
+                    zombies.iterator();
+
+            while (zi.hasNext()) {
+
+                Zombie z = zi.next();
+
+                if (z.hp <= 0) {
+
+                    zi.remove();
+
+                    killed++;
+                    sun += 25;
+                }
+            }
+
+            Iterator<Bullet> bi =
+                    bullets.iterator();
+
+            while (bi.hasNext()) {
+
+                if (
+                        bi.next().x >
+                        getWidth()+60
+                ) {
+
+                    bi.remove();
+                }
+            }
+        }
+
         boolean occupied(
                 int row,
                 int col) {
 
-            for(Plant a:plants)
+            for (Plant a : plants) {
 
-                if(
-                        a.row==row &&
-                        a.col==col
-                )
+                if (
+                        a.row == row &&
+                        a.col == col
+                ) {
+
                     return true;
+                }
+            }
 
             return false;
         }
 
-        void end(Canvas c) {
+        void drawEnd(Canvas c) {
 
             p.setColor(0xAA000000);
 
@@ -752,32 +903,36 @@ public class MainActivity extends Activity {
             zombies.clear();
             bullets.clear();
 
-            selected=0;
-            sun=500;
-            spawned=0;
-            killed=0;
+            selected = 0;
+            sun = 500;
+            spawned = 0;
+            killed = 0;
 
-            lose=false;
-            win=false;
+            lose = false;
+            win = false;
 
-            last=spawnTime =
+            lastTime =
                     System.currentTimeMillis();
+
+            spawnTime = lastTime;
         }
 
         @Override
         public boolean onTouchEvent(
                 MotionEvent e) {
 
-            if(
+            if (
                     e.getAction() !=
                     MotionEvent.ACTION_DOWN
-            )
+            ) {
+
                 return true;
+            }
 
-            float x=e.getX();
-            float y=e.getY();
+            float x = e.getX();
+            float y = e.getY();
 
-            if(lose||win) {
+            if (lose || win) {
 
                 restart();
                 invalidate();
@@ -785,31 +940,36 @@ public class MainActivity extends Activity {
                 return true;
             }
 
-            if(
-                    y>=45 &&
-                    y<=155
+            // CHỌN CÂY
+            if (
+                    y >= 45 &&
+                    y <= 155
             ) {
 
-                if(x<140)
-                    selected=1;
+                if (x < 135)
+                    selected = 1;
 
-                else if(x<275)
-                    selected=2;
+                else if (x < 270)
+                    selected = 2;
 
-                else if(x<430)
-                    selected=3;
+                else if (x < 405)
+                    selected = 3;
+
+                else if (x < 540)
+                    selected = 4;
 
                 invalidate();
 
                 return true;
             }
 
-            if(
-                    selected!=0 &&
-                    x>=left &&
-                    x<left+COLS*cellW &&
-                    y>=top &&
-                    y<top+ROWS*cellH
+            // ĐẶT CÂY
+            if (
+                    selected != 0 &&
+                    x >= left &&
+                    x < left+COLS*cellW &&
+                    y >= top &&
+                    y < top+ROWS*cellH
             ) {
 
                 int col =
@@ -818,23 +978,21 @@ public class MainActivity extends Activity {
                 int row =
                         (int)((y-top)/cellH);
 
-                if(!occupied(row,col)) {
+                if (!occupied(row,col)) {
 
                     int cost =
-                            selected==1
-                                    ? 50
-                                    : selected==2
-                                        ? 100
-                                        : 150;
+                            selected == 1 ? 50 :
+                            selected == 2 ? 100 :
+                            selected == 3 ? 150 :
+                            175;
 
-                    if(sun>=cost) {
+                    if (sun >= cost) {
 
                         int max =
-                                selected==1
-                                    ? 300
-                                    : selected==2
-                                        ? 400
-                                        : 3000;
+                                selected == 1 ? 300 :
+                                selected == 2 ? 400 :
+                                selected == 3 ? 3000 :
+                                500;
 
                         plants.add(
                                 new Plant(
@@ -845,8 +1003,8 @@ public class MainActivity extends Activity {
                                 )
                         );
 
-                        sun-=cost;
-                        selected=0;
+                        sun -= cost;
+                        selected = 0;
                     }
                 }
 
@@ -859,9 +1017,15 @@ public class MainActivity extends Activity {
 
     class Plant {
 
-        int type,row,col,hp,max;
+        int type;
+        int row;
+        int col;
+
+        int hp;
+        int max;
 
         float timer;
+        float eatTimer;
 
         long lastBite;
 
@@ -871,59 +1035,83 @@ public class MainActivity extends Activity {
                 int c,
                 int h) {
 
-            type=t;
-            row=r;
-            col=c;
-            hp=h;
-            max=h;
+            type = t;
+            row = r;
+            col = c;
+
+            hp = h;
+            max = h;
+
+            timer = 0;
+            eatTimer = 0;
+            lastBite = 0;
         }
     }
 
     class Zombie {
 
-        float x,y;
+        float x;
+        float y;
 
-        float damageTimer;
-        float jumpTimer;
+        float throwTimer;
 
         float skillTime;
         float skillDamageTimer;
 
         int row;
-        int hp,max;
-
+        int hp;
+        int max;
         int steps;
 
         boolean big;
+        boolean bomber;
+        boolean stopped;
         boolean skillActive;
 
         Zombie(
                 float xx,
                 float yy,
                 int rr,
-                boolean b) {
+                boolean b,
+                boolean bo) {
 
-            x=xx;
-            y=yy;
-            row=rr;
+            x = xx;
+            y = yy;
+            row = rr;
 
-            big=b;
+            big = b;
+            bomber = bo;
 
-            hp=max =
-                    b ? 1000 : 300;
+            stopped = false;
+            skillActive = false;
 
-            steps=0;
+            steps = 0;
+            skillTime = 0;
+            skillDamageTimer = 0;
+            throwTimer = 0;
 
-            skillTime=0;
-            skillDamageTimer=0;
+            if (big) {
 
-            skillActive=false;
+                hp = 1000;
+                max = 1000;
+
+            } else if (bomber) {
+
+                hp = 150;
+                max = 150;
+
+            } else {
+
+                hp = 300;
+                max = 300;
+            }
         }
     }
 
     class Bullet {
 
-        float x,y;
+        float x;
+        float y;
 
         int row;
 
@@ -932,9 +1120,9 @@ public class MainActivity extends Activity {
                 float yy,
                 int rr) {
 
-            x=xx;
-            y=yy;
-            row=rr;
+            x = xx;
+            y = yy;
+            row = rr;
         }
     }
-                       }
+        }
