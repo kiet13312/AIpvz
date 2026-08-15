@@ -92,7 +92,7 @@ public class MainActivity extends Activity {
         int plantFood = 3;
 
         int currentLevel = 0;      // 0 = tutorial
-        int maxUnlocked = 0;
+        int maxUnlocked = 1;
         int selected = PEASHOOTER;
         int mode = MODE_NONE;
         int screen = SCREEN_WORLD;
@@ -120,7 +120,7 @@ public class MainActivity extends Activity {
         boolean mineUnlocked = false;
         boolean chomperUnlocked = false;
 
-        int zenSeeds = 0;
+        int zenSeeds = 9999;
         int miniGameType = 0;
         boolean miniGameActive = false;
         float miniTimer = 0;
@@ -506,9 +506,9 @@ public class MainActivity extends Activity {
                 if (img != null) {
                     c.drawBitmap(img, null,
                             new RectF(z.x - w / 2f, z.y - h / 2f,
-                                        z.x + w / 2f, z.y + h / 2f), p);
+                                    z.x + w / 2f, z.y + h / 2f), p);
                 } else {
-                    p.setColor(z.vinh ? Color.DKGRAY : Color.GRAY);
+                                               p.setColor(z.vinh ? Color.DKGRAY : Color.GRAY);
                     c.drawRect(z.x - w / 2f, z.y - h / 2f,
                             z.x + w / 2f, z.y + h / 2f, p);
                 }
@@ -1013,12 +1013,12 @@ public class MainActivity extends Activity {
                 if (plants[row][col] != null) return plants[row][col];
             }
             return null;
-                    }
-                                         
+        }
+
         void updateMowers(float dt) {
             for (Mower m : mowers) {
                 if (!m.active) continue;
-                m.x += 620f * dt;
+                                   m.x += 620f * dt;
                 for (Zombie z : zombies) {
                     if (!z.dead && z.row == m.row && Math.abs(z.x - m.x) < 55) z.hp = 0;
                 }
@@ -1377,22 +1377,28 @@ public class MainActivity extends Activity {
 
         void handleWorldTouch(float x, float y) {
             int cols = 5;
+            float gapX = (getWidth() - 140f) / 5f;
+
+            // Level buttons: larger touch area than the visible card.
             for (int i = 0; i <= MAX_LEVEL; i++) {
                 int row = i / cols;
                 int col = i % cols;
-                float bx = 70 + col * ((getWidth() - 140) / 5f);
-                float by = 140 + row * 90;
-                if (x >= bx && x <= bx + 95 && y >= by && y <= by + 60) {
+                float bx = 70f + col * gapX;
+                float by = 140f + row * 90f;
+
+                if (x >= bx - 12f && x <= bx + 107f &&
+                        y >= by - 12f && y <= by + 72f) {
                     if (i <= maxUnlocked) {
+                        beep(ToneGenerator.TONE_PROP_ACK);
                         startLevel(i);
                     }
                     return;
                 }
             }
 
-            if (x > getWidth() - 190 && y > getHeight() - 90) {
+            if (x >= getWidth() - 205f && y >= getHeight() - 105f) {
                 screen = SCREEN_ZEN;
-                return;
+                invalidate();
             }
         }
 
@@ -1520,5 +1526,5 @@ public class MainActivity extends Activity {
             }
         }
     }
-        }
-                
+                }
+                 
