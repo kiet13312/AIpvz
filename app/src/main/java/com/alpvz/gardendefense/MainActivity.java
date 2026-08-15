@@ -20,19 +20,22 @@ public class MainActivity extends Activity {
     }
 
     class GameView extends View {
-        Paint p=new Paint(3); Random r=new Random();
-        Bitmap sunImg,peaImg,gigaImg,zombieImg,bulletImg,chomperImg,bomberImg;
+        Paint p=new Paint(3);
+        Random r=new Random();
         ArrayList<Plant> plants=new ArrayList<>();
         ArrayList<Zombie> zombies=new ArrayList<>();
         ArrayList<Bullet> bullets=new ArrayList<>();
         ArrayList<Bomb> bombs=new ArrayList<>();
         ArrayList<CoinDrop> drops=new ArrayList<>();
         Mower[] mowers=new Mower[5];
+
+        Bitmap sunImg,peaImg,gigaImg,zombieImg,bulletImg,chomperImg,bomberImg;
         ToneGenerator tone;
 
         int selected=0,support=0,sun=500,coins=9999,food=0;
         int spawned=0,killed=0,level=1;
         boolean win=false,lose=false,chomperUnlocked=false;
+
         final int ROWS=5,COLS=9;
         float left=18,top=185,cellW,cellH;
         long last,spawnTime;
@@ -61,14 +64,13 @@ public class MainActivity extends Activity {
         }
 
         @Override protected void onDraw(Canvas c){
+            c.drawColor(Color.rgb(28,75,30));
             cellW=(getWidth()-left*2)/COLS;
             cellH=(getHeight()-top-15)/ROWS;
-            p.setColor(Color.rgb(92,170,65));
-            c.drawRect(0,0,getWidth(),getHeight(),p);
+
             topUI(c);
-            drawBoard(c);
-            drawMowers(c);
             drawPlants(c);
+            drawMowers(c);
             drawBullets(c);
             drawBombs(c);
             drawDrops(c);
@@ -81,7 +83,7 @@ public class MainActivity extends Activity {
         }
 
         void topUI(Canvas c){
-            p.setColor(Color.rgb(40,105,45));
+            p.setColor(Color.rgb(35,100,42));
             c.drawRect(0,0,getWidth(),165,p);
             p.setColor(Color.WHITE);
             p.setTextSize(17);
@@ -119,17 +121,6 @@ public class MainActivity extends Activity {
             c.drawText(n+" "+cost+" XU",x+10,y+21,p);
         }
 
-        void drawBoard(Canvas c){
-            for(int rr=0;rr<ROWS;rr++)
-                for(int cc=0;cc<COLS;cc++){
-                    p.setColor((rr+cc)%2==0?
-                            Color.rgb(112,190,70):Color.rgb(103,180,65));
-                    float x=left+cc*cellW;
-                    float y=top+rr*cellH;
-                    c.drawRect(x,y,x+cellW-2,y+cellH-2,p);
-                }
-        }
-
         void drawPlants(Canvas c){
             for(Plant a:plants){
                 Bitmap b=a.type==1?sunImg:
@@ -137,10 +128,17 @@ public class MainActivity extends Activity {
                         a.type==3?gigaImg:chomperImg;
                 float x=left+a.col*cellW;
                 float y=top+a.row*cellH;
+
                 if(b!=null)
                     c.drawBitmap(b,null,
                             new RectF(x+5,y+4,x+cellW-5,y+cellH-5),p);
+
                 hp(c,x+8,y+3,cellW-16,a.hp,a.max);
+
+                if(a.foodTime>0){
+                    p.setColor(Color.YELLOW);
+                    c.drawCircle(x+cellW-18,y+18,6,p);
+                }
             }
         }
 
@@ -149,6 +147,7 @@ public class MainActivity extends Activity {
                 float w=z.bomber?60:z.big?90:70;
                 float h=z.bomber?80:z.big?125:100;
                 Bitmap b=z.bomber?bomberImg:zombieImg;
+
                 if(b!=null)
                     c.drawBitmap(b,null,
                             new RectF(z.x-w/2,z.y-h/2,
@@ -159,6 +158,7 @@ public class MainActivity extends Activity {
                     c.drawRect(z.x-w/2,z.y-h/2,
                             z.x+w/2,z.y+h/2,p);
                 }
+
                 hp(c,z.x-28,z.y-h/2-7,56,z.hp,z.max);
             }
         }
@@ -169,7 +169,7 @@ public class MainActivity extends Activity {
                     c.drawBitmap(b.img,null,
                             new RectF(b.x-14,b.y-14,b.x+14,b.y+14),p);
                 else{
-                    p.setColor(Color.GREEN);
+                    p.setColor(b.damage>=100?Color.YELLOW:Color.GREEN);
                     c.drawCircle(b.x,b.y,10,p);
                 }
             }
@@ -208,7 +208,9 @@ public class MainActivity extends Activity {
             p.setColor(Color.GREEN);
             float q=Math.max(0,Math.min(1,v/(float)max));
             c.drawRect(x,y,x+w*q,y+5,p);
-    }        void update(){
+        }
+
+        void update(){
             long now=System.currentTimeMillis();
             float dt=Math.min(.1f,(now-last)/1000f);
             last=now;
@@ -223,29 +225,58 @@ public class MainActivity extends Activity {
 
             for(Plant a:plants){
                 a.timer+=dt;
-                if(a.food>0)a.food-=dt;
 
-                if(a.type==1&&a.timer>=(a.food>0?.12f:5f)){
-                    sun+=50;
-                    a.timer=0;
-                    beep(ToneGenerator.TONE_PROP_BEEP);
+                if(a.foodTime>0){
+                    a.foodTime-=dt;
+                    if(a.foodTime<0)a.foodTime=0;
                 }
 
-                if(a.type==2&&a.timer>=(a.food>0?.12f:1.2f)
+                if(a.type==1){
+                    float cd=a.foodTime>0?.12f:5f;
+                    if(a.timer>=cd){
+                        sun+=a.foodTime>0?100:50;
+                        a.timer=0;
+                        beep(ToneGenerator.TONE_PROP_BEEP);
+                    }
+                }
+
+                if(a.type==2&&a.timer>=(a.foodTime>0?.12f:1.2f)
                         &&rowHas(a.row)){
                     bullets.add(new Bullet(
                             left+a.col*cellW+cellW-10,
                             top+a.row*cellH+cellH/2,
-                            a.row,bulletImg));
+                            a.row,bulletImg,
+                            a.foodTime>0?70:25));
                     a.timer=0;
                 }
 
-                if(a.type==4&&a.timer>=4f){
-                    Zombie z=chompTarget(a);
-                    if(z!=null){
-                        z.hp=0;
-                        a.timer=0;
-                        beep(ToneGenerator.TONE_PROP_BEEP);
+                if(a.type==3&&a.timer>=(a.foodTime>0?.15f:2.2f)
+                        &&rowHas(a.row)){
+                    bullets.add(new Bullet(
+                            left+a.col*cellW+cellW-10,
+                            top+a.row*cellH+cellH/2,
+                            a.row,bulletImg,
+                            a.foodTime>0?180:100));
+                    a.timer=0;
+                }
+
+                if(a.type==4){
+                    if(a.foodTime>0){
+                        if(a.timer>=.45f){
+                            Zombie z=chompTarget(a);
+                            if(z!=null){
+                                z.hp=0;
+                                a.timer=0;
+                                beep(ToneGenerator.TONE_PROP_BEEP2);
+                            }
+                        }
+                    }else if(a.timer>=4f){
+                        Zombie z=chompTarget(a);
+                        if(z!=null){
+                            z.hp=0;
+                            a.timer=0;
+                            beep(ToneGenerator.TONE_PROP_BEEP);
+                        }
                     }
                 }
             }
@@ -275,22 +306,27 @@ public class MainActivity extends Activity {
 
         void updateBullets(){
             Iterator<Bullet>it=bullets.iterator();
+
             while(it.hasNext()){
                 Bullet b=it.next();
                 b.x+=9;
                 boolean hit=false;
-                for(Zombie z:zombies)
+
+                for(Zombie z:zombies){
                     if(z.row==b.row&&Math.abs(z.x-b.x)<35){
-                        z.hp-=25;
+                        z.hp-=b.damage;
                         hit=true;
                         break;
                     }
+                }
+
                 if(hit||b.x>getWidth()+50)it.remove();
             }
         }
 
         void updateBombs(){
             Iterator<Bomb>it=bombs.iterator();
+
             while(it.hasNext()){
                 Bomb b=it.next();
                 float dx=b.tx-b.x,dy=b.ty-b.y;
@@ -308,9 +344,10 @@ public class MainActivity extends Activity {
 
         void explode(float x,float y,int row){
             for(Zombie z:zombies)
-                if(z.row>=row-1&&z.row<=row+1
-                        &&Math.abs(z.x-x)<cellW*1.5f)
+                if(z.row>=row-1&&z.row<=row+1&&
+                        Math.abs(z.x-x)<cellW*1.5f)
                     z.hp-=450;
+
             beep(ToneGenerator.TONE_PROP_BEEP2);
         }
 
@@ -330,10 +367,8 @@ public class MainActivity extends Activity {
                 if(z.bomber){
                     float stop=left+cellW*1.5f;
 
-                    if(z.x>stop)
-                        z.x-=.6f;
-                    else
-                        z.stopped=true;
+                    if(z.x>stop)z.x-=.6f;
+                    else z.stopped=true;
 
                     if(z.stopped&&z.bombCD<=0){
                         bombs.add(new Bomb(
@@ -341,8 +376,8 @@ public class MainActivity extends Activity {
                                 Math.max(left,z.x-cellW*1.5f),
                                 z.y,z.row));
                         z.bombCD=8;
-                        beep(ToneGenerator.TONE_PROP_BEEP);
                     }
+
                     continue;
                 }
 
@@ -350,6 +385,7 @@ public class MainActivity extends Activity {
 
                 if(a!=null){
                     long n=System.currentTimeMillis();
+
                     if(n-a.lastBite>500){
                         a.hp-=z.big?180:100;
                         a.lastBite=n;
@@ -372,26 +408,29 @@ public class MainActivity extends Activity {
                     if(z.row==m.row&&Math.abs(z.x-m.x)<45)
                         z.hp=0;
 
-                if(m.x>getWidth()+60)
-                    m.used=true;
+                if(m.x>getWidth()+60)m.used=true;
             }
         }
 
         Plant findPlant(Zombie z){
             for(Plant a:plants)
-                if(a.row==z.row&&Math.abs(z.x-
+                if(a.row==z.row&&
+                        Math.abs(z.x-
                         (left+a.col*cellW+cellW/2))<
                         (z.big?65:50))
                     return a;
+
             return null;
         }
 
         Zombie chompTarget(Plant a){
             for(Zombie z:zombies)
-                if(z.row==a.row&&Math.abs(z.x-
+                if(z.row==a.row&&
+                        Math.abs(z.x-
                         (left+a.col*cellW+cellW/2))<
                         cellW*1.4f)
                     return z;
+
             return null;
         }
 
@@ -404,6 +443,7 @@ public class MainActivity extends Activity {
                     getWidth()+70,
                     top+row*cellH+cellH/2,
                     row,big,bomber));
+
             spawned++;
         }
 
@@ -413,18 +453,22 @@ public class MainActivity extends Activity {
                 if(pi.next().hp<=0)pi.remove();
 
             Iterator<Zombie>zi=zombies.iterator();
+
             while(zi.hasNext()){
                 Zombie z=zi.next();
+
                 if(z.hp<=0){
                     zi.remove();
                     killed++;
                     sun+=25;
+
                     if(r.nextInt(100)<15)
                         drops.add(new CoinDrop(z.x,z.y));
                 }
             }
 
             Iterator<CoinDrop>di=drops.iterator();
+
             while(di.hasNext()){
                 CoinDrop d=di.next();
                 if(d.life--<=0)di.remove();
@@ -445,26 +489,46 @@ public class MainActivity extends Activity {
 
             int col=Math.max(0,Math.min(COLS-1,
                     (int)((x-left)/cellW)));
+
             int row=Math.max(0,Math.min(ROWS-1,
                     (int)((y-top)/cellH)));
 
-            for(Plant a:plants)
+            for(Plant a:plants){
                 if(a.row==row&&a.col==col){
-                    a.food=3;
                     food--;
-                    support=0;
-                    beep(ToneGenerator.TONE_PROP_BEEP);
-                    return;
-                }
 
-            for(Zombie z:zombies)
-                if(z.bomber&&z.row==row&&Math.abs(z.x-
-                        (left+col*cellW+cellW/2))<cellW*1.5f){
-                    z.bombCD=2;
-                    food--;
+                    if(a.type==3){
+                        a.foodTime=6f;
+                        a.timer=0;
+
+                        for(int i=0;i<3;i++)
+                            bullets.add(new Bullet(
+                                    left+a.col*cellW+cellW-10,
+                                    top+a.row*cellH+
+                                    cellH/2+(i-1)*18,
+                                    a.row,bulletImg,180));
+
+                    }else if(a.type==4){
+                        a.foodTime=6f;
+                        a.timer=0;
+
+                        for(Zombie z:zombies)
+                            if(z.row==a.row&&
+                                    Math.abs(z.x-
+                                    (left+a.col*cellW+cellW/2))<
+                                    cellW*2.2f)
+                                z.hp=0;
+
+                    }else{
+                        a.foodTime=6f;
+                        a.timer=0;
+                    }
+
                     support=0;
+                    beep(ToneGenerator.TONE_PROP_BEEP2);
                     return;
                 }
+            }
 
             support=0;
         }
@@ -479,18 +543,21 @@ public class MainActivity extends Activity {
 
             int row=Math.max(0,Math.min(ROWS-1,
                     (int)((y-top)/cellH)));
+
             int col=Math.max(0,Math.min(COLS-1,
                     (int)((x-left)/cellW)));
 
-            for(Zombie z:zombies)
+            for(Zombie z:zombies){
                 if(z.row>=row-1&&z.row<=row+1&&
                         Math.abs(z.x-
-                        (left+col*cellW+cellW/2))<cellW*1.7f){
+                        (left+col*cellW+cellW/2))<
+                        cellW*1.7f){
 
                     if(support==1)z.hp-=500;
                     else if(support==2)z.slow=5;
                     else z.hp-=800;
                 }
+            }
 
             coins-=cost;
             support=0;
@@ -537,23 +604,16 @@ public class MainActivity extends Activity {
             p.setColor(Color.WHITE);
             p.setTextSize(32);
 
-            if(win){
-                c.drawText(level<9?
-                        "THẮNG MÀN "+level:
-                        "HOÀN THÀNH 9 MÀN",
-                        getWidth()/2f,getHeight()/2f,p);
-                p.setTextSize(17);
-                c.drawText(level<9?
-                        "CHẠM ĐỂ SANG MÀN TIẾP":
-                        "CHẠM ĐỂ CHƠI LẠI",
-                        getWidth()/2f,getHeight()/2f+40,p);
-            }else{
-                c.drawText("THUA!",
-                        getWidth()/2f,getHeight()/2f,p);
-                p.setTextSize(17);
-                c.drawText("CHẠM ĐỂ CHƠI LẠI",
-                        getWidth()/2f,getHeight()/2f+40,p);
-            }
+            c.drawText(win?
+                    (level<9?"THẮNG MÀN "+level:
+                    "HOÀN THÀNH 9 MÀN"):
+                    "THUA!",
+                    getWidth()/2f,getHeight()/2f,p);
+
+            p.setTextSize(17);
+            c.drawText("CHẠM ĐỂ TIẾP TỤC",
+                    getWidth()/2f,
+                    getHeight()/2f+40,p);
 
             p.setTextAlign(Paint.Align.LEFT);
         }
@@ -569,9 +629,7 @@ public class MainActivity extends Activity {
                 if(level<9){
                     level++;
                     reset(false);
-                }else{
-                    reset(true);
-                }
+                }else reset(true);
 
                 invalidate();
                 return true;
@@ -598,146 +656,64 @@ public class MainActivity extends Activity {
             if(y>=128&&y<165){
                 if(x<w)support=1;
                 else if(x<2*w)support=2;
-                else if(x<3*w)support=3;
-                else if(coins>=100){
-                    coins-=100;
-                    food++;
-                    support=9;
+           else if(x<3*w)support=3;
+else if(coins>=100){
+    coins-=100;
+    food++;
+    support=9;
+}
+invalidate();
+return true;
+}
+
+Iterator<CoinDrop> ci=drops.iterator();
+while(ci.hasNext()){
+    CoinDrop d=ci.next();
+    if(Math.abs(d.x-x)<30&&Math.abs(d.y-y)<30){
+        coins+=25;
+        ci.remove();
+        beep(ToneGenerator.TONE_PROP_BEEP);
+        return true;
+    }
+}
+
+if(x>=left&&x<left+COLS*cellW&&
+        y>=top&&y<top+ROWS*cellH){
+
+    if(support==9){
+        useFood(x,y);
+        invalidate();
+        return true;
+    }
+
+    if(support>0){
+        useSupport(x,y);
+        invalidate();
+        return true;
+    }
+
+    if(selected>0){
+        int col=(int)((x-left)/cellW);
+        int row=(int)((y-top)/cellH);
+
+        int cost=selected==1?50:
+                selected==2?100:
+                selected==3?150:150;
+
+        int max=selected==1?300:
+                selected==2?400:
+                selected==3?3000:800;
+
+        if(!occupied(row,col)&&sun>=cost){
+            plants.add(new Plant(selected,row,col,max));
+            sun-=cost;
+            selected=0;
+            beep(ToneGenerator.TONE_PROP_BEEP);
+        }
+    }
+}
+
+invalidate();
+return true;
+}
                 }
-
-                invalidate();
-                return true;
-            }
-
-            Iterator<CoinDrop>ci=drops.iterator();
-            while(ci.hasNext()){
-                CoinDrop d=ci.next();
-
-                if(Math.abs(d.x-x)<30&&Math.abs(d.y-y)<30){
-                    coins+=25;
-                    ci.remove();
-                    beep(ToneGenerator.TONE_PROP_BEEP);
-                    return true;
-                }
-            }
-
-            if(x>=left&&x<left+COLS*cellW&&
-                    y>=top&&y<top+ROWS*cellH){
-
-                if(support==9){
-                    useFood(x,y);
-                    invalidate();
-                    return true;
-                }
-
-                if(support>0){
-                    useSupport(x,y);
-                    invalidate();
-                    return true;
-                }
-
-                if(selected>0){
-                    int col=(int)((x-left)/cellW);
-                    int row=(int)((y-top)/cellH);
-
-                    int cost=selected==1?50:
-                            selected==2?100:
-                            selected==3?150:150;
-
-                    int max=selected==1?300:
-                            selected==2?400:
-                            selected==3?3000:800;
-
-                    if(!occupied(row,col)&&sun>=cost){
-                        plants.add(new Plant(
-                                selected,row,col,max));
-                        sun-=cost;
-                        selected=0;
-                        beep(ToneGenerator.TONE_PROP_BEEP);
-                    }
-                }
-            }
-
-            invalidate();
-            return true;
-        }
-    }
-
-    class Plant{
-        int type,row,col,hp,max;
-        float timer,food;
-        long lastBite;
-
-        Plant(int t,int r,int c,int h){
-            type=t;
-            row=r;
-            col=c;
-            hp=max=h;
-        }
-    }
-
-    class Zombie{
-        float x,y,slow,bombCD;
-        int row,hp,max;
-        boolean big,bomber,stopped;
-
-        Zombie(float x,float y,int row,
-               boolean big,boolean bomber){
-            this.x=x;
-            this.y=y;
-            this.row=row;
-            this.big=big;
-            this.bomber=bomber;
-            hp=max=bomber?250:big?1200:300;
-        }
-    }
-
-    class Bullet{
-        float x,y;
-        int row;
-        Bitmap img;
-
-        Bullet(float x,float y,int row,Bitmap img){
-            this.x=x;
-            this.y=y;
-            this.row=row;
-            this.img=img;
-        }
-    }
-
-    class Bomb{
-        float x,y,tx,ty;
-        float speed=6;
-        int row;
-
-        Bomb(float x,float y,float tx,float ty,int row){
-            this.x=x;
-            this.y=y;
-            this.tx=tx;
-            this.ty=ty;
-            this.row=row;
-        }
-    }
-
-    class CoinDrop{
-        float x,y;
-        int life=300;
-
-        CoinDrop(float x,float y){
-            this.x=x;
-            this.y=y;
-        }
-    }
-
-    class Mower{
-        int row;
-        float x,y;
-        boolean active=false,used=false;
-
-        Mower(int row,float x,float y){
-            this.row=row;
-            this.x=x;
-            this.y=y;
-        }
-    }
-                   }
