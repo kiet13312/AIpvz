@@ -73,7 +73,6 @@ public class MainActivity extends Activity {
         final int SCREEN_LOADING = 3;
         final int SCREEN_WIN = 4;
         final int SCREEN_HOME_LOSE = 5;
-        final int SCREEN_ZEN = 6;
         final int SCREEN_MINIGAME = 7;
 
         Bitmap sunImg, peaImg, gigaImg, chompImg;
@@ -92,7 +91,7 @@ public class MainActivity extends Activity {
         int plantFood = 3;
 
         int currentLevel = 0;      // 0 = tutorial
-        int maxUnlocked = 1;
+        int maxUnlocked = MAX_LEVEL;
         int selected = PEASHOOTER;
         int mode = MODE_NONE;
         int screen = SCREEN_WORLD;
@@ -120,7 +119,6 @@ public class MainActivity extends Activity {
         boolean mineUnlocked = false;
         boolean chomperUnlocked = false;
 
-        int zenSeeds = 9999;
         int miniGameType = 0;
         boolean miniGameActive = false;
         float miniTimer = 0;
@@ -160,10 +158,6 @@ public class MainActivity extends Activity {
 
             if (screen == SCREEN_WORLD) {
                 drawWorld(c);
-                return;
-            }
-            if (screen == SCREEN_ZEN) {
-                drawZenGarden(c);
                 return;
             }
             if (screen == SCREEN_MINIGAME) {
@@ -272,7 +266,7 @@ public class MainActivity extends Activity {
         void drawWorld(Canvas c) {
             c.drawColor(Color.rgb(20, 35, 30));
             text(c, "GARDEN DEFENSE", getWidth() / 2f, 60, Color.WHITE, 34, Paint.Align.CENTER);
-            text(c, "WORLD", getWidth() / 2f, 92, Color.LTGRAY, 18, Paint.Align.CENTER);
+            text(c, "WORLD - CHẠM VÀO MỘT MÀN ĐỂ CHƠI", getWidth() / 2f, 92, Color.LTGRAY, 16, Paint.Align.CENTER);
 
             int cols = 5;
             for (int i = 0; i <= MAX_LEVEL; i++) {
@@ -287,33 +281,8 @@ public class MainActivity extends Activity {
                         x + 47.5f, y + 36, Color.WHITE, i == 0 ? 12 : 18, Paint.Align.CENTER);
             }
 
-            button(c, getWidth() - 180, getHeight() - 70, getWidth() - 95, getHeight() - 25, "ZEN", Color.rgb(45, 130, 85));
-            text(c, "MẦM: " + zenSeeds, getWidth() - 175, getHeight() - 82, Color.WHITE, 14, Paint.Align.LEFT);
             text(c, "Đã mở khóa: " + maxUnlocked + "/" + MAX_LEVEL,
                     20, getHeight() - 35, Color.LTGRAY, 14, Paint.Align.LEFT);
-        }
-
-        void drawZenGarden(Canvas c) {
-            c.drawColor(Color.rgb(74, 145, 76));
-            text(c, "ZEN GARDEN", 25, 45, Color.WHITE, 28, Paint.Align.LEFT);
-            text(c, "Mầm cây: " + zenSeeds, 25, 75, Color.WHITE, 16, Paint.Align.LEFT);
-            button(c, getWidth() - 120, 20, getWidth() - 20, 62, "QUAY LẠI", Color.DKGRAY);
-
-            int[] types = {PEASHOOTER, SUNFLOWER, GIGANUT, CHOMPER, REPEATER, MINE};
-            String[] names = {"PEA", "SUN", "GIGA", "CHOMP", "REPEAT", "MIN"};
-            Bitmap[] imgs = {peaImg, sunImg, gigaImg, chompImg, repeaterImg, mineImg};
-
-            for (int i = 0; i < types.length; i++) {
-                float x = 30 + (i % 3) * 180;
-                float y = 110 + (i / 3) * 180;
-                p.setColor(Color.argb(120, 20, 80, 30));
-                c.drawRoundRect(new RectF(x, y, x + 150, y + 145), 12, 12, p);
-                if (imgs[i] != null) {
-                    c.drawBitmap(imgs[i], null, new RectF(x + 35, y + 10, x + 115, y + 90), p);
-                }
-                text(c, names[i], x + 75, y + 112, Color.WHITE, 16, Paint.Align.CENTER);
-                text(c, "TRỒNG", x + 75, y + 135, Color.YELLOW, 13, Paint.Align.CENTER);
-            }
         }
 
         void drawLoading(Canvas c) {
@@ -508,7 +477,7 @@ public class MainActivity extends Activity {
                             new RectF(z.x - w / 2f, z.y - h / 2f,
                                     z.x + w / 2f, z.y + h / 2f), p);
                 } else {
-                                               p.setColor(z.vinh ? Color.DKGRAY : Color.GRAY);
+                    p.setColor(z.vinh ? Color.DKGRAY : Color.GRAY);
                     c.drawRect(z.x - w / 2f, z.y - h / 2f,
                             z.x + w / 2f, z.y + h / 2f, p);
                 }
@@ -522,7 +491,7 @@ public class MainActivity extends Activity {
                     if (!m.used) {
                         float y = top + m.row * cellH + cellH * .65f;
                         p.setColor(Color.RED);
-                        c.drawRect(m.x - 25, y - 13, m.x + 25, y + 13, p);
+                                c.drawRect(m.x - 25, y - 13, m.x + 25, y + 13, p);
                         p.setColor(Color.BLACK);
                         c.drawCircle(m.x - 14, y + 14, 7, p);
                         c.drawCircle(m.x + 14, y + 14, 7, p);
@@ -626,7 +595,7 @@ public class MainActivity extends Activity {
             if (miniTimer <= 0 || miniKills >= miniNeed) {
                 if (miniKills >= miniNeed) {
                     coins += 150;
-                    if (random.nextFloat() < .45f) zenSeeds++;
+                    if (random.nextFloat() < .45f) coins += 25;
                 }
                 miniGameActive = false;
                 screen = SCREEN_PLAY;
@@ -1015,10 +984,10 @@ public class MainActivity extends Activity {
             return null;
         }
 
-        void updateMowers(float dt) {
+                         void updateMowers(float dt) {
             for (Mower m : mowers) {
                 if (!m.active) continue;
-                                   m.x += 620f * dt;
+                m.x += 620f * dt;
                 for (Zombie z : zombies) {
                     if (!z.dead && z.row == m.row && Math.abs(z.x - m.x) < 55) z.hp = 0;
                 }
@@ -1193,7 +1162,7 @@ public class MainActivity extends Activity {
             screen = SCREEN_WIN;
 
             // Seed reward chance after all zombies are defeated.
-            if (random.nextFloat() < .20f) zenSeeds++;
+            if (random.nextFloat() < .20f) coins += 50;
 
             // Unlock progression.
             if (currentLevel == 1) sunflowerUnlocked = true;
@@ -1243,22 +1212,6 @@ public class MainActivity extends Activity {
 
             if (screen == SCREEN_WORLD) {
                 handleWorldTouch(x, y);
-                return true;
-            }
-            if (screen == SCREEN_ZEN) {
-                if (x > getWidth() - 140 && y < 85) {
-                    screen = SCREEN_WORLD;
-                    invalidate();
-                    return true;
-                }
-                if (y > 100) {
-                    // Minimal Zen Garden action: tap a plant plot to spend a seed.
-                    if (zenSeeds > 0) {
-                        zenSeeds--;
-                        beep(ToneGenerator.TONE_PROP_ACK);
-                    }
-                }
-                invalidate();
                 return true;
             }
             if (screen == SCREEN_LOADING) {
@@ -1346,7 +1299,7 @@ public class MainActivity extends Activity {
                 if (Math.abs(d.x - x) < 30 && Math.abs(d.y - y) < 30) {
                     if (d.type == Drop.SUN) sun += 25;
                     else if (d.type == Drop.COIN) coins += 25;
-                    else zenSeeds++;
+                    else coins += 25;
                     di.remove();
                     beep(ToneGenerator.TONE_PROP_ACK);
                     invalidate();
@@ -1377,28 +1330,25 @@ public class MainActivity extends Activity {
 
         void handleWorldTouch(float x, float y) {
             int cols = 5;
-            float gapX = (getWidth() - 140f) / 5f;
+            float gap = (getWidth() - 140f) / 5f;
 
-            // Level buttons: larger touch area than the visible card.
+            // Use the exact same rectangles that drawWorld() uses.
+            // This prevents the level buttons from becoming untappable after returning to World.
             for (int i = 0; i <= MAX_LEVEL; i++) {
                 int row = i / cols;
                 int col = i % cols;
-                float bx = 70f + col * gapX;
+                float bx = 70f + col * gap;
                 float by = 140f + row * 90f;
+                float bw = 95f;
+                float bh = 60f;
 
-                if (x >= bx - 12f && x <= bx + 107f &&
-                        y >= by - 12f && y <= by + 72f) {
+                if (x >= bx - 35f && x <= bx + bw + 35f &&
+                        y >= by - 25f && y <= by + bh + 25f) {
                     if (i <= maxUnlocked) {
-                        beep(ToneGenerator.TONE_PROP_ACK);
                         startLevel(i);
                     }
                     return;
                 }
-            }
-
-            if (x >= getWidth() - 205f && y >= getHeight() - 105f) {
-                screen = SCREEN_ZEN;
-                invalidate();
             }
         }
 
@@ -1411,7 +1361,7 @@ public class MainActivity extends Activity {
                 coins += 20;
             } else {
                 miniKills++;
-                zenSeeds += 1;
+                coins += 25;
             }
         }
 
