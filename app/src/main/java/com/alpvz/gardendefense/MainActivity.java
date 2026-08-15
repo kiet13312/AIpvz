@@ -162,5 +162,5 @@ public class MainActivity extends Activity {
         class Coin{float x,y,life=10;Coin(float x,float y){this.x=x;this.y=y;}}
         class Mower{int row;float x;boolean used,active;Mower(int r){row=r;x=left-45;}}
     }
-                }
+                    }
                 
