@@ -2,162 +2,560 @@ package com.alpvz.gardendefense;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.content.Context;
 import android.content.pm.ActivityInfo;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.WindowManager;
+import android.graphics.*;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.Random;
+import android.view.*;
+import java.util.*;
 
 public class MainActivity extends Activity {
-    GameView game;
-    @Override public void onCreate(Bundle b) {
+    @Override protected void onCreate(Bundle b){
         super.onCreate(b);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        game = new GameView(this);
-        setContentView(game);
+        getWindow().getDecorView().setSystemUiVisibility(5894);
+        setContentView(new GameView());
     }
 
-    static class GameView extends View {
-        final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        final Random rnd = new Random();
-        final int ROWS=5,COLS=9;
-        final int[][] plants=new int[ROWS][COLS];
-        final boolean[] mowerReady={true,true,true,true,true};
-        final ArrayList<Zombie> zombies=new ArrayList<>();
-        final ArrayList<Shot> shots=new ArrayList<>();
-        final ArrayList<Bomb> bombs=new ArrayList<>();
-        final ArrayList<Mower> mowers=new ArrayList<>();
-        int sun=400,pf=0,level=1,selected=1,kills=0,tick=0;
-        boolean gameOver;
-        float ox,oy,cw,ch;
-        long last=System.currentTimeMillis();
+    class GameView extends View {
+        Paint p=new Paint(3); Random r=new Random();
+        Bitmap sunImg,peaImg,gigaImg,zombieImg,bulletImg,chomperImg,bomberImg;
+        ArrayList<Plant> plants=new ArrayList<>();
+        ArrayList<Zombie> zombies=new ArrayList<>();
+        ArrayList<Bullet> bullets=new ArrayList<>();
+        ArrayList<Bomb> bombs=new ArrayList<>();
+        ArrayList<CoinDrop> drops=new ArrayList<>();
+        Mower[] mowers=new Mower[5];
         ToneGenerator tone;
 
-        GameView(Context c){
-            super(c);
-            setFocusable(true);
-            tone=new ToneGenerator(AudioManager.STREAM_MUSIC,60);
+        int selected=0,support=0,sun=500,coins=9999,food=0;
+        int spawned=0,killed=0,level=1;
+        boolean win=false,lose=false,chomperUnlocked=false;
+        final int ROWS=5,COLS=9;
+        float left=18,top=185,cellW,cellH;
+        long last,spawnTime;
+
+        GameView(){
+            super(MainActivity.this);
+            sunImg=load("sun");
+            peaImg=load("peashoot");
+            gigaImg=load("giganut");
+            zombieImg=load("zomplatz");
+            bulletImg=load("gigapea");
+            chomperImg=load("chomper");
+            bomberImg=load("zomvinhhung");
+            tone=new ToneGenerator(AudioManager.STREAM_MUSIC,70);
+            resetMowers();
+            last=spawnTime=System.currentTimeMillis();
         }
 
-        void snd(int t){
-            try{tone.startTone(t,70);}catch(Exception ignored){}
+        Bitmap load(String n){
+            int id=getResources().getIdentifier(n,"drawable",getPackageName());
+            return id==0?null:BitmapFactory.decodeResource(getResources(),id);
+        }
+
+        void beep(int t){
+            try{tone.startTone(t,80);}catch(Exception e){}
         }
 
         @Override protected void onDraw(Canvas c){
-            int w=getWidth(),h=getHeight();
-            c.drawColor(Color.rgb(45,125,50));
+            cellW=(getWidth()-left*2)/COLS;
+            cellH=(getHeight()-top-15)/ROWS;
+            p.setColor(Color.rgb(92,170,65));
+            c.drawRect(0,0,getWidth(),getHeight(),p);
+            topUI(c);
+            drawBoard(c);
+            drawMowers(c);
+            drawPlants(c);
+            drawBullets(c);
+            drawBombs(c);
+            drawDrops(c);
+            drawZombies(c);
 
-            p.setColor(Color.rgb(30,85,35));
-            c.drawRect(0,0,w,48,p);
+            if(!win&&!lose){
+                update();
+                postInvalidateDelayed(30);
+            }else drawEnd(c);
+        }
+
+        void topUI(Canvas c){
+            p.setColor(Color.rgb(40,105,45));
+            c.drawRect(0,0,getWidth(),165,p);
             p.setColor(Color.WHITE);
-            p.setTextSize(15);
-            c.drawText("M"+level+"  SUN:"+sun+"  PF:"+pf+"  K:"+kills,10,30,p);
+            p.setTextSize(17);
+            c.drawText("MÀN "+level+"   SUN: "+sun+
+                    "   XU: "+coins+"   PF: "+food,10,24,p);
 
-            int top=55,cardH=58,cardW=w/5;
-            String[] names={"SUN 50","PEA 100","GIGA 175","CHOMP 150","BOMB 75"};
+            float w=getWidth()/4f;
+            card(c,0,38,w,1,"SUN",sunImg);
+            card(c,w,38,w,2,"PEA",peaImg);
+            card(c,2*w,38,w,3,"GIGA",gigaImg);
+            card(c,3*w,38,w,chomperUnlocked?4:0,
+                    chomperUnlocked?"CHOMP":"LOCK",chomperImg);
 
-            for(int i=0;i<5;i++){
-                p.setColor(selected==i+1?Color.YELLOW:Color.WHITE);
-                c.drawRect(i*cardW,top,(i+1)*cardW-3,top+cardH,p);
-                p.setColor(Color.DKGRAY);
-                p.setTextSize(14);
-                c.drawText(names[i],i*cardW+10,top+35,p);
-            }
+            skill(c,0,128,w,1,"SAM",30);
+            skill(c,w,128,w,2,"BANG",60);
+            skill(c,2*w,128,w,3,"LUA",90);
+            skill(c,3*w,128,w,9,"PF "+food,100);
+        }
 
-            p.setColor(Color.WHITE);
+        void card(Canvas c,float x,float y,float w,int t,String n,Bitmap b){
+            p.setColor(selected==t&&t!=0?Color.YELLOW:Color.WHITE);
+            c.drawRect(x+2,y,x+w-2,y+82,p);
+            if(b!=null&&t!=0)
+                c.drawBitmap(b,null,new RectF(x+8,y+4,x+70,y+78),p);
+            p.setColor(Color.DKGRAY);
             p.setTextSize(12);
-            c.drawText("Chomper Plant Food: tap CHOMP with PF to eat nearby zombies",10,135,p);
+            c.drawText(n,x+78,y+44,p);
+        }
 
-            ox=10;
-            oy=160;
-            cw=(w-20f)/COLS;
-            ch=(h-oy-10f)/ROWS;
+        void skill(Canvas c,float x,float y,float w,int t,String n,int cost){
+            p.setColor(support==t?Color.YELLOW:Color.WHITE);
+            c.drawRect(x+2,y,x+w-2,y+32,p);
+            p.setColor(Color.DKGRAY);
+            p.setTextSize(11);
+            c.drawText(n+" "+cost+" XU",x+10,y+21,p);
+        }
 
-            for(int r=0;r<ROWS;r++)
-                for(int col=0;col<COLS;col++){
-                    p.setColor((r+col)%2==0?
-                            Color.rgb(105,185,65):Color.rgb(95,175,58));
-                    c.drawRect(ox+col*cw,oy+r*ch,
-                            ox+(col+1)*cw,oy+(r+1)*ch,p);
-                    drawPlant(c,r,col,plants[r][col]);
+        void drawBoard(Canvas c){
+            for(int rr=0;rr<ROWS;rr++)
+                for(int cc=0;cc<COLS;cc++){
+                    p.setColor((rr+cc)%2==0?
+                            Color.rgb(112,190,70):Color.rgb(103,180,65));
+                    float x=left+cc*cellW;
+                    float y=top+rr*cellH;
+                    c.drawRect(x,y,x+cellW-2,y+cellH-2,p);
                 }
+        }
 
-            for(Zombie z:zombies)drawZombie(c,z);
-
-            for(Shot s:shots){
-                p.setColor(Color.YELLOW);
-                c.drawCircle(s.x,s.y,5,p);
+        void drawPlants(Canvas c){
+            for(Plant a:plants){
+                Bitmap b=a.type==1?sunImg:
+                        a.type==2?peaImg:
+                        a.type==3?gigaImg:chomperImg;
+                float x=left+a.col*cellW;
+                float y=top+a.row*cellH;
+                if(b!=null)
+                    c.drawBitmap(b,null,
+                            new RectF(x+5,y+4,x+cellW-5,y+cellH-5),p);
+                hp(c,x+8,y+3,cellW-16,a.hp,a.max);
             }
+        }
 
+        void drawZombies(Canvas c){
+            for(Zombie z:zombies){
+                float w=z.bomber?60:z.big?90:70;
+                float h=z.bomber?80:z.big?125:100;
+                Bitmap b=z.bomber?bomberImg:zombieImg;
+                if(b!=null)
+                    c.drawBitmap(b,null,
+                            new RectF(z.x-w/2,z.y-h/2,
+                                    z.x+w/2,z.y+h/2),p);
+                else{
+                    p.setColor(z.bomber?Color.DKGRAY:
+                            z.big?Color.BLACK:Color.GRAY);
+                    c.drawRect(z.x-w/2,z.y-h/2,
+                            z.x+w/2,z.y+h/2,p);
+                }
+                hp(c,z.x-28,z.y-h/2-7,56,z.hp,z.max);
+            }
+        }
+
+        void drawBullets(Canvas c){
+            for(Bullet b:bullets){
+                if(b.img!=null)
+                    c.drawBitmap(b.img,null,
+                            new RectF(b.x-14,b.y-14,b.x+14,b.y+14),p);
+                else{
+                    p.setColor(Color.GREEN);
+                    c.drawCircle(b.x,b.y,10,p);
+                }
+            }
+        }
+
+        void drawBombs(Canvas c){
             for(Bomb b:bombs){
                 p.setColor(Color.RED);
-                c.drawCircle(b.x,b.y,9,p);
-            }
-
-            for(Mower m:mowers){
-                p.setColor(Color.DKGRAY);
-                c.drawRect(m.x,m.y-12,m.x+42,m.y+12,p);
-                p.setColor(Color.BLACK);
-                c.drawCircle(m.x+8,m.y+12,6,p);
-                c.drawCircle(m.x+34,m.y+12,6,p);
-            }
-
-            if(gameOver){
-                p.setColor(Color.argb(190,0,0,0));
-                c.drawRect(0,0,w,h,p);
-                p.setColor(Color.WHITE);
-                p.setTextSize(30);
-                c.drawText("GAME OVER - TAP TO RESTART",
-                        w/2-220,h/2,p);
-            }
-        }
-
-        void drawPlant(Canvas c,int r,int col,int t){
-            if(t==0)return;
-            float x=ox+(col+.5f)*cw;
-            float y=oy+(r+.5f)*ch;
-
-            p.setColor(Color.rgb(35,150,45));
-            c.drawRect(x-3,y+5,x+3,y+25,p);
-
-            if(t==1){
+                c.drawCircle(b.x,b.y,11,p);
                 p.setColor(Color.YELLOW);
-                c.drawCircle(x,y,18,p);
-            }else if(t==2){
-                p.setColor(Color.rgb(100,190,80));
-                c.drawOval(x-22,y-11,x+22,y+11,p);
-            }else if(t==3){
-                p.setColor(Color.rgb(70,70,70));
-                c.drawCircle(x,y,22,p);
-                p.setColor(Color.LTGRAY);
-                c.drawCircle(x,y,14,p);
-            }else{
-                p.setColor(Color.MAGENTA);
-                c.drawCircle(x,y,20,p);
-                p.setColor(Color.WHITE);
-                c.drawCircle(x+8,y-2,5,p);
+                c.drawCircle(b.x-3,b.y-3,3,p);
             }
         }
 
-        void drawZombie(Canvas c,Zombie z){
-            p.setColor(Color.rgb(125,125,125));
-            c.drawOval(z.x-14,z.y-25,z.x+14,z.y+25,p);
+        void drawDrops(Canvas c){
+            for(CoinDrop d:drops){
+                p.setColor(Color.YELLOW);
+                c.drawCircle(d.x,d.y,9,p);
+            }
+        }
+
+        void drawMowers(Canvas c){
+            for(Mower m:mowers){
+                if(m.used)continue;
+                p.setColor(Color.RED);
+                c.drawRect(m.x-25,m.y-14,m.x+25,m.y+14,p);
+                p.setColor(Color.BLACK);
+                c.drawCircle(m.x-14,m.y+15,7,p);
+                c.drawCircle(m.x+14,m.y+15,7,p);
+            }
+        }
+
+        void hp(Canvas c,float x,float y,float w,int v,int max){
+            p.setColor(Color.RED);
+            c.drawRect(x,y,x+w,y+5,p);
             p.setColor(Color.GREEN);
-            c.drawRect(z.x-20,z.y-33,z.x+20,z.y-28,p);
-            p.setColor(Color.BLACK);
-            p.setTextSize(9);
-            c.drawText(z.kind,z.x-24,z.y+39,p);
+            float q=Math.max(0,Math.min(1,v/(float)max));
+            c.drawRect(x,y,x+w*q,y+5,p);
+    }        void update(){
+            long now=System.currentTimeMillis();
+            float dt=Math.min(.1f,(now-last)/1000f);
+            last=now;
+
+            int total=10+level*3;
+            long delay=Math.max(1200,4200-level*300);
+
+            if(spawned<total&&now-spawnTime>=delay){
+                spawn();
+                spawnTime=now;
+            }
+
+            for(Plant a:plants){
+                a.timer+=dt;
+                if(a.food>0)a.food-=dt;
+
+                if(a.type==1&&a.timer>=(a.food>0?.12f:5f)){
+                    sun+=50;
+                    a.timer=0;
+                    beep(ToneGenerator.TONE_PROP_BEEP);
+                }
+
+                if(a.type==2&&a.timer>=(a.food>0?.12f:1.2f)
+                        &&rowHas(a.row)){
+                    bullets.add(new Bullet(
+                            left+a.col*cellW+cellW-10,
+                            top+a.row*cellH+cellH/2,
+                            a.row,bulletImg));
+                    a.timer=0;
+                }
+
+                if(a.type==4&&a.timer>=4f){
+                    Zombie z=chompTarget(a);
+                    if(z!=null){
+                        z.hp=0;
+                        a.timer=0;
+                        beep(ToneGenerator.TONE_PROP_BEEP);
+                    }
+                }
+            }
+
+            for(Zombie z:zombies){
+                if(z.slow>0)z.slow-=dt;
+                if(z.bombCD>0)z.bombCD-=dt;
+            }
+
+            updateBullets();
+            updateBombs();
+            updateZombies();
+            updateMowers();
+            clean();
+
+            if(spawned>=total&&zombies.isEmpty()&&killed>=total){
+                win=true;
+                beep(ToneGenerator.TONE_PROP_ACK);
+            }
+        }
+
+        boolean rowHas(int row){
+            for(Zombie z:zombies)
+                if(z.row==row)return true;
+            return false;
+        }
+
+        void updateBullets(){
+            Iterator<Bullet>it=bullets.iterator();
+            while(it.hasNext()){
+                Bullet b=it.next();
+                b.x+=9;
+                boolean hit=false;
+                for(Zombie z:zombies)
+                    if(z.row==b.row&&Math.abs(z.x-b.x)<35){
+                        z.hp-=25;
+                        hit=true;
+                        break;
+                    }
+                if(hit||b.x>getWidth()+50)it.remove();
+            }
+        }
+
+        void updateBombs(){
+            Iterator<Bomb>it=bombs.iterator();
+            while(it.hasNext()){
+                Bomb b=it.next();
+                float dx=b.tx-b.x,dy=b.ty-b.y;
+                float d=(float)Math.sqrt(dx*dx+dy*dy);
+
+                if(d<=b.speed){
+                    explode(b.tx,b.ty,b.row);
+                    it.remove();
+                }else{
+                    b.x+=dx/d*b.speed;
+                    b.y+=dy/d*b.speed;
+                }
+            }
+        }
+
+        void explode(float x,float y,int row){
+            for(Zombie z:zombies)
+                if(z.row>=row-1&&z.row<=row+1
+                        &&Math.abs(z.x-x)<cellW*1.5f)
+                    z.hp-=450;
+            beep(ToneGenerator.TONE_PROP_BEEP2);
+        }
+
+        void updateZombies(){
+            for(Zombie z:zombies){
+                if(z.x<left-20){
+                    if(!mowers[z.row].used&&!mowers[z.row].active){
+                        mowers[z.row].active=true;
+                        beep(ToneGenerator.TONE_PROP_ACK);
+                    }else if(mowers[z.row].used){
+                        lose=true;
+                        beep(ToneGenerator.TONE_PROP_NACK);
+                        return;
+                    }
+                }
+
+                if(z.bomber){
+                    float stop=left+cellW*1.5f;
+
+                    if(z.x>stop)
+                        z.x-=.6f;
+                    else
+                        z.stopped=true;
+
+                    if(z.stopped&&z.bombCD<=0){
+                        bombs.add(new Bomb(
+                                z.x,z.y,
+                                Math.max(left,z.x-cellW*1.5f),
+                                z.y,z.row));
+                        z.bombCD=8;
+                        beep(ToneGenerator.TONE_PROP_BEEP);
+                    }
+                    continue;
+                }
+
+                Plant a=findPlant(z);
+
+                if(a!=null){
+                    long n=System.currentTimeMillis();
+                    if(n-a.lastBite>500){
+                        a.hp-=z.big?180:100;
+                        a.lastBite=n;
+                    }
+                }else{
+                    float speed=z.big?.55f:1f;
+                    if(z.slow>0)speed*=.45f;
+                    z.x-=speed;
+                }
+            }
+        }
+
+        void updateMowers(){
+            for(Mower m:mowers){
+                if(!m.active||m.used)continue;
+
+                m.x+=13;
+
+                for(Zombie z:zombies)
+                    if(z.row==m.row&&Math.abs(z.x-m.x)<45)
+                        z.hp=0;
+
+                if(m.x>getWidth()+60)
+                    m.used=true;
+            }
+        }
+
+        Plant findPlant(Zombie z){
+            for(Plant a:plants)
+                if(a.row==z.row&&Math.abs(z.x-
+                        (left+a.col*cellW+cellW/2))<
+                        (z.big?65:50))
+                    return a;
+            return null;
+        }
+
+        Zombie chompTarget(Plant a){
+            for(Zombie z:zombies)
+                if(z.row==a.row&&Math.abs(z.x-
+                        (left+a.col*cellW+cellW/2))<
+                        cellW*1.4f)
+                    return z;
+            return null;
+        }
+
+        void spawn(){
+            int row=r.nextInt(ROWS);
+            boolean big=level>=2&&spawned%4==0;
+            boolean bomber=level>=3&&spawned%5==0;
+
+            zombies.add(new Zombie(
+                    getWidth()+70,
+                    top+row*cellH+cellH/2,
+                    row,big,bomber));
+            spawned++;
+        }
+
+        void clean(){
+            Iterator<Plant>pi=plants.iterator();
+            while(pi.hasNext())
+                if(pi.next().hp<=0)pi.remove();
+
+            Iterator<Zombie>zi=zombies.iterator();
+            while(zi.hasNext()){
+                Zombie z=zi.next();
+                if(z.hp<=0){
+                    zi.remove();
+                    killed++;
+                    sun+=25;
+                    if(r.nextInt(100)<15)
+                        drops.add(new CoinDrop(z.x,z.y));
+                }
+            }
+
+            Iterator<CoinDrop>di=drops.iterator();
+            while(di.hasNext()){
+                CoinDrop d=di.next();
+                if(d.life--<=0)di.remove();
+            }
+        }
+
+        boolean occupied(int row,int col){
+            for(Plant a:plants)
+                if(a.row==row&&a.col==col)return true;
+            return false;
+        }
+
+        void useFood(float x,float y){
+            if(food<=0){
+                support=0;
+                return;
+            }
+
+            int col=Math.max(0,Math.min(COLS-1,
+                    (int)((x-left)/cellW)));
+            int row=Math.max(0,Math.min(ROWS-1,
+                    (int)((y-top)/cellH)));
+
+            for(Plant a:plants)
+                if(a.row==row&&a.col==col){
+                    a.food=3;
+                    food--;
+                    support=0;
+                    beep(ToneGenerator.TONE_PROP_BEEP);
+                    return;
+                }
+
+            for(Zombie z:zombies)
+                if(z.bomber&&z.row==row&&Math.abs(z.x-
+                        (left+col*cellW+cellW/2))<cellW*1.5f){
+                    z.bombCD=2;
+                    food--;
+                    support=0;
+                    return;
+                }
+
+            support=0;
+        }
+
+        void useSupport(float x,float y){
+            int cost=support==1?30:support==2?60:90;
+
+            if(coins<cost){
+                support=0;
+                return;
+            }
+
+            int row=Math.max(0,Math.min(ROWS-1,
+                    (int)((y-top)/cellH)));
+            int col=Math.max(0,Math.min(COLS-1,
+                    (int)((x-left)/cellW)));
+
+            for(Zombie z:zombies)
+                if(z.row>=row-1&&z.row<=row+1&&
+                        Math.abs(z.x-
+                        (left+col*cellW+cellW/2))<cellW*1.7f){
+
+                    if(support==1)z.hp-=500;
+                    else if(support==2)z.slow=5;
+                    else z.hp-=800;
+                }
+
+            coins-=cost;
+            support=0;
+            beep(ToneGenerator.TONE_PROP_BEEP2);
+        }
+
+        void resetMowers(){
+            for(int i=0;i<ROWS;i++)
+                mowers[i]=new Mower(
+                        i,left-35,
+                        top+i*cellH+cellH/2);
+        }
+
+        void reset(boolean all){
+            plants.clear();
+            zombies.clear();
+            bullets.clear();
+            bombs.clear();
+            drops.clear();
+
+            selected=0;
+            support=0;
+            spawned=0;
+            killed=0;
+            win=false;
+            lose=false;
+
+            if(all){
+                level=1;
+                chomperUnlocked=false;
+                sun=500;
+                coins=9999;
+                food=0;
+            }
+
+            resetMowers();
+            last=spawnTime=System.currentTimeMillis();
+        }
+
+        void drawEnd(Canvas c){
+            p.setColor(0xAA000000);
+            c.drawRect(0,0,getWidth(),getHeight(),p);
+            p.setTextAlign(Paint.Align.CENTER);
+            p.setColor(Color.WHITE);
+            p.setTextSize(32);
+
+            if(win){
+                c.drawText(level<9?
+                        "THẮNG MÀN "+level:
+                        "HOÀN THÀNH 9 MÀN",
+                        getWidth()/2f,getHeight()/2f,p);
+                p.setTextSize(17);
+                c.drawText(level<9?
+                        "CHẠM ĐỂ SANG MÀN TIẾP":
+                        "CHẠM ĐỂ CHƠI LẠI",
+                        getWidth()/2f,getHeight()/2f+40,p);
+            }else{
+                c.drawText("THUA!",
+                        getWidth()/2f,getHeight()/2f,p);
+                p.setTextSize(17);
+                c.drawText("CHẠM ĐỂ CHƠI LẠI",
+                        getWidth()/2f,getHeight()/2f+40,p);
+            }
+
+            p.setTextAlign(Paint.Align.LEFT);
         }
 
         @Override public boolean onTouchEvent(MotionEvent e){
@@ -165,285 +563,181 @@ public class MainActivity extends Activity {
 
             float x=e.getX(),y=e.getY();
 
-            if(gameOver){
-                restart();
+            if(win){
+                if(level==2)chomperUnlocked=true;
+
+                if(level<9){
+                    level++;
+                    reset(false);
+                }else{
+                    reset(true);
+                }
+
+                invalidate();
                 return true;
             }
 
-            if(y>=55&&y<113){
-                selected=(int)(x/(getWidth()/5f))+1;
+            if(lose){
+                reset(true);
+                invalidate();
                 return true;
             }
 
-            if(y>=oy){
-                int col=(int)((x-ox)/cw);
-                int r=(int)((y-oy)/ch);
-                if(r>=0&&r<ROWS&&col>=0&&col<COLS)
-                    place(r,col);
+            float w=getWidth()/4f;
+
+            if(y>=38&&y<120){
+                if(x<w)selected=1;
+                else if(x<2*w)selected=2;
+                else if(x<3*w)selected=3;
+                else if(chomperUnlocked)selected=4;
+
+                invalidate();
+                return true;
             }
+
+            if(y>=128&&y<165){
+                if(x<w)support=1;
+                else if(x<2*w)support=2;
+                else if(x<3*w)support=3;
+                else if(coins>=100){
+                    coins-=100;
+                    food++;
+                    support=9;
+                }
+
+                invalidate();
+                return true;
+            }
+
+            Iterator<CoinDrop>ci=drops.iterator();
+            while(ci.hasNext()){
+                CoinDrop d=ci.next();
+
+                if(Math.abs(d.x-x)<30&&Math.abs(d.y-y)<30){
+                    coins+=25;
+                    ci.remove();
+                    beep(ToneGenerator.TONE_PROP_BEEP);
+                    return true;
+                }
+            }
+
+            if(x>=left&&x<left+COLS*cellW&&
+                    y>=top&&y<top+ROWS*cellH){
+
+                if(support==9){
+                    useFood(x,y);
+                    invalidate();
+                    return true;
+                }
+
+                if(support>0){
+                    useSupport(x,y);
+                    invalidate();
+                    return true;
+                }
+
+                if(selected>0){
+                    int col=(int)((x-left)/cellW);
+                    int row=(int)((y-top)/cellH);
+
+                    int cost=selected==1?50:
+                            selected==2?100:
+                            selected==3?150:150;
+
+                    int max=selected==1?300:
+                            selected==2?400:
+                            selected==3?3000:800;
+
+                    if(!occupied(row,col)&&sun>=cost){
+                        plants.add(new Plant(
+                                selected,row,col,max));
+                        sun-=cost;
+                        selected=0;
+                        beep(ToneGenerator.TONE_PROP_BEEP);
+                    }
+                }
+            }
+
+            invalidate();
             return true;
         }
+    }
 
-        void place(int r,int col){
-            if(selected==5){
-                throwBomb(r,col);
-                return;
-            }
+    class Plant{
+        int type,row,col,hp,max;
+        float timer,food;
+        long lastBite;
 
-            if(plants[r][col]!=0)return;
-
-            int cost=selected==1?50:
-                    selected==2?100:
-                    selected==3?175:150;
-
-            if(sun<cost)return;
-
-            sun-=cost;
-            plants[r][col]=selected;
-            snd(ToneGenerator.TONE_PROP_BEEP);
-
-            if(selected==4&&pf>0){
-                pf--;
-                chomperPF(r,col);
-            }
-        }
-
-        void chomperPF(int r,int col){
-            float cx=ox+(col+.5f)*cw;
-
-            for(Iterator<Zombie> it=zombies.iterator();it.hasNext();){
-                Zombie z=it.next();
-                if(z.row==r&&Math.abs(z.x-cx)<cw*2){
-                    it.remove();
-                    kills++;
-                }
-            }
-            snd(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD);
-        }
-
-        void throwBomb(int r,int col){
-            if(sun<75)return;
-
-            sun-=75;
-            bombs.add(new Bomb(
-                    ox+(col+.5f)*cw,
-                    oy+(r+.5f)*ch,r));
-            snd(ToneGenerator.TONE_CDMA_CALLDROP_LITE);
-        }
-
-        void spawn(){
-            int r=rnd.nextInt(ROWS);
-            boolean boss=rnd.nextInt(6)==0;
-
-            zombies.add(new Zombie(
-                    r,
-                    getWidth()+35,
-                    oy+(r+.5f)*ch,
-                    boss?260:100,
-                    boss?"Zomvinhhung":"ZOMBIE"));
-        }
-
-        void update(){
-            long now=System.currentTimeMillis();
-            if(now-last<35)return;
-            last=now;
-            tick++;
-
-            if(tick%100==0)spawn();
-
-            if(tick%90==0)
-                for(int r=0;r<ROWS;r++)
-                    for(int col=0;col<COLS;col++)
-                        if(plants[r][col]==1)sun+=25;
-
-            for(int r=0;r<ROWS;r++)
-                for(int col=0;col<COLS;col++){
-                    int t=plants[r][col];
-
-                    if(t==2&&tick%28==0)
-                        shots.add(new Shot(
-                                ox+(col+.7f)*cw,
-                                oy+(r+.5f)*ch,r));
-
-                    if(t==3&&tick%45==0)
-                        for(Zombie z:zombies)
-                            if(z.row==r&&z.x>ox+(col+.5f)*cw){
-                                z.hp-=35;
-                                break;
-                            }
-
-                    if(t==4&&tick%70==0)
-                        for(Zombie z:zombies)
-                            if(z.row==r&&
-                               Math.abs(z.x-(ox+(col+.5f)*cw))<cw*1.5f){
-                                z.hp=0;
-                                break;
-                            }
-                }
-
-            for(Iterator<Shot> it=shots.iterator();it.hasNext();){
-                Shot s=it.next();
-                s.x+=9;
-                boolean hit=false;
-
-                for(Zombie z:zombies)
-                    if(z.row==s.row&&Math.abs(z.x-s.x)<22){
-                        z.hp-=20;
-                        hit=true;
-                        break;
-                    }
-
-                if(hit||s.x>getWidth()+20)it.remove();
-            }
-
-            for(Iterator<Bomb> it=bombs.iterator();it.hasNext();){
-                Bomb b=it.next();
-                b.x+=10;
-
-                if(b.x>getWidth()-90){
-                    for(Zombie z:zombies)
-                        if(z.row==b.row&&Math.abs(z.x-b.x)<95)
-                            z.hp-=180;
-
-                    it.remove();
-                    snd(ToneGenerator.TONE_CDMA_HIGH_SRR);
-                }
-            }
-
-            for(Iterator<Zombie> it=zombies.iterator();it.hasNext();){
-                Zombie z=it.next();
-
-                if(z.hp<=0){
-                    it.remove();
-                    kills++;
-                    sun+=25;
-                    continue;
-                }
-
-                int col=(int)((z.x-ox)/cw);
-
-                if(col>=0&&col<COLS&&plants[z.row][col]!=0){
-                    if(tick%35==0)plants[z.row][col]=0;
-                }else{
-                    z.x-=z.kind.equals("Zomvinhhung")?.7f:1.1f;
-                }
-
-                if(z.x<ox-30){
-                    if(mowerReady[z.row]){
-                        mowerReady[z.row]=false;
-                        mowers.add(new Mower(
-                                z.row,
-                                ox-60,
-                                oy+(z.row+.5f)*ch));
-                        it.remove();
-                        snd(ToneGenerator.TONE_CDMA_NETWORK_BUSY);
-                    }else{
-                        gameOver=true;
-                        it.remove();
-                        break;
-                    }
-                }
-            }
-
-            for(Iterator<Mower> it=mowers.iterator();it.hasNext();){
-                Mower m=it.next();
-                m.x+=15;
-
-                for(Iterator<Zombie> iz=zombies.iterator();iz.hasNext();){
-                    Zombie z=iz.next();
-                    if(z.row==m.row&&Math.abs(z.x-m.x)<48){
-                        iz.remove();
-                        kills++;
-                        sun+=25;
-                    }
-                }
-
-                if(m.x>getWidth()+60)it.remove();
-            }
-
-            if(tick%600==0&&level<9){
-                level++;
-                sun+=100;
-                pf++;
-                Arrays.fill(mowerReady,true);
-                snd(ToneGenerator.TONE_PROP_ACK);
-            }
-
-            invalidate();
-        }
-
-        void restart(){
-            for(int[] a:plants)Arrays.fill(a,0);
-            zombies.clear();
-            shots.clear();
-            bombs.clear();
-            mowers.clear();
-            Arrays.fill(mowerReady,true);
-
-            sun=400;
-            pf=0;
-            level=1;
-            kills=0;
-            tick=0;
-            gameOver=false;
-            invalidate();
-        }
-
-        @Override protected void onAttachedToWindow(){
-            super.onAttachedToWindow();
-            post(new Runnable(){
-                @Override public void run(){
-                    update();
-                    postDelayed(this,16);
-                }
-            });
-        }
-
-        static class Zombie{
-            int row;
-            float x,y,hp;
-            String kind;
-
-            Zombie(int r,float x,float y,float hp,String k){
-                row=r;
-                this.x=x;
-                this.y=y;
-                this.hp=hp;
-                kind=k;
-            }
-        }
-
-        static class Shot{
-            float x,y;
-            int row;
-
-            Shot(float x,float y,int r){
-                this.x=x;
-                this.y=y;
-                row=r;
-            }
-        }
-
-        static class Bomb{
-            float x,y;
-            int row;
-
-            Bomb(float x,float y,int r){
-                this.x=x;
-                this.y=y;
-                row=r;
-            }
-        }
-
-        static class Mower{
-            int row;
-            float x,y;
-
-            Mower(int r,float x,float y){
-                row=r;
-                this.x=x;
-                this.y=y;
-            }
+        Plant(int t,int r,int c,int h){
+            type=t;
+            row=r;
+            col=c;
+            hp=max=h;
         }
     }
-                             }
+
+    class Zombie{
+        float x,y,slow,bombCD;
+        int row,hp,max;
+        boolean big,bomber,stopped;
+
+        Zombie(float x,float y,int row,
+               boolean big,boolean bomber){
+            this.x=x;
+            this.y=y;
+            this.row=row;
+            this.big=big;
+            this.bomber=bomber;
+            hp=max=bomber?250:big?1200:300;
+        }
+    }
+
+    class Bullet{
+        float x,y;
+        int row;
+        Bitmap img;
+
+        Bullet(float x,float y,int row,Bitmap img){
+            this.x=x;
+            this.y=y;
+            this.row=row;
+            this.img=img;
+        }
+    }
+
+    class Bomb{
+        float x,y,tx,ty;
+        float speed=6;
+        int row;
+
+        Bomb(float x,float y,float tx,float ty,int row){
+            this.x=x;
+            this.y=y;
+            this.tx=tx;
+            this.ty=ty;
+            this.row=row;
+        }
+    }
+
+    class CoinDrop{
+        float x,y;
+        int life=300;
+
+        CoinDrop(float x,float y){
+            this.x=x;
+            this.y=y;
+        }
+    }
+
+    class Mower{
+        int row;
+        float x,y;
+        boolean active=false,used=false;
+
+        Mower(int row,float x,float y){
+            this.row=row;
+            this.x=x;
+            this.y=y;
+        }
+    }
+                   }
