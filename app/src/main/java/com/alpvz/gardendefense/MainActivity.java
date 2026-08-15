@@ -46,7 +46,7 @@ public class MainActivity extends Activity {
         void drawTop(Canvas c){p.setColor(0xdd183b20);c.drawRect(0,0,getWidth(),top-8,p);txt(c,"MÀN "+level+"   ☀ "+sun+"   XU "+coin+"   PF "+food+"   WAVE "+Math.min(spawned/3+1,totalWaves())+"/"+totalWaves(),10,22,15,Color.WHITE);float w=getWidth()/8f; card(c,0,"SUN",SUN,sunImg,w);card(c,1,"PEA",PEA,peaImg,w);card(c,2,"GIGA",GIGA,gigaImg,w);card(c,3,"CHOMP",CHOMP,chompImg,w);card(c,4,"REP",REP,repImg,w);card(c,5,"MINE",MINE,mineImg,w);card(c,6,"PF",7,null,w);card(c,7,"⏸",8,null,w);}
         void card(Canvas c,int i,String name,int type,Bitmap img,float w){float x=i*w;p.setColor(Color.WHITE);c.drawRoundRect(new RectF(x+2,32,x+w-2,102),8,8,p);if(img!=null)c.drawBitmap(img,null,new RectF(x+5,37,x+52,98),p);txt(c,name,x+55,72,10,Color.DKGRAY);}
         void drawPlants(Canvas c){for(int r=0;r<R;r++)for(int col=0;col<C;col++){Plant a=plants[r][col];if(a==null)continue;Bitmap b=a.type==SUN?sunImg:a.type==PEA?peaImg:a.type==GIGA?gigaImg:a.type==CHOMP?chompImg:a.type==REP?repImg:mineImg;if(b!=null)c.drawBitmap(b,null,new RectF(a.x+4,a.y+4,a.x+a.w-4,a.y+a.h-4),p);bar(c,a.x+6,a.y+4,a.w-12,a.hp,a.max);if(a.type==MINE&&a.arm<30)center(c,""+Math.ceil(30-a.arm),a.x+a.w/2,a.y+20,11,Color.WHITE);}}
-                                     void drawMines(Canvas c){for(Mine m:mines){p.setColor(m.armed?Color.RED:Color.rgb(90,60,25));c.drawCircle(m.x,m.y,12,p);}}
+                    void drawMines(Canvas c){for(Mine m:mines){p.setColor(m.armed?Color.RED:Color.rgb(90,60,25));c.drawCircle(m.x,m.y,12,p);}}
         void drawShots(Canvas c){for(Shot s:shots){if(peaBullet!=null)c.drawBitmap(peaBullet,null,new RectF(s.x-10,s.y-10,s.x+10,s.y+10),p);else{p.setColor(Color.GREEN);c.drawCircle(s.x,s.y,7,p);}}}
         void drawZombies(Canvas c){for(Zombie z:zs){if(z.dead)continue;float w=z.vinh?65:z.giga?100:z.to?82:70,h=z.vinh?86:z.giga?135:z.to?112:100;Bitmap b=z.vinh?vinhImg:zomImg;if(b!=null)c.drawBitmap(b,null,new RectF(z.x-w/2,z.y-h/2,z.x+w/2,z.y+h/2),p);else{p.setColor(Color.GRAY);c.drawRect(z.x-w/2,z.y-h/2,z.x+w/2,z.y+h/2,p);}bar(c,z.x-30,z.y-h/2-7,60,z.hp,z.max);}}
         void drawCoins(Canvas c){for(Coin q:coins){p.setColor(Color.YELLOW);c.drawCircle(q.x,q.y,11,p);}}
@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
         void updateShots(float dt){Iterator<Shot> it=shots.iterator();while(it.hasNext()){Shot s=it.next();s.x+=520*dt;boolean hit=false;for(Zombie z:zs)if(!z.dead&&z.row==s.row&&Math.abs(z.x-s.x)<30){z.hp-=s.damage;hit=true;break;}if(hit||s.x>getWidth()+50)it.remove();}}
         void updateMines(float dt){Iterator<Mine> it=mines.iterator();while(it.hasNext()){Mine m=it.next();m.arm+=dt;if(!m.armed&&m.arm>=30)m.armed=true;if(m.armed){for(Zombie z:zs)if(!z.dead&&z.row==m.row&&Math.abs(z.x-m.x)<38){z.hp-=1800;m.dead=true;break;}}if(m.dead)it.remove();}}
         void updateZombies(float dt){for(Zombie z:zs){if(z.dead)continue;if(z.vinh){if(z.steps<5){z.x-=24*dt;z.steps+=24*dt;}else{z.still=true;z.bombTimer-=dt;if(z.bombTimer<=0){Plant a=firstPlant(z.row);if(a!=null){a.hp-=300;z.bombTimer=8;}}}continue;}Plant a=findPlant(z);if(a!=null){z.attack-=dt;if(z.attack<=0){a.hp-=z.giga?35:12;z.attack=z.giga?.55f:.8f;}}else z.x-=z.speed*dt;if(z.x<left-25){Mower m=mowers[z.row];if(!m.used){m.used=true;m.active=true;m.x=left-45;}else{houseZombie=cloneZombie(z);lose=true;}z.dead=true;}}}
-                                                                                                                                                                                Zombie cloneZombie(Zombie z){return new Zombie(z.x,z.y,z.row,z.to,z.giga,z.vinh);}
+                    Zombie cloneZombie(Zombie z){return new Zombie(z.x,z.y,z.row,z.to,z.giga,z.vinh);}
         Plant findPlant(Zombie z){for(int c=0;c<C;c++){Plant a=plants[z.row][c];if(a!=null&&Math.abs(z.x-(a.x+a.w/2))<(z.giga?60:48))return a;}return null;}
         Plant firstPlant(int r){for(int c=C-1;c>=0;c--)if(plants[r][c]!=null)return plants[r][c];return null;}
         void updateMowers(float dt){for(Mower m:mowers)if(m.active){m.x+=620*dt;for(Zombie z:zs)if(!z.dead&&z.row==m.row&&Math.abs(z.x-m.x)<55)z.hp=0;if(m.x>getWidth()+80)m.active=false;}}
@@ -88,7 +88,7 @@ public class MainActivity extends Activity {
             Iterator<Coin> ci=coins.iterator();while(ci.hasNext()){Coin q=ci.next();if(Math.abs(q.x-x)<30&&Math.abs(q.y-y)<30){coin+=25;ci.remove();invalidate();return true;}}
             if(skill==1){useFood(row,col);skill=0;}else if(selected!=0){plant(row,col);}invalidate();return true;
         }
-        class Plant{int type,row,col,hp,max;float x,y,w,h,timer=.1f,pf=0,pull=0;boolean pfMode=false;Plant(int t,int r,int c,int hp,float x,float y,float w,float h){type=t;row=r;col=c;this.hp=this.max=hp;this.x=x;this.y=y;this.w=w;this.h=h;}}
+        class Plant{int type,row,col,hp,max;float x,y,w,h,timer=.1f,pf=0,pull=0,arm=0;boolean pfMode=false;Plant(int t,int r,int c,int hp,float x,float y,float w,float h){type=t;row=r;col=c;this.hp=this.max=hp;this.x=x;this.y=y;this.w=w;this.h=h;}}
         class Zombie{float x,y,speed,attack=.8f,bombTimer=8,steps=0;int row,hp,max;boolean to,giga,vinh,dead,still;Zombie(float x,float y,int row,boolean to,boolean giga,boolean vinh){this.x=x;this.y=y;this.row=row;this.to=to;this.giga=giga;this.vinh=vinh;if(vinh){hp=max=3000;speed=24;}else if(giga){hp=max=1600;speed=18;}else if(to){hp=max=700;speed=20;}else{hp=max=300;speed=24;}}}
         class Shot{float x,y;int row,damage;Shot(float x,float y,int r,int d){this.x=x;this.y=y;row=r;damage=d;}}
         class Mine{float x,y,arm=0;int row;boolean armed,dead;Mine(float x,float y,int r){this.x=x;this.y=y;row=r;}}
@@ -96,4 +96,4 @@ public class MainActivity extends Activity {
         class Mower{int row;float x;boolean used,active;Mower(int r){row=r;x=left-45;}}
     }
             }
-                                                                                       
+                                                                                                                                                            
