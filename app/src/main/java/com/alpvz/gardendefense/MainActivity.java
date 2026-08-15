@@ -2,93 +2,101 @@ package com.alpvz.gardendefense;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.graphics.*;
-import android.view.*;
-import java.util.*;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.view.MotionEvent;
+import android.view.View;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Random;
 
 public class MainActivity extends Activity {
 
     @Override
-    protected void onCreate(Bundle b){
+    protected void onCreate(Bundle b) {
         super.onCreate(b);
         setContentView(new GameView());
     }
 
     class GameView extends View {
 
-        Paint p=new Paint(3);
-        Random r=new Random();
+        Paint p = new Paint(3);
+        Random r = new Random();
 
-        Bitmap sunImg,peaImg,gigaImg,zombieImg,
-                bulletImg,chomperImg,bomberImg;
+        Bitmap sunImg, peaImg, gigaImg;
+        Bitmap chomperImg, zombieImg, bomberImg, bulletImg;
 
-        ArrayList<Plant> plants=new ArrayList<>();
-        ArrayList<Zombie> zombies=new ArrayList<>();
-        ArrayList<Bullet> bullets=new ArrayList<>();
-        ArrayList<BombBullet> bombBullets=new ArrayList<>();
-        ArrayList<CoinDrop> coinDrops=new ArrayList<>();
+        ArrayList<Plant> plants = new ArrayList<>();
+        ArrayList<Zombie> zombies = new ArrayList<>();
+        ArrayList<Bullet> bullets = new ArrayList<>();
+        ArrayList<BombBullet> bombBullets = new ArrayList<>();
 
-        int selected=0;
-        int support=0;
+        int selected = 0;
+        int sun = 500;
+        int plantFood = 0;
+        int spawned = 0;
+        int killed = 0;
+        int level = 1;
 
-        int sun=500;
-        int coins=9999;
-        int plantFood=0;
+        final int ROWS = 5;
+        final int COLS = 9;
 
-        int spawned=0;
-        int killed=0;
-        int level=1;
-
-        boolean lose=false;
-        boolean win=false;
-        boolean chomperUnlocked=false;
-
-        final int ROWS=5;
-        final int COLS=9;
-
-        float left=20;
-        float top=185;
-        float cellW,cellH;
+        float left = 20f;
+        float top = 185f;
+        float cellW;
+        float cellH;
 
         long last;
         long spawnTime;
 
-        GameView(){
+        boolean lose = false;
+        boolean win = false;
+        boolean chomperUnlocked = true;
+
+        GameView() {
             super(MainActivity.this);
 
-            sunImg=load("sun");
-            peaImg=load("peashoot");
-            gigaImg=load("giganut");
-            zombieImg=load("zomplatz");
-            bulletImg=load("gigapea");
-            chomperImg=load("chomper");
-            bomberImg=load("zomvinhhung");
+            sunImg = load("sun");
+            peaImg = load("peashoot");
+            gigaImg = load("giganut");
+            chomperImg = load("chomper");
 
-            last=System.currentTimeMillis();
-            spawnTime=last;
+            zombieImg = load("zomplatz");
+            bomberImg = load("zomvinhhung");
+            bulletImg = load("gigapea");
+
+            last = System.currentTimeMillis();
+            spawnTime = last;
         }
 
-        Bitmap load(String n){
-            int id=getResources().getIdentifier(
-                    n,
+        Bitmap load(String name) {
+            int id = getResources().getIdentifier(
+                    name,
                     "drawable",
                     getPackageName()
             );
 
-            return id==0 ? null :
-                    BitmapFactory.decodeResource(
-                            getResources(),
-                            id
-                    );
+            if (id == 0) {
+                return null;
+            }
+
+            return BitmapFactory.decodeResource(
+                    getResources(),
+                    id
+            );
         }
 
         @Override
-        protected void onDraw(Canvas c){
+        protected void onDraw(Canvas c) {
 
-            cellW=(getWidth()-40f)/COLS;
-            cellH=(getHeight()-top-20f)/ROWS;
+            cellW = (getWidth() - 40f) / COLS;
+            cellH = (getHeight() - top - 20f) / ROWS;
 
-            p.setColor(Color.rgb(95,175,70));
+            p.setColor(Color.rgb(95, 175, 70));
             c.drawRect(
                     0,
                     0,
@@ -102,20 +110,19 @@ public class MainActivity extends Activity {
             drawPlants(c);
             drawBullets(c);
             drawBombBullets(c);
-            drawCoinDrops(c);
             drawZombies(c);
 
-            if(!lose && !win){
+            if (!lose && !win) {
                 update();
                 postInvalidateDelayed(30);
-            }else{
+            } else {
                 drawEnd(c);
             }
         }
 
-        void topUI(Canvas c){
+        void topUI(Canvas c) {
 
-            p.setColor(Color.rgb(55,120,50));
+            p.setColor(Color.rgb(55, 120, 50));
             c.drawRect(
                     0,
                     0,
@@ -128,71 +135,76 @@ public class MainActivity extends Activity {
             p.setTextSize(18);
 
             c.drawText(
-                    "MÀN "+level+
-                    "  SUN: "+sun+
-                    "  XU: "+coins+
-                    "  PF: "+plantFood,
+                    "MÀN " + level +
+                    "  SUN: " + sun +
+                    "  PF: " + plantFood,
                     10,
                     25,
                     p
             );
 
-            card(c,5,45,1,"SUN",sunImg);
-            card(c,130,45,2,"PEA",peaImg);
-            card(c,255,45,3,"GIGA",gigaImg);
+            card(c, 5, 45, 1, "SUN", sunImg);
+            card(c, 130, 45, 2, "PEA", peaImg);
+            card(c, 255, 45, 3, "GIGA", gigaImg);
 
-            if(chomperUnlocked){
-                card(
-                        c,
-                        380,
-                        45,
-                        4,
-                        "CHOMP",
-                        chomperImg
-                );
+            if (chomperUnlocked) {
+                card(c, 380, 45, 4, "CHOMP", chomperImg);
             }
 
-            skill(c,505,45,1,"SAM",30);
-            skill(c,630,45,2,"BANG",60);
-            skill(c,755,45,3,"LUA",90);
+            p.setColor(Color.WHITE);
+            p.setTextSize(12);
+
+            c.drawText(
+                    "Plant Food",
+                    505,
+                    70,
+                    p
+            );
+
+            c.drawText(
+                    "chạm ô PF rồi chọn cây",
+                    505,
+                    90,
+                    p
+            );
         }
 
         void card(
                 Canvas c,
                 float x,
                 float y,
-                int t,
-                String n,
-                Bitmap img){
+                int type,
+                String name,
+                Bitmap img
+        ) {
 
             p.setColor(
-                    selected==t ?
-                    Color.YELLOW :
-                    Color.WHITE
+                    selected == type
+                            ? Color.YELLOW
+                            : Color.WHITE
             );
 
             c.drawRoundRect(
                     new RectF(
                             x,
                             y,
-                            x+115,
-                            y+90
+                            x + 115,
+                            y + 90
                     ),
                     10,
                     10,
                     p
             );
 
-            if(img!=null){
-
+            if (img != null) {
                 c.drawBitmap(
                         img,
                         null,
                         new RectF(
-                                x+5,
-                                y+5,
-                                x+55,
-                                y+80
+                                x + 5,
+                                y + 5,
+                                x + 55,
+                                y + 80
                         ),
                         p
                 );
@@ -202,137 +214,68 @@ public class MainActivity extends Activity {
             p.setTextSize(12);
 
             c.drawText(
-                    n,
-                    x+60,
-                    y+48,
+                    name,
+                    x + 60,
+                    y + 48,
                     p
             );
         }
 
-        void skill(
-                Canvas c,
-                float x,
-                float y,
-                int t,
-                String n,
-                int cost){
+        void drawBoard(Canvas c) {
 
-            if(x>getWidth()-5)
-                return;
+            for (int row = 0; row < ROWS; row++) {
 
-            p.setColor(
-                    support==t ?
-                    Color.YELLOW :
-                    Color.WHITE
-            );
-
-            c.drawRoundRect(
-                    new RectF(
-                            x,
-                            y,
-                            x+115,
-                            y+90
-                    ),
-                    10,
-                    10,
-                    p
-            );
-
-            p.setColor(
-                    t==1 ?
-                    Color.YELLOW :
-                    t==2 ?
-                    Color.CYAN :
-                    Color.RED
-            );
-
-            c.drawCircle(
-                    x+28,
-                    y+34,
-                    17,
-                    p
-            );
-
-            p.setColor(Color.DKGRAY);
-            p.setTextSize(11);
-
-            c.drawText(
-                    n,
-                    x+50,
-                    y+35,
-                    p
-            );
-
-            c.drawText(
-                    cost+" XU",
-                    x+50,
-                    y+58,
-                    p
-            );
-        }
-
-        void drawBoard(Canvas c){
-
-            for(int row=0;row<ROWS;row++){
-
-                for(int col=0;col<COLS;col++){
+                for (int col = 0; col < COLS; col++) {
 
                     p.setColor(
-                            (row+col)%2==0 ?
-                            Color.rgb(115,190,75) :
-                            Color.rgb(105,180,68)
+                            (row + col) % 2 == 0
+                                    ? Color.rgb(115, 190, 75)
+                                    : Color.rgb(105, 180, 68)
                     );
 
-                    float x=
-                            left+
-                            col*cellW;
-
-                    float y=
-                            top+
-                            row*cellH;
+                    float x = left + col * cellW;
+                    float y = top + row * cellH;
 
                     c.drawRect(
                             x,
                             y,
-                            x+cellW-2,
-                            y+cellH-2,
+                            x + cellW - 2,
+                            y + cellH - 2,
                             p
                     );
                 }
             }
         }
 
-        void drawPlants(Canvas c){
+        void drawPlants(Canvas c) {
 
-            for(Plant a:plants){
+            for (Plant a : plants) {
 
-                Bitmap img=
-                        a.type==1 ?
-                        sunImg :
-                        a.type==2 ?
-                        peaImg :
-                        a.type==3 ?
-                        gigaImg :
-                        chomperImg;
+                Bitmap img;
 
-                float x=
-                        left+
-                        a.col*cellW;
+                if (a.type == 1) {
+                    img = sunImg;
+                } else if (a.type == 2) {
+                    img = peaImg;
+                } else if (a.type == 3) {
+                    img = gigaImg;
+                } else {
+                    img = chomperImg;
+                }
 
-                float y=
-                        top+
-                        a.row*cellH;
+                float x = left + a.col * cellW;
+                float y = top + a.row * cellH;
 
-                if(img!=null){
+                if (img != null) {
 
                     c.drawBitmap(
                             img,
                             null,
                             new RectF(
-                                    x+5,
-                                    y+5,
-                                    x+cellW-5,
-                                    y+cellH-5
+                                    x + 5,
+                                    y + 5,
+                                    x + cellW - 5,
+                                    y + cellH - 5
                             ),
                             p
                     );
@@ -340,34 +283,51 @@ public class MainActivity extends Activity {
 
                 hp(
                         c,
-                        x+cellW*.3f,
-                        y+4,
-                        cellW*.4f,
+                        x + cellW * 0.3f,
+                        y + 4,
+                        cellW * 0.4f,
                         a.hp,
                         a.max
                 );
+
+                if (a.type == 4 &&
+                        a.chompCooldown > 0f) {
+
+                    p.setColor(Color.WHITE);
+                    p.setTextSize(10);
+
+                    c.drawText(
+                            String.format(
+                                    "%.0fs",
+                                    a.chompCooldown
+                            ),
+                            x + 5,
+                            y + cellH - 5,
+                            p
+                    );
+                }
             }
         }
 
-        void drawBullets(Canvas c){
+        void drawBullets(Canvas c) {
 
-            for(Bullet b:bullets){
+            for (Bullet b : bullets) {
 
-                if(bulletImg!=null){
+                if (bulletImg != null) {
 
                     c.drawBitmap(
                             bulletImg,
                             null,
                             new RectF(
-                                    b.x-21,
-                                    b.y-21,
-                                    b.x+21,
-                                    b.y+21
+                                    b.x - 21,
+                                    b.y - 21,
+                                    b.x + 21,
+                                    b.y + 21
                             ),
                             p
                     );
 
-                }else{
+                } else {
 
                     p.setColor(Color.GREEN);
 
@@ -381,17 +341,11 @@ public class MainActivity extends Activity {
             }
         }
 
-        void drawBombBullets(Canvas c){
+        void drawBombBullets(Canvas c) {
 
-            for(BombBullet b:bombBullets){
+            for (BombBullet b : bombBullets) {
 
-                p.setColor(
-                        Color.rgb(
-                                255,
-                                70,
-                                20
-                        )
-                );
+                p.setColor(Color.rgb(255, 70, 20));
 
                 c.drawCircle(
                         b.x,
@@ -403,98 +357,67 @@ public class MainActivity extends Activity {
                 p.setColor(Color.YELLOW);
 
                 c.drawCircle(
-                        b.x-4,
-                        b.y-4,
+                        b.x - 4,
+                        b.y - 4,
                         4,
                         p
                 );
             }
         }
 
-        void drawCoinDrops(Canvas c){
+        void drawZombies(Canvas c) {
 
-            for(CoinDrop d:coinDrops){
+            for (Zombie z : zombies) {
 
-                p.setColor(
-                        d.type==1 ?
-                        Color.LTGRAY :
-                        d.type==2 ?
-                        Color.YELLOW :
-                        Color.CYAN
-                );
+                float w;
+                float h;
 
-                c.drawCircle(
-                        d.x,
-                        d.y,
-                        9,
-                        p
-                );
+                if (z.bomber) {
+                    w = 65;
+                    h = 85;
+                } else if (z.big) {
+                    w = 110;
+                    h = 150;
+                } else {
+                    w = 82;
+                    h = 112;
+                }
 
-                p.setColor(Color.DKGRAY);
-                p.setTextSize(9);
+                Bitmap img =
+                        z.bomber
+                                ? bomberImg
+                                : zombieImg;
 
-                c.drawText(
-                        ""+d.value,
-                        d.x-7,
-                        d.y+3,
-                        p
-                );
-            }
-        }
-
-        void drawZombies(Canvas c){
-
-            for(Zombie z:zombies){
-
-                float w=
-                        z.bomber ?
-                        65 :
-                        z.big ?
-                        105 :
-                        82;
-
-                float h=
-                        z.bomber ?
-                        85 :
-                        z.big ?
-                        140 :
-                        112;
-
-                Bitmap img=
-                        z.bomber ?
-                        bomberImg :
-                        zombieImg;
-
-                if(img!=null){
+                if (img != null) {
 
                     c.drawBitmap(
                             img,
                             null,
                             new RectF(
-                                    z.x-w/2,
-                                    z.y-h/2,
-                                    z.x+w/2,
-                                    z.y+h/2
+                                    z.x - w / 2,
+                                    z.y - h / 2,
+                                    z.x + w / 2,
+                                    z.y + h / 2
                             ),
                             p
                     );
 
-                }else{
+                } else {
 
                     p.setColor(
-                            z.bomber ?
-                            Color.DKGRAY :
-                            z.big ?
-                            Color.BLACK :
-                            Color.GRAY
+                            z.bomber
+                                    ? Color.DKGRAY
+                                    : z.big
+                                        ? Color.BLACK
+                                        : Color.GRAY
                     );
 
                     c.drawRoundRect(
                             new RectF(
-                                    z.x-w/2,
-                                    z.y-h/2,
-                                    z.x+w/2,
-                                    z.y+h/2
+                                    z.x - w / 2,
+                                    z.y - h / 2,
+                                    z.x + w / 2,
+                                    z.y + h / 2
                             ),
                             12,
                             12,
@@ -504,9 +427,9 @@ public class MainActivity extends Activity {
 
                 hp(
                         c,
-                        z.x-30,
-                        z.y-(z.big?75:60),
-                        60,
+                        z.x - 35,
+                        z.y - 70,
+                        70,
                         z.hp,
                         z.max
                 );
@@ -518,341 +441,326 @@ public class MainActivity extends Activity {
                 float x,
                 float y,
                 float w,
-                int v,
-                int m){
+                int value,
+                int max
+        ) {
 
             p.setColor(Color.RED);
 
             c.drawRect(
                     x,
                     y,
-                    x+w,
-                    y+5,
+                    x + w,
+                    y + 5,
                     p
             );
 
             p.setColor(Color.GREEN);
 
-            float q=
-                    Math.max(
-                            0,
-                            Math.min(
-                                    1,
-                                    v/(float)m
-                            )
-                    );
+            float q = Math.max(
+                    0f,
+                    Math.min(
+                            1f,
+                            value / (float) max
+                    )
+            );
 
             c.drawRect(
                     x,
                     y,
-                    x+w*q,
-                    y+5,
+                    x + w * q,
+                    y + 5,
                     p
             );
         }
 
-        void update(){
+        void update() {
 
-            long now=
-                    System.currentTimeMillis();
+            long now = System.currentTimeMillis();
 
-            float dt=
-                    (now-last)/1000f;
+            float dt =
+                    (now - last) / 1000f;
 
-            if(dt>.1f)
-                dt=.1f;
+            if (dt > 0.1f) {
+                dt = 0.1f;
+            }
 
-            last=now;
+            last = now;
 
-            int total=
-                    level==1 ?
-                    12 :
-                    level==2 ?
-                    15 :
-                    18;
+            int total =
+                    level == 1
+                            ? 12
+                            : level == 2
+                                ? 15
+                                : 18;
 
-            if(
-                    spawned<total &&
-                    now-spawnTime>=5000
-            ){
+            if (spawned < total &&
+                    now - spawnTime >= 4000) {
 
                 spawn();
-                spawnTime=now;
+
+                spawnTime = now;
             }
 
-            for(Plant a:plants){
+            for (Plant a : plants) {
 
-                a.timer+=dt;
+                a.timer += dt;
 
-                if(a.foodTime>0){
+                if (a.foodTime > 0f) {
 
-                    a.foodTime-=dt;
+                    a.foodTime -= dt;
 
-                    if(a.foodTime<0)
-                        a.foodTime=0;
-                }
-
-                if(
-                        a.type==1 &&
-                        a.timer>=
-                        (a.foodTime>0 ?
-                        .1f :
-                        5f)
-                ){
-
-                    sun+=50;
-                    a.timer=0;
-                }
-
-                if(
-                        a.type==2 &&
-                        a.timer>=
-                        (a.foodTime>0 ?
-                        .1f :
-                        1.2f) &&
-                        rowHas(a.row)
-                ){
-
-                    bullets.add(
-                            new Bullet(
-                                    left+
-                                    a.col*cellW+
-                                    cellW-10,
-                                    top+
-                                    a.row*cellH+
-                                    cellH/2,
-                                    a.row
-                            )
-                    );
-
-                    a.timer=0;
-                }
-
-                /*
-                 * CHOMPER PLANT FOOD:
-                 * hút zombie cùng hàng.
-                 */
-                if(
-                        a.type==4 &&
-                        a.chomperFoodActive
-                ){
-
-                    float px=
-                            left+
-                            a.col*cellW+
-                            cellW/2;
-
-                    boolean any=false;
-
-                    for(Zombie z:zombies){
-
-                        if(z.row==a.row){
-
-                            any=true;
-
-                            float dist=
-                                    Math.abs(
-                                            z.x-px
-                                    );
-
-                            if(dist>18){
-
-                                z.x+=
-                                        (px>z.x?1:-1)*
-                                        Math.min(
-                                                12,
-                                                dist
-                                        );
-                            }
-                        }
+                    if (a.foodTime < 0f) {
+                        a.foodTime = 0f;
                     }
+                }
 
-                    a.chomperFoodTimer-=dt;
+                if (a.chompCooldown > 0f) {
 
-                    if(
-                            !any ||
-                            a.chomperFoodTimer<=0
-                    ){
+                    a.chompCooldown -= dt;
 
-                        for(Zombie z:zombies){
+                    if (a.chompCooldown < 0f) {
+                        a.chompCooldown = 0f;
+                    }
+                }
 
-                            if(z.row==a.row)
-                                z.hp=0;
-                        }
+                if (a.type == 1) {
 
-                        a.chomperFoodActive=false;
+                    float interval =
+                            a.foodTime > 0f
+                                    ? 0.1f
+                                    : 5f;
 
-                        /*
-                         * Reset như Chomper
-                         * vừa mới đặt xuống.
-                         */
-                        a.chomperReady=true;
-                        a.timer=0;
+                    if (a.timer >= interval) {
+
+                        sun += 100;
+                        a.timer = 0f;
+                    }
+                }
+
+                if (a.type == 2) {
+
+                    float interval =
+                            a.foodTime > 0f
+                                    ? 0.1f
+                                    : 1.2f;
+
+                    if (a.timer >= interval &&
+                            rowHasZombie(a.row)) {
+
+                        bullets.add(
+                                new Bullet(
+                                        left +
+                                        a.col * cellW +
+                                        cellW - 10,
+
+                                        top +
+                                        a.row * cellH +
+                                        cellH / 2,
+
+                                        a.row
+                                )
+                        );
+
+                        a.timer = 0f;
                     }
                 }
 
                 /*
-                 * Chomper mới đặt:
-                 * ăn ngay.
+                 * CHOMPER
+                 *
+                 * Khi vừa đặt:
+                 * chompCooldown = 0
+                 * => ăn được ngay.
+                 *
+                 * Ăn xong:
+                 * chompCooldown = 40 giây.
                  */
-                if(
-                        a.type==4 &&
-                        !a.chomperFoodActive &&
-                        a.chomperReady
-                ){
+                if (a.type == 4 &&
+                        a.chompCooldown <= 0f) {
 
-                    Zombie z=
+                    Zombie z =
                             chompTarget(a);
 
-                    if(z!=null){
+                    if (z != null) {
 
-                        z.hp=0;
+                        z.hp = 0;
 
-                        a.chomperReady=false;
-                        a.timer=0;
-                    }
-                }
-
-                /*
-                 * Sau khi ăn thường:
-                 * chờ 40 giây.
-                 */
-                else if(
-                        a.type==4 &&
-                        !a.chomperFoodActive &&
-                        !a.chomperReady &&
-                        a.timer>=40f
-                ){
-
-                    Zombie z=
-                            chompTarget(a);
-
-                    if(z!=null){
-
-                        z.hp=0;
-                        a.timer=0;
+                        a.chompCooldown = 40f;
                     }
                 }
             }
 
-            for(Zombie z:zombies){
+            for (Zombie z : zombies) {
 
-                if(z.slow>0)
-                    z.slow-=dt;
+                if (z.slow > 0f) {
+
+                    z.slow -= dt;
+
+                    if (z.slow < 0f) {
+                        z.slow = 0f;
+                    }
+                }
             }
 
             updateBullets();
             updateBombBullets();
             updateZombies();
-            updateCoinDrops(dt);
-
             clean();
 
-            if(
-                    spawned>=total &&
+            if (spawned >= total &&
                     zombies.isEmpty() &&
-                    killed>=total
-            ){
+                    killed >= total) {
 
-                win=true;
+                win = true;
             }
         }
 
-        boolean rowHas(int row){
+        boolean rowHasZombie(int row) {
 
-            for(Zombie z:zombies)
-                if(z.row==row)
+            for (Zombie z : zombies) {
+
+                if (z.row == row) {
                     return true;
+                }
+            }
 
             return false;
         }
 
-        void updateBullets(){
+        void updateBullets() {
 
-            Iterator<Bullet>it=
+            Iterator<Bullet> it =
                     bullets.iterator();
 
-            while(it.hasNext()){
+            while (it.hasNext()) {
 
-                Bullet b=it.next();
+                Bullet b = it.next();
 
-                b.x+=8;
+                b.x += 8f;
 
-                boolean hit=false;
+                boolean hit = false;
 
-                for(Zombie z:zombies){
+                for (Zombie z : zombies) {
 
-                    if(
-                            z.row==b.row &&
-                            Math.abs(z.x-b.x)<35
-                    ){
+                    if (z.row == b.row &&
+                            Math.abs(z.x - b.x) < 35f) {
 
-                        z.hp-=25;
-                        hit=true;
+                        z.hp -= 25;
+
+                        hit = true;
+
                         break;
                     }
                 }
 
-                if(
-                        hit ||
-                        b.x>getWidth()+60
-                ){
+                if (hit ||
+                        b.x > getWidth() + 60) {
 
                     it.remove();
                 }
             }
         }
 
-        void updateBombBullets(){
+        void updateBombBullets() {
 
-            Iterator<BombBullet>it=
+            Iterator<BombBullet> it =
                     bombBullets.iterator();
 
-            while(it.hasNext()){
+            while (it.hasNext()) {
 
-                BombBullet b=it.next();
+                BombBullet b = it.next();
 
-                float dx=b.tx-b.x;
-                float dy=b.ty-b.y;
+                float dx = b.tx - b.x;
+                float dy = b.ty - b.y;
 
-                float d=
-                        (float)Math.sqrt(
-                                dx*dx+
-                           void updateZombies(){
+                float d =
+                        (float) Math.sqrt(
+                                dx * dx + dy * dy
+                        );
 
-            for(Zombie z:zombies){
+                if (d <= b.speed ||
+                        d == 0f) {
 
-                if(z.x<-70){
+                    bombExplode(
+                            b.tx,
+                            b.ty,
+                            b.row
+                    );
 
-                    lose=true;
+                    it.remove();
+
+                } else {
+
+                    b.x +=
+                            dx / d *
+                            b.speed;
+
+                    b.y +=
+                            dy / d *
+                            b.speed;
+                }
+            }
+        }
+
+        void bombExplode(
+                float x,
+                float y,
+                int row
+        ) {
+
+            int col = Math.max(
+                    0,
+                    Math.min(
+                            COLS - 1,
+                            (int) ((x - left) / cellW)
+                    )
+            );
+
+            for (Plant a : plants) {
+
+                if (Math.abs(a.col - col) <= 1 &&
+                        Math.abs(a.row - row) <= 1) {
+
+                    a.hp -= 100;
+                }
+            }
+                }        void updateZombies() {
+
+            for (Zombie z : zombies) {
+
+                if (z.x < -70) {
+                    lose = true;
                     return;
                 }
 
                 /*
-                 * Zomvinhhung:
-                 * chỉ đứng yên và ném.
+                 * ZOMVINHHUNG
+                 *
+                 * Chỉ xuất hiện ở màn 3.
+                 * Đi tới ô thứ 2 rồi đứng lại.
+                 * Cứ 8 giây ném một quả bom.
                  */
-                if(z.bomber){
+                if (z.bomber) {
 
-                    float stop=
-                            left+
-                            cellW*1.5f;
+                    float stop =
+                            left + cellW * 1.5f;
 
-                    if(z.x>stop){
+                    if (z.x > stop) {
 
-                        z.x-=.6f;
+                        z.x -= 0.6f;
 
-                    }else{
+                    } else {
 
-                        z.x=stop;
-                        z.stopped=true;
+                        z.x = stop;
+                        z.stopped = true;
                     }
 
-                    if(z.stopped){
+                    if (z.stopped) {
 
-                        z.throwTimer+=30;
+                        z.throwTimer += 30f;
 
-                        if(z.throwTimer>=8000){
+                        if (z.throwTimer >= 8000f) {
 
                             bombBullets.add(
                                     new BombBullet(
@@ -864,124 +772,125 @@ public class MainActivity extends Activity {
                                     )
                             );
 
-                            z.throwTimer=0;
+                            z.throwTimer = 0f;
                         }
                     }
 
                     continue;
                 }
 
-                Plant a=findPlant(z);
+                Plant a = findPlant(z);
 
-                if(a!=null){
+                if (a != null) {
 
-                    long n=
+                    long n =
                             System.currentTimeMillis();
 
-                    if(n-a.lastBite>=500){
+                    if (n - a.lastBite >= 500) {
 
-                        a.hp-=100;
-                        a.lastBite=n;
+                        a.hp -=
+                                z.big
+                                        ? 150
+                                        : 100;
+
+                        a.lastBite = n;
                     }
 
-                }else{
+                } else {
 
-                    float speed=
-                            z.big ?
-                            .55f :
-                            1f;
+                    float speed =
+                            z.big
+                                    ? 0.55f
+                                    : 1f;
 
-                    if(z.slow>0)
-                        speed*=.45f;
+                    if (z.slow > 0f) {
+                        speed *= 0.45f;
+                    }
 
-                    z.x-=speed;
+                    z.x -= speed;
                 }
             }
         }
 
-        Plant findPlant(Zombie z){
+        Plant findPlant(Zombie z) {
 
-            for(Plant a:plants){
+            for (Plant a : plants) {
 
-                if(a.row==z.row){
-
-                    float px=
-                            left+
-                            a.col*cellW+
-                            cellW/2;
-
-                    if(
-                            Math.abs(z.x-px)<
-                            (z.big?70:55)
-                    ){
-
-                        return a;
-                    }
+                if (a.row != z.row) {
+                    continue;
                 }
-            }
 
-            return null;
-        }
+                float px =
+                        left +
+                        a.col * cellW +
+                        cellW / 2;
 
-        Zombie chompTarget(Plant a){
+                if (Math.abs(z.x - px) <
+                        (z.big ? 70f : 55f)) {
 
-            for(Zombie z:zombies){
-
-                if(z.row==a.row){
-
-                    float px=
-                            left+
-                            a.col*cellW+
-                            cellW/2;
-
-                    if(
-                            Math.abs(z.x-px)<
-                            cellW*1.5f
-                    ){
-
-                        return z;
-                    }
+                    return a;
                 }
             }
 
             return null;
         }
 
-        void spawn(){
+        Zombie chompTarget(Plant a) {
 
-            int row=r.nextInt(ROWS);
+            for (Zombie z : zombies) {
 
-            boolean big=false;
-            boolean bomber=false;
+                if (z.row != a.row) {
+                    continue;
+                }
 
-            if(level==2){
+                float px =
+                        left +
+                        a.col * cellW +
+                        cellW / 2;
 
-                big=
-                        spawned>=4 &&
-                        spawned%4==0;
+                if (Math.abs(z.x - px) <
+                        cellW * 1.5f) {
+
+                    return z;
+                }
             }
 
-            if(level==3){
+            return null;
+        }
 
-                if(
-                        spawned>0 &&
-                        spawned%4==0
-                ){
+        void spawn() {
 
-                    bomber=true;
+            int row = r.nextInt(ROWS);
 
-                }else if(spawned%3==0){
+            boolean big = false;
+            boolean bomber = false;
 
-                    big=true;
+            if (level == 2) {
+
+                big =
+                        spawned >= 4 &&
+                        spawned % 4 == 0;
+            }
+
+            if (level == 3) {
+
+                if (spawned > 0 &&
+                        spawned % 4 == 0) {
+
+                    bomber = true;
+
+                } else if (spawned % 3 == 0) {
+
+                    big = true;
                 }
             }
 
             zombies.add(
                     new Zombie(
-                            getWidth()+70,
-                            top+
-                            row*cellH+
-                            cellH/2,
+                            getWidth() + 70,
+                            top +
+                            row * cellH +
+                            cellH / 2,
                             row,
                             big,
                             bomber
@@ -991,237 +900,151 @@ public class MainActivity extends Activity {
             spawned++;
         }
 
-        void clean(){
+        void clean() {
 
-            Iterator<Plant>pi=
+            Iterator<Plant> pi =
                     plants.iterator();
 
-            while(pi.hasNext()){
+            while (pi.hasNext()) {
 
-                if(pi.next().hp<=0)
+                if (pi.next().hp <= 0) {
                     pi.remove();
+                }
             }
 
-            Iterator<Zombie>zi=
+            Iterator<Zombie> zi =
                     zombies.iterator();
 
-            while(zi.hasNext()){
+            while (zi.hasNext()) {
 
-                Zombie z=zi.next();
+                Zombie z = zi.next();
 
-                if(z.hp<=0){
+                if (z.hp <= 0) {
 
                     zi.remove();
 
                     killed++;
-                    sun+=25;
 
-                    int q=
-                            r.nextInt(100);
+                    sun += 25;
+                }
+            }
 
-                    /*
-                     * 1% kim cương = 100
-                     * 5% vàng = 50
-                     * 10% bạc = 25
-                     */
-                    if(q<1){
+            Iterator<Bullet> bi =
+                    bullets.iterator();
 
-                        coinDrops.add(
-                                new CoinDrop(
-                                        z.x,
-                                        z.y,
-                                        3,
-                                        100
-                                )
-                        );
+            while (bi.hasNext()) {
 
-                    }else if(q<6){
+                if (bi.next().x >
+                        getWidth() + 60) {
 
-                        coinDrops.add(
-                                new CoinDrop(
-                                        z.x,
-                                        z.y,
-                                        2,
-                                        50
-                                )
-                        );
-
-                    }else if(q<16){
-
-                        coinDrops.add(
-                                new CoinDrop(
-                                        z.x,
-                                        z.y,
-                                        1,
-                                        25
-                                )
-                        );
-                    }
+                    bi.remove();
                 }
             }
         }
 
-        void updateCoinDrops(float dt){
+        boolean occupied(
+                int row,
+                int col
+        ) {
 
-            Iterator<CoinDrop>it=
-                    coinDrops.iterator();
+            for (Plant a : plants) {
 
-            while(it.hasNext()){
+                if (a.row == row &&
+                        a.col == col) {
 
-                CoinDrop d=it.next();
-
-                d.life-=dt;
-
-                if(d.life<=0)
-                    it.remove();
+                    return true;
+                }
             }
+
+            return false;
         }
 
-        void usePlantFood(float x,float y){
+        /*
+         * PLANT FOOD
+         *
+         * Chomper:
+         * - hút toàn bộ zombie trên cùng hàng
+         * - nuốt hết
+         * - cooldown trở về 0 ngay
+         * - có thể ăn tiếp ngay sau Plant Food
+         */
+        void usePlantFood(
+                float x,
+                float y
+        ) {
 
-            if(plantFood<=0){
+            if (plantFood <= 0) {
 
-                support=0;
+                selected = 0;
                 return;
             }
 
-            int col=
-                    Math.max(
-                            0,
-                            Math.min(
-                                    COLS-1,
-                                    (int)((x-left)/cellW)
-                            )
-                    );
+            int col = Math.max(
+                    0,
+                    Math.min(
+                            COLS - 1,
+                            (int) ((x - left) / cellW)
+                    )
+            );
 
-            int row=
-                    Math.max(
-                            0,
-                            Math.min(
-                                    ROWS-1,
-                                    (int)((y-top)/cellH)
-                            )
-                    );
+            int row = Math.max(
+                    0,
+                    Math.min(
+                            ROWS - 1,
+                            (int) ((y - top) / cellH)
+                    )
+            );
 
-            boolean used=false;
+            for (Plant a : plants) {
 
-            /*
-             * Plant Food chỉ dùng cho cây.
-             * Không còn cho Zomvinhhung.
-             */
-            for(Plant a:plants){
+                if (a.row != row ||
+                        a.col != col) {
 
-                if(
-                        a.row==row &&
-                        a.col==col
-                ){
+                    continue;
+                }
 
-                    if(a.type==1){
+                if (a.type == 4) {
 
-                        a.foodTime=3f;
-                        sun+=300;
-                        used=true;
+                    for (Zombie z : zombies) {
 
-                    }else if(a.type==2){
-
-                        a.foodTime=3f;
-                        used=true;
-
-                    }else if(
-                            a.type==4 &&
-                            !a.chomperFoodActive
-                    ){
-
-                        /*
-                         * Chomper hút toàn bộ zombie
-                         * trên hàng rồi nuốt.
-                         */
-                        a.chomperFoodActive=true;
-                        a.chomperFoodTimer=.7f;
-                        a.chomperReady=false;
-
-                        used=true;
+                        if (z.row == a.row) {
+                            z.hp = 0;
+                        }
                     }
 
-                    break;
+                    a.chompCooldown = 0f;
+                    a.timer = 0f;
+
+                    plantFood--;
+
+                    selected = 0;
+
+                    return;
                 }
+
+                /*
+                 * Plant Food thường cho Sunflower
+                 * hoặc Peashooter vẫn được giữ.
+                 */
+                if (a.type == 1 ||
+                        a.type == 2) {
+
+                    a.foodTime = 3f;
+
+                    plantFood--;
+
+                    selected = 0;
+
+                    return;
+                }
+
+                break;
             }
 
-            if(used)
-                plantFood--;
-
-            support=0;
+            selected = 0;
         }
 
-        void useSupport(float x,float y){
-
-            int cost=
-                    support==1 ?
-                    30 :
-                    support==2 ?
-                    60 :
-                    90;
-
-            if(coins<cost){
-
-                support=0;
-                return;
-            }
-
-            int row=
-                    Math.max(
-                            0,
-                            Math.min(
-                                    ROWS-1,
-                                    (int)((y-top)/cellH)
-                            )
-                    );
-
-            int col=
-                    Math.max(
-                            0,
-                            Math.min(
-                                    COLS-1,
-                                    (int)((x-left)/cellW)
-                            )
-                    );
-
-            for(Zombie z:zombies){
-
-                if(
-                        z.row>=row-1 &&
-                        z.row<=row+1 &&
-                        Math.abs(
-                                z.x-
-                                (
-                                    left+
-                                    col*cellW+
-                                    cellW/2
-                                )
-                        )<
-                        cellW*1.6f
-                ){
-
-                    if(support==1){
-
-                        z.hp-=500;
-
-                    }else if(support==2){
-
-                        z.slow=5;
-
-                    }else{
-
-                        z.hp-=800;
-                    }
-                }
-            }
-
-            coins-=cost;
-            support=0;
-        }
-
-        void drawEnd(Canvas c){
+        void drawEnd(Canvas c) {
 
             p.setColor(0xAA000000);
 
@@ -1238,48 +1061,43 @@ public class MainActivity extends Activity {
             );
 
             p.setColor(Color.WHITE);
-            p.setTextSize(34);
+            p.setTextSize(36);
 
-            if(win){
-
-                if(level==2)
-                    chomperUnlocked=true;
+            if (win) {
 
                 c.drawText(
-                        level==2 ?
-                        "MỞ KHÓA CHOMPER!" :
-                        "THẮNG MÀN "+level,
-                        getWidth()/2f,
-                        getHeight()/2f-20,
+                        "THẮNG MÀN " + level,
+                        getWidth() / 2f,
+                        getHeight() / 2f - 20,
                         p
                 );
 
-                p.setTextSize(17);
+                p.setTextSize(18);
 
                 c.drawText(
-                        level<3 ?
-                        "CHẠM ĐỂ SANG MÀN TIẾP" :
-                        "CHẠM ĐỂ CHƠI LẠI",
-                        getWidth()/2f,
-                        getHeight()/2f+35,
+                        level < 3
+                                ? "CHẠM ĐỂ SANG MÀN TIẾP"
+                                : "CHẠM ĐỂ CHƠI LẠI",
+                        getWidth() / 2f,
+                        getHeight() / 2f + 35,
                         p
                 );
 
-            }else{
+            } else {
 
                 c.drawText(
                         "THUA!",
-                        getWidth()/2f,
-                        getHeight()/2f-20,
+                        getWidth() / 2f,
+                        getHeight() / 2f - 20,
                         p
                 );
 
-                p.setTextSize(17);
+                p.setTextSize(18);
 
                 c.drawText(
                         "CHẠM ĐỂ CHƠI LẠI",
-                        getWidth()/2f,
-                        getHeight()/2f+35,
+                        getWidth() / 2f,
+                        getHeight() / 2f + 35,
                         p
                 );
             }
@@ -1289,207 +1107,207 @@ public class MainActivity extends Activity {
             );
         }
 
-        void reset(boolean all){
+        void reset(boolean all) {
 
             plants.clear();
             zombies.clear();
             bullets.clear();
             bombBullets.clear();
-            coinDrops.clear();
 
-            selected=0;
-            support=0;
-            spawned=0;
-            killed=0;
+            selected = 0;
+            spawned = 0;
+            killed = 0;
 
-            lose=false;
-            win=false;
+            lose = false;
+            win = false;
 
-            if(all){
+            if (all) {
 
-                level=1;
-                chomperUnlocked=false;
-
-                sun=500;
-                coins=9999;
-                plantFood=0;
+                level = 1;
+                sun = 500;
+                plantFood = 0;
             }
 
-            last=
+            last =
                     System.currentTimeMillis();
 
-            spawnTime=last;
+            spawnTime = last;
         }
 
         @Override
         public boolean onTouchEvent(
                 MotionEvent e
-        ){
+        ) {
 
-            if(
-                    e.getAction() !=
-                    MotionEvent.ACTION_DOWN
-            )
-                return true;
+            if (e.getAction() !=
+                    MotionEvent.ACTION_DOWN) {
 
-            float x=e.getX();
-            float y=e.getY();
-
-            if(lose){
-
-                reset(true);
-                invalidate();
                 return true;
             }
 
-            if(win){
+            float x = e.getX();
+            float y = e.getY();
 
-                if(level==2)
-                    chomperUnlocked=true;
+            if (lose) {
 
-                if(level<3){
+                reset(true);
+                invalidate();
+
+                return true;
+            }
+
+            if (win) {
+
+                if (level < 3) {
 
                     level++;
                     reset(false);
 
-                }else{
+                } else {
 
                     reset(true);
                 }
 
                 invalidate();
+
                 return true;
             }
 
             /*
-             * Chọn kỹ năng hỗ trợ.
+             * CHỌN CÂY
              */
-            if(y>=40&&y<=140){
+            if (y >= 45 &&
+                    y <= 135) {
 
-                if(x>=500&&x<620){
+                if (x < 125) {
 
-                    support=1;
-                    selected=0;
+                    selected = 1;
+                    invalidate();
                     return true;
                 }
 
-                if(x>=625&&x<745){
+                if (x < 250) {
 
-                    support=2;
-                    selected=0;
+                    selected = 2;
+                    invalidate();
                     return true;
                 }
 
-                if(x>=750&&x<870){
+                if (x < 375) {
 
-                    support=3;
-                    selected=0;
+                    selected = 3;
+                    invalidate();
+                    return true;
+                }
+
+                if (x < 500 &&
+                        chomperUnlocked) {
+
+                    selected = 4;
+                    invalidate();
+                    return true;
+                }
+
+                /*
+                 * Nút Plant Food.
+                 */
+                if (x >= 500) {
+
+                    if (plantFood > 0) {
+                        selected = 9;
+                    }
+
+                    invalidate();
+
                     return true;
                 }
             }
 
             /*
-             * Chọn cây.
+             * DÙNG PLANT FOOD
              */
-            if(y>=40&&y<=140){
+            if (selected == 9 &&
+                    x >= left &&
+                    x < left + COLS * cellW &&
+                    y >= top &&
+                    y < top + ROWS * cellH) {
 
-                if(x<125){
-
-                    selected=1;
-
-                }else if(x<250){
-
-                    selected=2;
-
-                }else if(x<375){
-
-                    selected=3;
-
-                }else if(
-                        x<500 &&
-                        chomperUnlocked
-                ){
-
-                    selected=4;
-                }
+                usePlantFood(x, y);
 
                 invalidate();
+
                 return true;
             }
 
             /*
-             * Đặt cây / dùng Plant Food /
-             * dùng kỹ năng.
+             * ĐẶT CÂY
              */
-            if(
-                    x>=left &&
-                    x<left+COLS*cellW &&
-                    y>=top &&
-                    y<top+ROWS*cellH
-            ){
+            if (selected >= 1 &&
+                    selected <= 4 &&
+                    x >= left &&
+                    x < left + COLS * cellW &&
+                    y >= top &&
+                    y < top + ROWS * cellH) {
 
-                if(support!=0){
+                int col =
+                        (int) ((x - left) / cellW);
 
-                    useSupport(x,y);
-                    invalidate();
-                    return true;
-                }
+                int row =
+                        (int) ((y - top) / cellH);
 
-                if(
-                        selected==0 &&
-                        plantFood>0
-                ){
+                if (!occupied(row, col)) {
 
-                    usePlantFood(x,y);
-                    invalidate();
-                    return true;
-                }
+                    int cost;
 
-                if(selected!=0){
+                    if (selected == 1) {
+                        cost = 50;
+                    } else if (selected == 2) {
+                        cost = 100;
+                    } else {
+                        cost = 150;
+                    }
 
-                    int col=
-                            (int)((x-left)/cellW);
+                    if (sun >= cost) {
 
-                    int row=
-                            (int)((y-top)/cellH);
+                        int max;
 
-                    if(!occupied(row,col)){
+                        if (selected == 1) {
 
-                        int cost=
-                                selected==1 ?
-                                50 :
-                                selected==2 ?
-                                100 :
-                                selected==3 ?
-                                150 :
-                                150;
+                            max = 300;
 
-                        if(sun>=cost){
+                        } else if (selected == 2) {
+
+                            max = 400;
+
+                        } else if (selected == 3) {
 
                             /*
-                             * Giganut = 6000 HP.
+                             * GIGANUT:
+                             * 3000 -> 6000 HP
+                             * = x2 máu.
                              */
-                            int max=
-                                    selected==1 ?
-                                    300 :
-                                    selected==2 ?
-                                    400 :
-                                    selected==3 ?
-                                    6000 :
-                                    800;
+                            max = 6000;
 
-                            plants.add(
-                                    new Plant(
-                                            selected,
-                                            row,
-                                            col,
-                                            max
-                                    )
-                            );
+                        } else {
 
-                            sun-=cost;
-                            selected=0;
+                            /*
+                             * CHOMPER
+                             */
+                            max = 800;
                         }
+
+                        plants.add(
+                                new Plant(
+                                        selected,
+                                        row,
+                                        col,
+                                        max
+                                )
+                        );
+
+                        sun -= cost;
+
+                        selected = 0;
                     }
                 }
 
@@ -1498,76 +1316,62 @@ public class MainActivity extends Activity {
 
             return true;
         }
-
-        boolean occupied(
-                int row,
-                int col
-        ){
-
-            for(Plant a:plants){
-
-                if(
-                        a.row==row &&
-                        a.col==col
-                ){
-
-                    return true;
-                }
-            }
-
-            return false;
-        }
     }
 
-    class Plant{
+    class Plant {
 
-        int type,row,col,hp,max;
+        int type;
+        int row;
+        int col;
+
+        int hp;
+        int max;
 
         float timer;
-        long lastBite;
-
         float foodTime;
 
-        boolean chomperReady;
-        boolean chomperFoodActive;
-        float chomperFoodTimer;
+        /*
+         * Chomper cooldown.
+         * 0 = ăn được ngay.
+         * 40 = vừa ăn xong, chờ 40 giây.
+         */
+        float chompCooldown;
+
+        long lastBite;
 
         Plant(
                 int t,
                 int r,
                 int c,
                 int h
-        ){
+        ) {
 
-            type=t;
-            row=r;
-            col=c;
+            type = t;
+            row = r;
+            col = c;
 
-            hp=max=h;
+            hp = h;
+            max = h;
 
-            foodTime=0;
+            timer = 0f;
+            foodTime = 0f;
+            chompCooldown = 0f;
 
-            /*
-             * Chomper vừa đặt:
-             * được ăn ngay.
-             */
-            chomperReady=(t==4);
-
-            chomperFoodActive=false;
-            chomperFoodTimer=0;
+            lastBite = 0L;
         }
     }
 
-    class Zombie{
+    class Zombie {
 
-        float x,y;
+        float x;
+        float y;
 
-        float damageTimer;
         float throwTimer;
         float slow;
 
         int row;
-        int hp,max;
+        int hp;
+        int max;
 
         boolean big;
         boolean bomber;
@@ -1579,90 +1383,87 @@ public class MainActivity extends Activity {
                 int rr,
                 boolean b,
                 boolean bo
-        ){
+        ) {
 
-            x=xx;
-            y=yy;
-            row=rr;
+            x = xx;
+            y = yy;
+            row = rr;
 
-            big=b;
-            bomber=bo;
+            big = b;
+            bomber = bo;
+            stopped = false;
+
+            throwTimer = 0f;
+            slow = 0f;
 
             /*
-             * Zomto = 1000 HP
-             * Zomvinhhung = 500 HP
+             * Zomto = 1000 HP.
+             *
+             * Zomvinhhung = 500 HP.
+             * => đúng bằng 1/2 Zomto.
              */
-            hp=max=
-                    bo ?
-                    500 :
-                    b ?
-                    1000 :
-                    300;
+            if (bo) {
+
+                hp = 500;
+
+            } else if (b) {
+
+                hp = 1000;
+
+            } else {
+
+                hp = 300;
+            }
+
+            max = hp;
         }
     }
 
-    class Bullet{
+    class Bullet {
 
-        float x,y;
+        float x;
+        float y;
         int row;
 
         Bullet(
                 float xx,
                 float yy,
                 int rr
-        ){
+        ) {
 
-            x=xx;
-            y=yy;
-            row=rr;
+            x = xx;
+            y = yy;
+            row = rr;
         }
     }
 
-    class BombBullet{
+    class BombBullet {
 
-        float x,y,tx,ty;
-        float speed=5;
+        float x;
+        float y;
+
+        float tx;
+        float ty;
+
+        float speed = 5f;
 
         int row;
 
         BombBullet(
                 float xx,
                 float yy,
-                float a,
-                float b,
-                int r
-        ){
+                float targetX,
+                float targetY,
+                int rr
+        ) {
 
-            x=xx;
-            y=yy;
+            x = xx;
+            y = yy;
 
-            tx=a;
-            ty=b;
+            tx = targetX;
+            ty = targetY;
 
-            row=r;
+            row = rr;
         }
     }
-
-    class CoinDrop{
-
-        float x,y;
-        float life=8f;
-
-        int type;
-        int value;
-
-        CoinDrop(
-                float xx,
-                float yy,
-                int t,
-                int v
-        ){
-
-            x=xx;
-            y=yy;
-
-            type=t;
-            value=v;
-        }
-    }
-                   }
+                        }
