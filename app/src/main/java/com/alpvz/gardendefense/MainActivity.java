@@ -57,8 +57,10 @@ public class MainActivity extends Activity {
         int selected=PEA, tool=TOOL_NONE;
         int wave=0, waves=3, waveSpawned=0, totalKilled=0;
         long lastTime, spawnTime, waveTime;
-        boolean bossSpawned=false, conveyorMode=false;
-        final int[] conveyor = new int[6];
+        boolean bossSpawned=false;
+        int randomModeLevel=0, miniType=0, miniScore=0, miniGoal=8;
+        boolean miniActive=false;
+        float miniTimer=0f;
         SharedPreferences prefs;
 
         GameView(Context c) {
@@ -92,7 +94,7 @@ public class MainActivity extends Activity {
 
         void layout() {
             left=54f;
-            top=conveyorMode?92f:74f;
+            top=74f;
             cellW=(getWidth()-left-8f)/COLS;
             cellH=(getHeight()-top-10f)/ROWS;
         }
@@ -124,7 +126,7 @@ public class MainActivity extends Activity {
         void drawGame(Canvas c) {
             c.drawColor(Color.rgb(97,171,67));
             drawTop(c); drawBoard(c); drawMowers(c); drawPlants(c);
-            drawShots(c); drawEnemyShots(c); drawZombies(c); drawBottom(c);
+            drawShots(c); drawEnemyShots(c); drawZombies(c); drawBottom(c); drawMiniOverlay(c);
         }
 
         void drawTop(Canvas c) {
@@ -135,18 +137,7 @@ public class MainActivity extends Activity {
             circle(c,getWidth()-27,18,16,Color.DKGRAY);
             text(c,"II",getWidth()-27,23,Color.WHITE,11,Paint.Align.CENTER);
 
-            if(conveyorMode){
-                text(c,"BĂNG CHUYỀN CÂY",getWidth()/2f,43,Color.YELLOW,12,Paint.Align.CENTER);
-                float sw=(getWidth()-24f)/6f;
-                for(int i=0;i<6;i++){
-                    float x=4+i*sw;
-                    p.setColor(Color.WHITE);
-                    c.drawRoundRect(new RectF(x+1,48,x+sw-1,top-4),6,6,p);
-                    Bitmap b=plantImage(conveyor[i]);
-                    if(b!=null)c.drawBitmap(b,null,new RectF(x+4,50,x+sw-4,top-7),p);
-                    text(c,plantName(conveyor[i]),x+sw/2f,top-11,Color.DKGRAY,7,Paint.Align.CENTER);
-                }
-            }else{
+            { 
                 float sw=getWidth()/6f;
                 card(c,0,"SUN",SUN,sunImg,sw);
                 card(c,1,"PEA",PEA,peaImg,sw);
@@ -197,7 +188,7 @@ public class MainActivity extends Activity {
         }
 
         void drawShots(Canvas c){
-                    for(PeaShot s:shots){
+            for(PeaShot s:shots){
                 if(bulletImg!=null)c.drawBitmap(bulletImg,null,new RectF(s.x-11,s.y-11,s.x+11,s.y+11),p);
                 else{p.setColor(Color.GREEN);c.drawCircle(s.x,s.y,7,p);}
             }
@@ -206,7 +197,7 @@ public class MainActivity extends Activity {
         void drawEnemyShots(Canvas c){
             for(EnemyShot s:enemyShots){p.setColor(Color.rgb(70,220,70));c.drawCircle(s.x,s.y,8,p);}
         }
-
+        
         void drawZombies(Canvas c){
             for(Zombie z:zombies){
                 if(z.dead)continue;
@@ -229,8 +220,34 @@ public class MainActivity extends Activity {
 
         void circle(Canvas c,float x,float y,float r,int color){p.setColor(color);c.drawCircle(x,y,r,p);}
 
+        void drawMiniOverlay(Canvas c){
+            if(!miniActive)return;
+            p.setColor(0xee17351b); c.drawRect(0,0,getWidth(),getHeight(),p);
+            String title=miniType==1?"MINIGAME: ĐẬP ZOMBIE":(miniType==2?"MINIGAME: THU MẦM":"MINIGAME: CHỌN Ô");
+            text(c,title,getWidth()/2f,52,Color.WHITE,24,Paint.Align.CENTER);
+            text(c,"Điểm "+miniScore+"/"+miniGoal,getWidth()/2f,82,Color.YELLOW,17,Paint.Align.CENTER);
+            text(c,"Thời gian "+(int)Math.ceil(miniTimer),getWidth()-18,28,Color.WHITE,13,Paint.Align.RIGHT);
+            if(miniType==1){for(int i=0;i<6;i++){float x=90+(i%3)*220,y=145+(i/3)*125;p.setColor(Color.DKGRAY);c.drawCircle(x,y,32,p);text(c,"Z",x,y+9,Color.WHITE,24,Paint.Align.CENTER);}}
+            else if(miniType==2){for(int i=0;i<8;i++){float x=75+(i%4)*155,y=145+(i/4)*120;p.setColor(Color.rgb(65,155,70));c.drawRoundRect(new RectF(x-38,y-28,x+38,y+28),10,10,p);text(c,"MẦM",x,y+5,Color.WHITE,12,Paint.Align.CENTER);}}
+            else{for(int i=0;i<9;i++){float x=85+(i%3)*190,y=135+(i/3)*100;p.setColor(Color.rgb(82,145,72));c.drawRect(x-58,y-32,x+58,y+32,p);text(c,"Ô "+(i+1),x,y+5,Color.WHITE,14,Paint.Align.CENTER);}}
+            text(c,"Chạm màn hình để chơi",getWidth()/2f,getHeight()-32,Color.LTGRAY,15,Paint.Align.CENTER);
+        }
+
+        void updateMiniGame(float dt){
+            miniTimer-=dt;
+            if(miniScore>=miniGoal || miniTimer<=0){
+                miniActive=false;
+                level=randomModeLevel; waves=wavesForLevel(); wave=0; waveSpawned=0; bossSpawned=false;
+                zombies.clear(); shots.clear(); delayed.clear(); enemyShots.clear();
+                for(int r=0;r<ROWS;r++)Arrays.fill(plants[r],null); resetMowers();
+                lastTime=spawnTime=waveTime=System.currentTimeMillis();
+            }
+        }
+
         void updateGame(){
             long now=System.currentTimeMillis();
+            float frameDt=Math.max(0f,Math.min(.08f,(now-lastTime)/1000f));
+            if(miniActive){updateMiniGame(frameDt);return;}
             float dt=Math.max(0f,Math.min(.08f,(now-lastTime)/1000f));
             lastTime=now;
 
@@ -379,7 +396,7 @@ public class MainActivity extends Activity {
         }
 
         Zombie nearest(Plant a){
-            Zombie best=null;float bd=Float.MAX_VALUE;
+                                Zombie best=null;float bd=Float.MAX_VALUE;
             for(Zombie z:zombies)if(!z.dead&&z.row==a.row){
                 float d=Math.abs(z.x-(a.x+a.w));
                 if(d<cellW*1.5f&&d<bd){bd=d;best=z;}
@@ -396,7 +413,7 @@ public class MainActivity extends Activity {
         }
 
         boolean rowHas(int row){for(Zombie z:zombies)if(!z.dead&&z.row==row)return true;return false;}
-                    
+
         void useFood(int row,int col){
             if(plantFood<=0)return;
             Plant a=plants[row][col];if(a==null)return;
@@ -416,45 +433,30 @@ public class MainActivity extends Activity {
             Plant a=new Plant(type,row,col,hp,left+col*cellW,top+row*cellH,cellW,cellH);
             if(type==MINE){a.mineTimer=30f;a.ready=false;}
             plants[row][col]=a;
-            if(conveyorMode)replaceConveyor(type);
             selected=PEA;
-        }
-
-        void replaceConveyor(int used){
-            for(int i=0;i<conveyor.length;i++)if(conveyor[i]==used){conveyor[i]=randomConveyorPlant();return;}
-        }
-        int randomConveyorPlant(){int[] pool={PEA,SUN,GIGA,CHOMP,REPEAT,MINE};return pool[rnd.nextInt(pool.length)];}
-
-        boolean unlocked(int type){
-            if(type==PEA)return true;
-            if(type==SUN)return true;
-            if(type==GIGA)return level>=2;
-            if(type==MINE)return level>=3;
-            if(type==CHOMP)return level>=4;
-            if(type==REPEAT)return level>=5;
-            return false;
         }
 
         void startLevel(int lv){
             level=Math.max(1,Math.min(MAX_LEVEL,lv));
-            waves=wavesForLevel();wave=0;waveSpawned=0;bossSpawned=false;totalKilled=0;
-            selected=PEA;tool=TOOL_NONE;
-            zombies.clear();shots.clear();delayed.clear();enemyShots.clear();
+            waves=wavesForLevel(); wave=0; waveSpawned=0; bossSpawned=false;
+            selected=PEA; tool=TOOL_NONE; miniActive=false; miniType=0; miniTimer=0f; miniScore=0;
+            randomModeLevel=level;
+            zombies.clear(); shots.clear(); delayed.clear(); enemyShots.clear();
             for(int r=0;r<ROWS;r++)Arrays.fill(plants[r],null);
-            conveyorMode=level==2;
-            if(conveyorMode)for(int i=0;i<6;i++)conveyor[i]=randomConveyorPlant();
             resetMowers();
             lastTime=spawnTime=waveTime=System.currentTimeMillis();
+            if(level>=5 && level<=8){
+                randomModeLevel=5+rnd.nextInt(4);
+                miniType=1+rnd.nextInt(3);
+                miniTimer=20f; miniGoal=8; miniScore=0; miniActive=true;
+            }
             screen=1;
         }
-
-        int wavesForLevel(){return 3+Math.min(2,(level-1)/4);}
 
         void resetMowers(){
             for(int r=0;r<ROWS;r++)mowers[r]=new Mower(r,left-45);
         }
 
-        int plantNameWidth(){return 0;}
 
         Bitmap plantImage(int type){
             if(type==SUN)return sunImg;
@@ -517,6 +519,12 @@ public class MainActivity extends Activity {
             if(e.getAction()!=MotionEvent.ACTION_UP)return true;
             float x=e.getX(),y=e.getY();
 
+            if(screen==1 && miniActive){
+                miniScore++;
+                if(miniScore>=miniGoal){miniActive=false; updateMiniGame(0f);}
+                invalidate(); return true;
+            }
+
             if(screen==0){
                 for(int i=1;i<=MAX_LEVEL;i++){
                     int r=(i-1)/3,c=(i-1)%3;
@@ -547,15 +555,7 @@ public class MainActivity extends Activity {
             float by=getHeight()-42;
             if(Math.hypot(x-(getWidth()-145),y-by)<31){tool=TOOL_PF;selected=PEA;return true;}
             if(Math.hypot(x-(getWidth()-75),y-by)<31){tool=TOOL_SHOVEL;selected=PEA;return true;}
-
-            if(conveyorMode&&y>=48&&y<top){
-                float sw=(getWidth()-24f)/6f;
-                int slot=(int)((x-4)/sw);
-                if(slot>=0&&slot<6){selected=conveyor[slot];tool=TOOL_NONE;}
-                return true;
-            }
-
-            if(!conveyorMode&&y>=28&&y<top){
+            if(y>=28&&y<top){
                 float sw=getWidth()/6f;
                 int slot=(int)(x/sw);
                 selected=slot==0?SUN:slot==1?PEA:slot==2?GIGA:slot==3?CHOMP:slot==4?REPEAT:MINE;
@@ -594,5 +594,5 @@ public class MainActivity extends Activity {
         class EnemyShot{float x,y;int row;boolean dead;EnemyShot(float x,float y,int row){this.x=x;this.y=y;this.row=row;}}
         class Mower{int row;float x;boolean used,active;Mower(int row,float x){this.row=row;this.x=x;}}
     }
-                                                                                                      }
-                
+                }
+            
