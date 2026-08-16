@@ -84,7 +84,7 @@ public class MainActivity extends Activity {
             center(c,label,x,y+6,12,textColor);
         }
         void outline(Canvas c,float x,float w){p.setColor(Color.YELLOW);c.drawRoundRect(new RectF(x+1,23,x+w-1,76),7,7,p);p.setColor(0xdd183b20);c.drawRoundRect(new RectF(x+4,26,x+w-4,73),6,6,p);}
-        void card(Canvas c,int i,String name,int type,Bitmap img,float w,boolean enabled){
+                                                                                                                                         void card(Canvas c,int i,String name,int type,Bitmap img,float w,boolean enabled){
             float x=i*w;
             p.setColor(enabled?Color.WHITE:0xff666666);
             c.drawRoundRect(new RectF(x+2,24,x+w-2,76),6,6,p);
@@ -169,7 +169,7 @@ void update(){
             }else{
                 miniX+=80*dt;
                 if(miniX>getWidth()+50){miniX=-50;miniY=130+rnd.nextInt(Math.max(1,getHeight()-250));}
-            }
+                        }
             invalidate();
         }
         void spawn(){int row=rnd.nextInt(R);boolean to=level>=2&&spawned%4==0;boolean giga=level>=3&&spawned%7==0;zs.add(new Zombie(getWidth()+60,top+row*ch+ch*.5f,row,to,giga));spawned++;}
@@ -207,7 +207,8 @@ if(z.dead)continue;Plant a=findPlant(z);if(a!=null){z.attack-=dt;if(z.attack<=0)
         void restart(){startLevel(level);}
         void plant(int r,int c){if(selected==0)return;if(selected==REP&&!repUnlocked())return;if(selected==MINE&&!mineUnlocked())return;int cost=selected==SUN?50:selected==PEA?100:selected==GIGA?175:selected==CHOMP?150:selected==REP?200:25;if(sun<cost||plants[r][c]!=null)return;sun-=cost;int hp=selected==SUN?300:selected==PEA?300:selected==GIGA?4000:selected==CHOMP?800:selected==REP?350:1;Plant a=new Plant(selected,r,c,hp,left+c*cw,top+r*ch,cw,ch);plants[r][c]=a;if(selected==MINE)mines.add(new Mine(a.x+cw/2,a.y+ch*.55f,r));selected=0;}
         boolean repUnlocked(){return unlocked>=5;} boolean mineUnlocked(){return unlocked>=3;}
-        void useFood(int r,int c){if(food<=0||plants[r][c]==null)return;Plant a=pla        void skill(int type,int r,int c){if(type==1)useFood(r,c);else if(type==2){if(sun>=50){sun-=50;for(Zombie z:zs)if(z.row==r&&Math.abs(z.x-(left+c*cw+cw/2))<cw*2)z.hp-=800;}}else if(type==3){if(99999>=30){coin=99999;for(Zombie z:zs)if(Math.abs(z.row-r)<=1)z.speed*=.5f;}}}
+        void useFood(int r,int c){if(food<=0||plants[r][c]==null)return;Plant a=plants[r][c];food--;a.pf=8;if(a.type==GIGA){a.max=8000;a.hp=8000;}if(a.type==CHOMP){a.pfMode=true;a.pull=4;a.timer=0;}else if(a.type==PEA||a.type==REP){a.timer=0;}else if(a.type==SUN){a.timer=0;}}
+        void skill(int type,int r,int c){if(type==1)useFood(r,c);else if(type==2){if(sun>=50){sun-=50;for(Zombie z:zs)if(z.row==r&&Math.abs(z.x-(left+c*cw+cw/2))<cw*2)z.hp-=800;}}else if(type==3){if(99999>=30){coin=99999;for(Zombie z:zs)if(Math.abs(z.row-r)<=1)z.speed*=.5f;}}}
         @Override public boolean onTouchEvent(MotionEvent e){if(e.getAction()!=MotionEvent.ACTION_UP)return true;float x=e.getX(),y=e.getY();
             if(screen==0){int cols=3;float w=getWidth()/3f,h=82;for(int i=1;i<=MAX;i++){int q=i-1,col=q%cols,row=q/cols;float bx=col*w+18,by=110+row*(h+14);if(x>=bx&&x<=bx+w-36&&y>=by&&y<=by+h&&i<=unlocked){startLevel(i);return true;}}return true;}
             if(miniRunning){
@@ -252,5 +253,5 @@ if(z.dead)continue;Plant a=findPlant(z);if(a!=null){z.attack-=dt;if(z.attack<=0)
         class Coin{float x,y,life=10;Coin(float x,float y){this.x=x;this.y=y;}}
         class Mower{int row;float x;boolean used,active;Mower(int r){row=r;x=left-45;}}
     }
-                }
-                                                                
+            }
+                              
