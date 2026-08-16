@@ -1,4 +1,5 @@
 package com.alpvz.gardendefense;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.content.pm.ActivityInfo;
@@ -7,543 +8,647 @@ import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.view.*;
 import java.util.*;
+
 /*
-* NEW MainActivity.java
-* Viết lại độc lập, không ghép từ các bản MainActivity cũ.
-*
-* Giữ:
-* - Màn hình ngang/fullscreen
-* - Bàn 5 x 9
-* - 9 màn
-* - Màn 1-4 bình thường
-* - Màn 2 KHÔNG phải băng chuyền
-* - Màn 5-8: random biến thể + mini game
-* - Máy cắt cỏ 5 hàng, mỗi hàng dùng 1 lần
-* - Sunflower, Peashooter, Giganut, Chomper, Repeater, Mine
-* - Plant Food
-* - Xẻng
-* - Repeater bắn 2 viên, viên thứ hai trễ 0.5 giây
-* - Boss lớn ở màn 9 bắn pea
-*
-* Không có:
-* - Zen Garden
-* - loading screen
-* - zombie Vĩnh Hùng
-* - băng chuyền cây ở màn 2
-* - các mini-game cũ không thuộc random mode 5-8
-*/
+ * NEW MainActivity.java
+ * Viết lại độc lập, không ghép từ các bản MainActivity cũ.
+ *
+ * Giữ:
+ * - Màn hình ngang/fullscreen
+ * - Bàn 5 x 9
+ * - 9 màn
+ * - Màn 1-4 bình thường
+ * - Màn 2 KHÔNG phải băng chuyền
+ * - Màn 5-8: chế độ thường như các màn khác
+ * - Máy cắt cỏ 5 hàng, mỗi hàng dùng 1 lần
+ * - Sunflower, Peashooter, Giganut, Chomper, Repeater, Mine
+ * - Plant Food
+ * - Xẻng
+ * - Repeater bắn 2 viên, viên thứ hai trễ 0.5 giây
+ * - Boss lớn ở màn 9 bắn pea
+ *
+ * Không có:
+ * - Zen Garden
+ * - loading screen
+ * - zombie Vĩnh Hùng
+ * - băng chuyền cây ở màn 2
+ */
 public class MainActivity extends Activity {
-private ToneGenerator tone;
-@Override
-protected void onCreate(Bundle state) {
-super.onCreate(state);
-setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-requestWindowFeature(Window.FEATURE_NO_TITLE);
-getWindow().setFlags(
-WindowManager.LayoutParams.FLAG_FULLSCREEN,
-WindowManager.LayoutParams.FLAG_FULLSCREEN
-);
-getWindow().getDecorView().setSystemUiVisibility(
-View.SYSTEM_UI_FLAG_FULLSCREEN |
-View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
-View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-);
-try {
-tone = new ToneGenerator(AudioManager.STREAM_MUSIC, 45);
-} catch (Exception ignored) {
-}
-setContentView(new GameView());
-}
-private void beep(int t) {
-try {
-if (tone != null) tone.startTone(t, 50);
-} catch (Exception ignored) {
-}
-}
-@Override
-protected void onDestroy() {
-try {
-if (tone != null) tone.release();
-} catch (Exception ignored) {
-}
-super.onDestroy();
-}
-private class GameView extends View {
-private static final int ROWS = 5;
-private static final int COLS = 9;
-private static final int MAX_LEVEL = 9;
-private static final int SUNFLOWER = 1;
-private static final int PEASHOOTER = 2;
-private static final int GIGANUT = 3;
-private static final int CHOMPER = 4;
-private static final int REPEATER = 5;
-private static final int MINE = 6;
-private static final int TOOL_NONE = 0;
-private static final int TOOL_SHOVEL = 100;
-private static final int TOOL_PLANT_FOOD = 101;
-private static final int SCREEN_HOME = 0;
-private static final int SCREEN_LEVELS = 1;
-private static final int SCREEN_PLAY = 2;
-private static final int SCREEN_PAUSE = 3;
-private static final int SCREEN_WIN = 4;
-private static final int SCREEN_LOSE = 5;
-private static final int SCREEN_MINI = 6;
-private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-private final Random random = new Random();
-private final Plant[][] plants = new Plant[ROWS][COLS];
-private final ArrayList<Zombie> zombies = new ArrayList<>();
-private final ArrayList<Pea> peas = new ArrayList<>();
-private final ArrayList<SunDrop> suns = new ArrayList<>();
-private final Mower[] mowers = new Mower[ROWS];
-private int screen = SCREEN_HOME;
-private int level = 1;
-private int maxUnlocked = 1;
-private int sun = 500;
-private int coins = 99999;
-private int plantFood = 3;
-private int selectedPlant = PEASHOOTER;
-private int tool = TOOL_NONE;
-private int wave = 0;
-private int totalWaves = 5;
-private int spawnTarget = 0;
-private int spawned = 0;
-private int randomMode = 0;
-private int miniTarget = 0;
-private int miniScore = 0;
-private float miniX;
-private float miniY;
-private long miniStart;
-private long lastFrame;
-private long lastSpawn;
-private long naturalSunTimer;
-private boolean running = true;
-private float left;
-private float top;
-private float cellW;
-private float cellH;
-GameView() {
-super(MainActivity.this);
-setFocusable(true);
-textPaint.setTypeface(Typeface.create(
-Typeface.DEFAULT,
-Typeface.BOLD
-));
-lastFrame = System.currentTimeMillis();
-for (int r = 0; r < ROWS; r++) {
-mowers[r] = new Mower(r);
-}
-post(gameLoop);
-}
-private final Runnable gameLoop = new Runnable() {
-@Override
-public void run() {
-if (!running) return;
-update();
-invalidate();
-postDelayed(this, 30);
-}
-};
-@Override
-protected void onSizeChanged(
-int w,
-int h,
-int oldW,
-int oldH
-) {
-left = w * 0.18f;
-top = h * 0.20f;
-cellW = w * 0.072f;
-cellH = h * 0.125f;
-placeMiniTarget();
-}
-@Override
-protected void onDraw(Canvas c) {
-super.onDraw(c);
-if (screen == SCREEN_HOME) {
-drawHome(c);
-} else if (screen == SCREEN_LEVELS) {
-drawLevels(c);
-} else {
-drawGame(c);
-if (screen == SCREEN_PAUSE) {
-drawPause(c);
-} else if (screen == SCREEN_WIN) {
-drawWin(c);
-} else if (screen == SCREEN_LOSE) {
-drawLose(c);
-} else if (screen == SCREEN_MINI) {
-drawMini(c);
-}
-}
-}
-private void drawHome(Canvas c) {
-c.drawColor(Color.rgb(25, 55, 30));
-textPaint.setTextAlign(Paint.Align.CENTER);
-textPaint.setColor(Color.WHITE);
-textPaint.setTextSize(getHeight() * 0.10f);
-c.drawText(
-"GARDEN DEFENSE",
-getWidth() / 2f,
-getHeight() * 0.22f,
-textPaint
-);
-button(
-c,
-getWidth() * 0.32f,
-getHeight() * 0.38f,
-getWidth() * 0.68f,
-getHeight() * 0.50f,
-"CHƠI"
-);
-button(
-c,
-getWidth() * 0.32f,
-getHeight() * 0.55f,
-getWidth() * 0.68f,
-getHeight() * 0.67f,
-"CHỌN MÀN"
-);
-textPaint.setTextSize(getHeight() * 0.035f);
-textPaint.setColor(Color.LTGRAY);
-c.drawText(
-"5×9 • 9 MÀN • MÁY CẮT CỎ",
-getWidth() / 2f,
-getHeight() * 0.82f,
-textPaint
-);
-}
-private void drawLevels(Canvas c) {
-c.drawColor(Color.rgb(20, 50, 25));
-textPaint.setTextAlign(Paint.Align.CENTER);
-textPaint.setColor(Color.WHITE);
-textPaint.setTextSize(getHeight() * 0.065f);
-c.drawText(
-"CHỌN MÀN",
-getWidth() / 2f,
-getHeight() * 0.11f,
-textPaint
-);
-for (int i = 1; i <= MAX_LEVEL; i++) {
-int col = (i - 1) % 3;
-int row = (i - 1) / 3;
-float x1 = getWidth() * 0.18f
-+ col * getWidth() * 0.22f;
-float y1 = getHeight() * 0.18f
-+ row * getHeight() * 0.20f;
-float x2 = x1 + getWidth() * 0.17f;
-float y2 = y1 + getHeight() * 0.13f;
-paint.setColor(
-isLevelUnlocked(i)
-? Color.rgb(65, 145, 70)
-: Color.rgb(70, 70, 70)
-);
-c.drawRoundRect(
-x1, y1, x2, y2,
-18, 18, paint
-);
-textPaint.setTextSize(getHeight() * 0.038f);
-textPaint.setColor(Color.WHITE);
-c.drawText(
-isLevelUnlocked(i)
-? "MÀN " + i
-: "KHÓA",
-(x1 + x2) / 2f,
-y1 + getHeight() * 0.083f,
-textPaint
-);
-}
-button(
-c,
-getWidth() * 0.04f,
-getHeight() * 0.83f,
-getWidth() * 0.20f,
-getHeight() * 0.94f,
-"QUAY LẠI"
-);
-}
-private void drawGame(Canvas c) {
-paint.setColor(Color.rgb(92, 155, 70));
-c.drawRect(0, 0, getWidth(), getHeight(), paint);
-drawTop(c);
-drawBoard(c);
-drawPlants(c);
-drawZombies(c);
-drawPeas(c);
-drawSuns(c);
-drawMowers(c);
-}
-private void drawTop(Canvas c) {
-paint.setColor(Color.rgb(38, 78, 40));
-c.drawRect(0, 0, getWidth(), top, paint);
-textPaint.setTextAlign(Paint.Align.LEFT);
-textPaint.setColor(Color.YELLOW);
-textPaint.setTextSize(getHeight() * 0.033f);
-c.drawText(
-"☀ " + sun,
-12,
-getHeight() * 0.045f,
-textPaint
-);
-textPaint.setColor(Color.WHITE);
-c.drawText(
-"Màn " + level,
-getWidth() * 0.34f,
-getHeight() * 0.045f,
-textPaint
-);
-c.drawText(
-"Sóng " + wave + "/" + totalWaves,
-getWidth() * 0.47f,
-getHeight() * 0.045f,
-textPaint
-);
-textPaint.setColor(Color.YELLOW);
-c.drawText(
-"Xu " + coins,
-getWidth() * 0.70f,
-getHeight() * 0.045f,
-textPaint
-);
-textPaint.setColor(Color.WHITE);
-c.drawText(
-"PF " + plantFood,
-getWidth() * 0.87f,
-getHeight() * 0.045f,
-textPaint
-);
-drawCard(c, SUNFLOWER, 0);
-drawCard(c, PEASHOOTER, 1);
-drawCard(c, GIGANUT, 2);
-drawCard(c, CHOMPER, 3);
-drawCard(c, REPEATER, 4);
-drawCard(c, MINE, 5);
-float sx = getWidth() * 0.465f;
-float sy = getHeight() * 0.075f;
-paint.setColor(
-tool == TOOL_SHOVEL
-? Color.YELLOW
-: Color.DKGRAY
-);
-c.drawRoundRect(
-sx, sy,
-sx + getWidth() * 0.065f,
-sy + getHeight() * 0.09f,
-10, 10, paint
-);
-textPaint.setTextAlign(Paint.Align.CENTER);
-textPaint.setTextSize(getHeight() * 0.035f);
-textPaint.setColor(Color.WHITE);
-c.drawText(
-"X",
-sx + getWidth() * 0.0325f,
-sy + getHeight() * 0.060f,
-textPaint
-);
-}
-private void drawCard(Canvas c, int type, int index) {
-float x = getWidth() * 0.01f
-+ index * getWidth() * 0.075f;
-float y = getHeight() * 0.075f;
-float w = getWidth() * 0.065f;
-float h = getHeight() * 0.09f;
-boolean unlocked = plantUnlocked(type);
-paint.setColor(
-selectedPlant == type && tool == TOOL_NONE
-? Color.YELLOW
-: Color.rgb(45, 80, 45)
-);
-c.drawRoundRect(
-x, y, x + w, y + h,
-10, 10, paint
-);
-if (unlocked) {
-drawPlantIcon(
-c,
-type,
-x + w / 2f,
-y + h / 2f,
-Math.min(w, h) * 0.62f
-);
-} else {
-textPaint.setTextAlign(Paint.Align.CENTER);
-textPaint.setColor(Color.GRAY);
-textPaint.setTextSize(h * 0.35f);
-c.drawText(
-"🔒",
-x + w / 2f,
-y + h * 0.63f,
-textPaint
-);
-}
-}
-private void drawBoard(Canvas c) {
-for (int r = 0; r < ROWS; r++) {
-for (int col = 0; col < COLS; col++) {
-float x1 = left + col * cellW;
-float y1 = top + r * cellH;
-paint.setColor(
-(r + col) % 2 == 0
-? Color.rgb(103, 166, 78)
-: Color.rgb(91, 153, 67)
-);
-c.drawRect(
-x1,
-y1,
-x1 + cellW,
-y1 + cellH,
-paint
-);
-}
-}
-paint.setColor(Color.rgb(130, 92, 52));
-c.drawRect(
-0,
-top,
-left,
-top + ROWS * cellH,
-paint
-);
-}
-private void drawPlants(Canvas c) {
-for (int r = 0; r < ROWS; r++) {
-for (int col = 0; col < COLS; col++) {
-Plant pl = plants[r][col];
-if (pl == null) continue;
-float x = left + col * cellW + cellW / 2f;
-float y = top + r * cellH + cellH / 2f;
-drawPlantIcon(
-c,
-pl.type,
-x,
-y,
-Math.min(cellW, cellH) * 0.72f
-);
-drawHp(
-c,
-x - cellW * 0.30f,
-y + cellH * 0.33f,
-cellW * 0.60f,
-5,
-pl.hp,
-pl.maxHp
-);
-}
-}
-}
-private void drawPlantIcon(
-Canvas c,
-int type,
-float x,
-float y,
-float size
-) {
-if (type == SUNFLOWER) {
-paint.setColor(Color.YELLOW);
-for (int i = 0; i < 8; i++) {
-double a = i * Math.PI / 4;
-c.drawCircle(
-x + (float)Math.cos(a) * size * 0.30f,
-y + (float)Math.sin(a) * size * 0.30f,
-size * 0.17f,
-paint
-);
-}
-paint.setColor(Color.rgb(110, 65, 25));
-c.drawCircle(x, y, size * 0.25f, paint);
-} else if (type == PEASHOOTER) {
-paint.setColor(Color.rgb(55, 180, 70));
-c.drawCircle(x, y, size * 0.36f, paint);
-paint.setColor(Color.rgb(45, 145, 55));
-c.drawCircle(
-x + size * 0.27f,
-y - size * 0.04f,
-size * 0.22f,
-paint
-);
-paint.setColor(Color.BLACK);
-c.drawCircle(
-x + size * 0.31f,
-y - size * 0.04f,
-size * 0.06f,
-paint
-);
-} else if (type == GIGANUT) {
-paint.setColor(Color.rgb(155, 105, 55));
-c.drawOval(
-x - size * 0.36f,
-y - size * 0.45f,
-x + size * 0.36f,
-y + size * 0.45f,
-paint
-);
-paint.setColor(Color.BLACK);
-c.drawCircle(
-x - size * 0.13f,
-y - size * 0.07f,
-size * 0.05f,
-paint
-);
-c.drawCircle(
-x + size * 0.13f,
-y - size * 0.07f,
-size * 0.05f,
-paint
-);
-} else if (type == CHOMPER) {
-paint.setColor(Color.rgb(145, 80, 185));
-c.drawCircle(x, y, size * 0.38f, paint);
-paint.setColor(Color.WHITE);
-Path teeth = new Path();
-teeth.moveTo(x - size * 0.28f, y);
-teeth.lineTo(x - size * 0.16f, y + size * 0.22f);
-teeth.lineTo(x - size * 0.05f, y);
-teeth.lineTo(x + size * 0.06f, y + size * 0.22f);
-teeth.lineTo(x + size * 0.18f, y);
-teeth.close();
-c.drawPath(teeth, paint);
-} else if (type == REPEATER) {
-paint.setColor(Color.rgb(55, 175, 70));
-c.drawCircle(x, y, size * 0.35f, paint);
-paint.setColor(Color.rgb(45, 135, 55));
-c.drawCircle(
-x + size * 0.24f,
-y - size * 0.10f,
-size * 0.18f,
-paint
-);
-c.drawCircle(
-x + size * 0.38f,
-y - size * 0.02f,
-size * 0.12f,
-paint
-);
-} else if (type == MINE) {
-paint.setColor(Color.rgb(65, 65, 65));
-c.drawCircle(x, y, size * 0.36f, paint);
-paint.setColor(Color.RED);
-c.drawCircle(x, y, size * 0.12f, paint);
-}
-}
-private void drawZombies(Canvas c) {
-for (Zombie z : zombies) {
-float w = z.boss ? cellW * 1.15f : cellW * 0.55f;
-float h = z.boss ? cellH * 1.10f : cellH * 0.72f;
-paint.setColor(
-z.boss
-? Color.rgb(90, 45, 110)
-: z.type == 1
-? Color.rgb(105, 90, 110)
-: Color.rgb(80, 110, 80)
-);
-c.drawRect(
-z.x - w / 2f,
-z.y,
-z.x + w / 2f,
+
+    private ToneGenerator tone;
+
+    @Override
+    protected void onCreate(Bundle state) {
+        super.onCreate(state);
+
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        getWindow().setFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+        );
+
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        );
+
+        try {
+            tone = new ToneGenerator(AudioManager.STREAM_MUSIC, 45);
+        } catch (Exception ignored) {
+        }
+
+        setContentView(new GameView());
+    }
+
+    private void beep(int t) {
+        try {
+            if (tone != null) tone.startTone(t, 50);
+        } catch (Exception ignored) {
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        try {
+            if (tone != null) tone.release();
+        } catch (Exception ignored) {
+        }
+        super.onDestroy();
+    }
+
+    private class GameView extends View {
+
+        private static final int ROWS = 5;
+        private static final int COLS = 9;
+        private static final int MAX_LEVEL = 9;
+
+        private static final int SUNFLOWER = 1;
+        private static final int PEASHOOTER = 2;
+        private static final int GIGANUT = 3;
+        private static final int CHOMPER = 4;
+        private static final int REPEATER = 5;
+        private static final int MINE = 6;
+
+        private static final int TOOL_NONE = 0;
+        private static final int TOOL_SHOVEL = 100;
+        private static final int TOOL_PLANT_FOOD = 101;
+
+        private static final int SCREEN_HOME = 0;
+        private static final int SCREEN_LEVELS = 1;
+        private static final int SCREEN_PLAY = 2;
+        private static final int SCREEN_PAUSE = 3;
+        private static final int SCREEN_WIN = 4;
+        private static final int SCREEN_LOSE = 5;
+
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Random random = new Random();
+
+        private final Plant[][] plants = new Plant[ROWS][COLS];
+        private final ArrayList<Zombie> zombies = new ArrayList<>();
+        private final ArrayList<Pea> peas = new ArrayList<>();
+        private final ArrayList<SunDrop> suns = new ArrayList<>();
+        private final Mower[] mowers = new Mower[ROWS];
+
+        private int screen = SCREEN_HOME;
+        private int level = 1;
+        private int maxUnlocked = 1;
+
+        private int sun = 500;
+        private int coins = 99999;
+        private int plantFood = 3;
+
+        private int selectedPlant = PEASHOOTER;
+        private int tool = TOOL_NONE;
+
+        private int wave = 0;
+        private int totalWaves = 5;
+        private int spawnTarget = 0;
+        private int spawned = 0;
+
+
+        private long lastFrame;
+        private long lastSpawn;
+        private long naturalSunTimer;
+
+        private boolean running = true;
+
+        private float left;
+        private float top;
+        private float cellW;
+        private float cellH;
+
+        GameView() {
+            super(MainActivity.this);
+            setFocusable(true);
+
+            textPaint.setTypeface(Typeface.create(
+                    Typeface.DEFAULT,
+                    Typeface.BOLD
+            ));
+
+            lastFrame = System.currentTimeMillis();
+
+            for (int r = 0; r < ROWS; r++) {
+                mowers[r] = new Mower(r);
+            }
+
+            post(gameLoop);
+        }
+
+        private final Runnable gameLoop = new Runnable() {
+            @Override
+            public void run() {
+                if (!running) return;
+
+                update();
+                invalidate();
+                postDelayed(this, 30);
+            }
+        };
+
+        @Override
+        protected void onSizeChanged(
+                int w,
+                int h,
+                int oldW,
+                int oldH
+        ) {
+            left = w * 0.18f;
+            top = h * 0.20f;
+
+            cellW = w * 0.072f;
+            cellH = h * 0.125f;
+
+        }
+
+        @Override
+        protected void onDraw(Canvas c) {
+            super.onDraw(c);
+
+            if (screen == SCREEN_HOME) {
+                drawHome(c);
+            } else if (screen == SCREEN_LEVELS) {
+                drawLevels(c);
+            } else {
+                drawGame(c);
+
+                if (screen == SCREEN_PAUSE) {
+                    drawPause(c);
+                } else if (screen == SCREEN_WIN) {
+                    drawWin(c);
+                } else if (screen == SCREEN_LOSE) {
+                    drawLose(c);
+                }
+            }
+        }
+
+        private void drawHome(Canvas c) {
+            c.drawColor(Color.rgb(25, 55, 30));
+
+            textPaint.setTextAlign(Paint.Align.CENTER);
+            textPaint.setColor(Color.WHITE);
+            textPaint.setTextSize(getHeight() * 0.10f);
+
+            c.drawText(
+                    "GARDEN DEFENSE",
+                    getWidth() / 2f,
+                    getHeight() * 0.22f,
+                    textPaint
+            );
+
+            button(
+                    c,
+                    getWidth() * 0.32f,
+                    getHeight() * 0.38f,
+                    getWidth() * 0.68f,
+                    getHeight() * 0.50f,
+                    "CHƠI"
+            );
+
+            button(
+                    c,
+                    getWidth() * 0.32f,
+                    getHeight() * 0.55f,
+                    getWidth() * 0.68f,
+                    getHeight() * 0.67f,
+                    "CHỌN MÀN"
+            );
+
+            textPaint.setTextSize(getHeight() * 0.035f);
+            textPaint.setColor(Color.LTGRAY);
+
+            c.drawText(
+                    "5×9 • 9 MÀN • MÁY CẮT CỎ",
+                    getWidth() / 2f,
+                    getHeight() * 0.82f,
+                    textPaint
+            );
+        }
+
+        private void drawLevels(Canvas c) {
+            c.drawColor(Color.rgb(20, 50, 25));
+
+            textPaint.setTextAlign(Paint.Align.CENTER);
+            textPaint.setColor(Color.WHITE);
+            textPaint.setTextSize(getHeight() * 0.065f);
+
+            c.drawText(
+                    "CHỌN MÀN",
+                    getWidth() / 2f,
+                    getHeight() * 0.11f,
+                    textPaint
+            );
+
+            for (int i = 1; i <= MAX_LEVEL; i++) {
+                int col = (i - 1) % 3;
+                int row = (i - 1) / 3;
+
+                float x1 = getWidth() * 0.18f
+                        + col * getWidth() * 0.22f;
+                float y1 = getHeight() * 0.18f
+                        + row * getHeight() * 0.20f;
+                float x2 = x1 + getWidth() * 0.17f;
+                float y2 = y1 + getHeight() * 0.13f;
+
+                paint.setColor(
+                        isLevelUnlocked(i)
+                                ? Color.rgb(65, 145, 70)
+                                : Color.rgb(70, 70, 70)
+                );
+
+                c.drawRoundRect(
+                        x1, y1, x2, y2,
+                        18, 18, paint
+                );
+
+                textPaint.setTextSize(getHeight() * 0.038f);
+                textPaint.setColor(Color.WHITE);
+
+                c.drawText(
+                        isLevelUnlocked(i)
+                                ? "MÀN " + i
+                                : "KHÓA",
+                        (x1 + x2) / 2f,
+                        y1 + getHeight() * 0.083f,
+                        textPaint
+                );
+            }
+
+            button(
+                    c,
+                    getWidth() * 0.04f,
+                    getHeight() * 0.83f,
+                    getWidth() * 0.20f,
+                    getHeight() * 0.94f,
+                    "QUAY LẠI"
+            );
+        }
+
+        private void drawGame(Canvas c) {
+            paint.setColor(Color.rgb(92, 155, 70));
+            c.drawRect(0, 0, getWidth(), getHeight(), paint);
+
+            drawTop(c);
+            drawBoard(c);
+            drawPlants(c);
+            drawZombies(c);
+            drawPeas(c);
+            drawSuns(c);
+            drawMowers(c);
+        }
+
+        private void drawTop(Canvas c) {
+            paint.setColor(Color.rgb(38, 78, 40));
+            c.drawRect(0, 0, getWidth(), top, paint);
+
+            textPaint.setTextAlign(Paint.Align.LEFT);
+            textPaint.setColor(Color.YELLOW);
+            textPaint.setTextSize(getHeight() * 0.033f);
+
+            c.drawText(
+                    "☀ " + sun,
+                    12,
+                    getHeight() * 0.045f,
+                    textPaint
+            );
+
+            textPaint.setColor(Color.WHITE);
+            c.drawText(
+                    "Màn " + level,
+                    getWidth() * 0.34f,
+                    getHeight() * 0.045f,
+                    textPaint
+            );
+
+            c.drawText(
+                    "Sóng " + wave + "/" + totalWaves,
+                    getWidth() * 0.47f,
+                    getHeight() * 0.045f,
+                    textPaint
+            );
+
+            textPaint.setColor(Color.YELLOW);
+            c.drawText(
+                    "Xu " + coins,
+                    getWidth() * 0.70f,
+                    getHeight() * 0.045f,
+                    textPaint
+            );
+
+            textPaint.setColor(Color.WHITE);
+            c.drawText(
+                    "PF " + plantFood,
+                    getWidth() * 0.87f,
+                    getHeight() * 0.045f,
+                    textPaint
+            );
+
+            drawCard(c, SUNFLOWER, 0);
+            drawCard(c, PEASHOOTER, 1);
+            drawCard(c, GIGANUT, 2);
+            drawCard(c, CHOMPER, 3);
+            drawCard(c, REPEATER, 4);
+            drawCard(c, MINE, 5);
+
+            float sx = getWidth() * 0.465f;
+            float sy = getHeight() * 0.075f;
+
+            paint.setColor(
+                    tool == TOOL_SHOVEL
+                            ? Color.YELLOW
+                            : Color.DKGRAY
+            );
+
+            c.drawRoundRect(
+                    sx, sy,
+                    sx + getWidth() * 0.065f,
+                    sy + getHeight() * 0.09f,
+                    10, 10, paint
+            );
+
+            textPaint.setTextAlign(Paint.Align.CENTER);
+            textPaint.setTextSize(getHeight() * 0.035f);
+            textPaint.setColor(Color.WHITE);
+
+            c.drawText(
+                    "X",
+                    sx + getWidth() * 0.0325f,
+                    sy + getHeight() * 0.060f,
+                    textPaint
+            );
+        }
+
+        private void drawCard(Canvas c, int type, int index) {
+            float x = getWidth() * 0.01f
+                    + index * getWidth() * 0.075f;
+            float y = getHeight() * 0.075f;
+            float w = getWidth() * 0.065f;
+            float h = getHeight() * 0.09f;
+
+            boolean unlocked = plantUnlocked(type);
+
+            paint.setColor(
+                    selectedPlant == type && tool == TOOL_NONE
+                            ? Color.YELLOW
+                            : Color.rgb(45, 80, 45)
+            );
+
+            c.drawRoundRect(
+                    x, y, x + w, y + h,
+                    10, 10, paint
+            );
+
+            if (unlocked) {
+                drawPlantIcon(
+                        c,
+                        type,
+                        x + w / 2f,
+                        y + h / 2f,
+                        Math.min(w, h) * 0.62f
+                );
+            } else {
+                textPaint.setTextAlign(Paint.Align.CENTER);
+                textPaint.setColor(Color.GRAY);
+                textPaint.setTextSize(h * 0.35f);
+                c.drawText(
+                        "🔒",
+                        x + w / 2f,
+                        y + h * 0.63f,
+                        textPaint
+                );
+            }
+        }
+
+        private void drawBoard(Canvas c) {
+            for (int r = 0; r < ROWS; r++) {
+                for (int col = 0; col < COLS; col++) {
+                    float x1 = left + col * cellW;
+                    float y1 = top + r * cellH;
+
+                    paint.setColor(
+                            (r + col) % 2 == 0
+                                    ? Color.rgb(103, 166, 78)
+                                    : Color.rgb(91, 153, 67)
+                    );
+
+                    c.drawRect(
+                            x1,
+                            y1,
+                            x1 + cellW,
+                            y1 + cellH,
+                            paint
+                    );
+                }
+            }
+
+            paint.setColor(Color.rgb(130, 92, 52));
+            c.drawRect(
+                    0,
+                    top,
+                    left,
+                    top + ROWS * cellH,
+                    paint
+            );
+        }
+
+        private void drawPlants(Canvas c) {
+            for (int r = 0; r < ROWS; r++) {
+                for (int col = 0; col < COLS; col++) {
+                    Plant pl = plants[r][col];
+                    if (pl == null) continue;
+
+                    float x = left + col * cellW + cellW / 2f;
+                    float y = top + r * cellH + cellH / 2f;
+
+                    drawPlantIcon(
+                            c,
+                            pl.type,
+                            x,
+                            y,
+                            Math.min(cellW, cellH) * 0.72f
+                    );
+
+                    drawHp(
+                            c,
+                            x - cellW * 0.30f,
+                            y + cellH * 0.33f,
+                            cellW * 0.60f,
+                            5,
+                            pl.hp,
+                            pl.maxHp
+                    );
+                }
+            }
+        }
+
+        private void drawPlantIcon(
+                Canvas c,
+                int type,
+                float x,
+                float y,
+                float size
+        ) {
+            if (type == SUNFLOWER) {
+                paint.setColor(Color.YELLOW);
+                for (int i = 0; i < 8; i++) {
+                    double a = i * Math.PI / 4;
                     c.drawCircle(
+                            x + (float)Math.cos(a) * size * 0.30f,
+                            y + (float)Math.sin(a) * size * 0.30f,
+                            size * 0.17f,
+                            paint
+                    );
+                }
+
+                paint.setColor(Color.rgb(110, 65, 25));
+                c.drawCircle(x, y, size * 0.25f, paint);
+
+            } else if (type == PEASHOOTER) {
+                paint.setColor(Color.rgb(55, 180, 70));
+                c.drawCircle(x, y, size * 0.36f, paint);
+
+                paint.setColor(Color.rgb(45, 145, 55));
+                c.drawCircle(
+                        x + size * 0.27f,
+                        y - size * 0.04f,
+                        size * 0.22f,
+                        paint
+                );
+
+                paint.setColor(Color.BLACK);
+                c.drawCircle(
+                        x + size * 0.31f,
+                        y - size * 0.04f,
+                        size * 0.06f,
+                        paint
+                );
+
+            } else if (type == GIGANUT) {
+                paint.setColor(Color.rgb(155, 105, 55));
+                c.drawOval(
+                        x - size * 0.36f,
+                        y - size * 0.45f,
+                        x + size * 0.36f,
+                        y + size * 0.45f,
+                        paint
+                );
+
+                paint.setColor(Color.BLACK);
+                c.drawCircle(
+                        x - size * 0.13f,
+                        y - size * 0.07f,
+                        size * 0.05f,
+                        paint
+                );
+                c.drawCircle(
+                        x + size * 0.13f,
+                        y - size * 0.07f,
+                        size * 0.05f,
+                        paint
+                );
+
+            } else if (type == CHOMPER) {
+                paint.setColor(Color.rgb(145, 80, 185));
+                c.drawCircle(x, y, size * 0.38f, paint);
+
+                paint.setColor(Color.WHITE);
+                Path teeth = new Path();
+
+                teeth.moveTo(x - size * 0.28f, y);
+                teeth.lineTo(x - size * 0.16f, y + size * 0.22f);
+                teeth.lineTo(x - size * 0.05f, y);
+                teeth.lineTo(x + size * 0.06f, y + size * 0.22f);
+                teeth.lineTo(x + size * 0.18f, y);
+                teeth.close();
+
+                c.drawPath(teeth, paint);
+
+            } else if (type == REPEATER) {
+                paint.setColor(Color.rgb(55, 175, 70));
+                c.drawCircle(x, y, size * 0.35f, paint);
+
+                paint.setColor(Color.rgb(45, 135, 55));
+                c.drawCircle(
+                        x + size * 0.24f,
+                        y - size * 0.10f,
+                        size * 0.18f,
+                        paint
+                );
+                c.drawCircle(
+                        x + size * 0.38f,
+                        y - size * 0.02f,
+                        size * 0.12f,
+                        paint
+                );
+
+            } else if (type == MINE) {
+                paint.setColor(Color.rgb(65, 65, 65));
+                c.drawCircle(x, y, size * 0.36f, paint);
+
+                paint.setColor(Color.RED);
+                c.drawCircle(x, y, size * 0.12f, paint);
+            }
+        }
+
+        private void drawZombies(Canvas c) {
+            for (Zombie z : zombies) {
+                float w = z.boss ? cellW * 1.15f : cellW * 0.55f;
+                float h = z.boss ? cellH * 1.10f : cellH * 0.72f;
+
+                      paint.setColor(
+                        z.boss
+                                ? Color.rgb(90, 45, 110)
+                                : z.type == 1
+                                ? Color.rgb(105, 90, 110)
+                                : Color.rgb(80, 110, 80)
+                );
+
+                c.drawRect(
+                        z.x - w / 2f,
+                        z.y,
+                        z.x + w / 2f,
+                        z.y + h,
+                        paint
+                );
+
+                paint.setColor(Color.rgb(155, 180, 145));
+                c.drawCircle(
+                        z.x,
+                        z.y - h * 0.06f,
+                        w * 0.40f,
+                        paint
+                );
+
+                paint.setColor(Color.BLACK);
+
+                c.drawCircle(
                         z.x - w * 0.13f,
                         z.y - h * 0.08f,
                         w * 0.045f,
@@ -680,7 +785,7 @@ z.x + w / 2f,
             textPaint.setTextSize(getHeight() * 0.04f);
 
             c.drawText(
-                    "+50 XU",
+                    "+" + mowerRewardForDisplay() + " XU",
                     getWidth() / 2f,
                     getHeight() * 0.41f,
                     textPaint
@@ -729,61 +834,13 @@ z.x + w / 2f,
             );
         }
 
-        private void drawMini(Canvas c) {
-            overlay(c, Color.argb(235, 15, 25, 20));
-
-            textPaint.setTextAlign(Paint.Align.CENTER);
-            textPaint.setColor(Color.WHITE);
-            textPaint.setTextSize(getHeight() * 0.055f);
-
-            String title;
-
-            if (randomMode == 1) {
-                title = "MINI GAME: BẮT MẶT TRỜI";
-            } else if (randomMode == 2) {
-                title = "MINI GAME: CHẠM MỤC TIÊU";
-            } else {
-                title = "MINI GAME: HẠ ZOMBIE";
-            }
-
-            c.drawText(
-                    title,
-                    getWidth() / 2f,
-                    getHeight() * 0.13f,
-                    textPaint
-            );
-
-            textPaint.setTextSize(getHeight() * 0.035f);
-            c.drawText(
-                    "Điểm " + miniScore + "/" + miniTarget,
-                    getWidth() / 2f,
-                    getHeight() * 0.20f,
-                    textPaint
-            );
-
-            paint.setColor(
-                    randomMode == 1
-                            ? Color.YELLOW
-                            : randomMode == 2
-                            ? Color.CYAN
-                            : Color.RED
-            );
-
-            c.drawCircle(
-                    miniX,
-                    miniY,
-                    Math.min(getWidth(), getHeight()) * 0.075f,
-                    paint
-            );
-        }
+        
 
         private void update() {
             long now = System.currentTimeMillis();
 
             if (screen == SCREEN_PLAY) {
                 updateGame(now);
-            } else if (screen == SCREEN_MINI) {
-                updateMini(now);
             }
 
             lastFrame = now;
@@ -1046,13 +1103,7 @@ z.x + w / 2f,
             removeDeadZombies();
         }
 
-        private void updateMini(long now) {
-            if (miniScore >= miniTarget ||
-                    now - miniStart >= 30000) {
-
-                endMiniGame();
-            }
-        }
+        
 
         private void collectAutomaticSunDrops() {
             Iterator<SunDrop> it = suns.iterator();
@@ -1099,53 +1150,29 @@ z.x + w / 2f,
             spawned = 0;
             spawnTarget = waveTarget();
 
-            randomMode = 0;
 
             lastSpawn = System.currentTimeMillis();
             naturalSunTimer = lastSpawn;
 
-            if (level >= 5 && level <= 8) {
-                // Random mode: chọn một biến thể mới.
-                randomMode = 1 + random.nextInt(3);
-                startMiniGame();
+        }
+
+        
+
+        
+
+        
+
+        private int mowerRewardForDisplay() {
+            int reward = 0;
+            for (Mower m : mowers) {
+                if (!m.used) reward += 50;
             }
-        }
-
-        private void startMiniGame() {
-            screen = SCREEN_MINI;
-
-            miniScore = 0;
-            miniTarget = 6 + level;
-            miniStart = System.currentTimeMillis();
-
-            placeMiniTarget();
-        }
-
-        private void endMiniGame() {
-            screen = SCREEN_PLAY;
-
-            wave = 0;
-            spawned = 0;
-            spawnTarget = waveTarget();
-
-            lastSpawn = System.currentTimeMillis();
-        }
-
-        private void placeMiniTarget() {
-            if (getWidth() <= 0 || getHeight() <= 0) return;
-
-            miniX =
-                    getWidth() * 0.12f +
-                    random.nextFloat() * getWidth() * 0.76f;
-
-            miniY =
-                    getHeight() * 0.30f +
-                    random.nextFloat() * getHeight() * 0.50f;
+            return reward;
         }
 
         private void finishWin() {
             screen = SCREEN_WIN;
-            coins += 50;
+            coins += mowerRewardForDisplay();
 
             if (level < MAX_LEVEL) {
                 maxUnlocked =
@@ -1204,7 +1231,8 @@ z.x + w / 2f,
         private int plantCost(int type) {
             if (type == SUNFLOWER) return 50;
             if (type == PEASHOOTER) return 100;
-                                if (type == GIGANUT) return 125;
+
+            if (type == GIGANUT) return 125;
             if (type == CHOMPER) return 150;
             if (type == REPEATER) return 200;
             if (type == MINE) return 50;
@@ -1218,7 +1246,7 @@ z.x + w / 2f,
                 }
             }
             return false;
-        }
+                          }
 
         private Plant plantAtZombie(Zombie z) {
             int col =
@@ -1499,23 +1527,7 @@ z.x + w / 2f,
                 return true;
             }
 
-            if (screen == SCREEN_MINI) {
-                float dx = x - miniX;
-                float dy = y - miniY;
 
-                float radius =
-                        Math.min(getWidth(), getHeight())
-                                * 0.075f;
-
-                if (dx * dx + dy * dy <=
-                        radius * radius) {
-
-                    miniScore++;
-                    placeMiniTarget();
-                }
-
-                return true;
-            }
 
             if (screen != SCREEN_PLAY) {
                 return true;
@@ -1689,13 +1701,9 @@ z.x + w / 2f,
         }
 
         @Override
-        public boolean dispatchKeyEventPreIme(
-                int keyCode,
-                KeyEvent event
-        ) {
-            if (keyCode == KeyEvent.KEYCODE_BACK &&
-                    event.getAction() ==
-                            KeyEvent.ACTION_UP) {
+        public boolean dispatchKeyEventPreIme(KeyEvent event) {
+            if (event.getKeyCode() == KeyEvent.KEYCODE_BACK &&
+                    event.getAction() == KeyEvent.ACTION_UP) {
 
                 if (screen == SCREEN_PLAY) {
                     screen = SCREEN_PAUSE;
@@ -1712,10 +1720,7 @@ z.x + w / 2f,
                 }
             }
 
-            return super.dispatchKeyEventPreIme(
-                    keyCode,
-                    event
-            );
+            return super.dispatchKeyEventPreIme(event);
         }
 
         private class Plant {
@@ -1864,5 +1869,5 @@ z.x + w / 2f,
             }
         }
     }
-    }
-                
+                    }
+              
