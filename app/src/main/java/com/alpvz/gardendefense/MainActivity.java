@@ -28,7 +28,7 @@ static final int ROWS=5, COLS=9, LEVELS=9;
 static final int SUNFLOWER=1, PEASHOOTER=2, GIGANUT=3, CHOMPER=4, REPEATER=5, MINE=6;
 static final int NONE=0, SHOVEL=100, PF_TOOL=101;
 static final int HOME=0, LEVELS_SCREEN=1, PLAY=2, PAUSE=3, WIN=4, LOSE=5;
-final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG), t=new Paint(Paint.ANTI_ALIAS_FLAG);
+final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG); final Paint textPaint=new Paint(Paint.ANTI_ALIAS_FLAG);
 final Random rnd=new Random();
 final Plant[][] plants=new Plant[ROWS][COLS];
 final ArrayList<Zombie> zombies=new ArrayList<>();
@@ -45,8 +45,8 @@ GameView(){ super(MainActivity.this); setFocusable(true); loadImages(); for(int 
 void loadImages(){
 sunImg=load("sun"); peaImg=load("peashoot"); gigaImg=load("giganut"); chompImg=load("chomper");
 repeatImg=load("repeater"); mineImg=load("min"); zombieImg=load("zomplatz"); bulletImg=load("gigapea");
-    }
-    Bitmap load(String n){ int id=getResources().getIdentifier(n,"drawable",getPackageName()); return id==0?null:BitmapFactory.decodeResource(getResources(),id); }
+}
+Bitmap load(String n){ int id=getResources().getIdentifier(n,"drawable",getPackageName()); return id==0?null:BitmapFactory.decodeResource(getResources(),id); }
 @Override protected void onSizeChanged(int w,int h,int ow,int oh){ left=w*0.18f; top=h*0.19f; cw=w*0.073f; ch=h*0.125f; }
 @Override protected void onDraw(Canvas c){
 if(screen==HOME){drawHome(c);return;} if(screen==LEVELS_SCREEN){drawLevels(c);return;}
@@ -94,7 +94,7 @@ void updateZombies(long now,float dt){for(Zombie z:zombies){if(z.hp<=0)continue;
 void fireBoss(Zombie z){peas.add(new Pea(z.x-cw*.4f,z.y+ch*.35f,z.row,40));}
 void updateMowers(float dt){for(Mower m:mowers)if(m.active){m.x+=cw*18f*dt;for(Zombie z:zombies)if(z.row==m.row&&Math.abs(z.x-m.x)<cw*.55f)z.hp=0;if(m.x>getWidth()+cw)m.active=false;}}
 void spawnZombie(){int row=rnd.nextInt(ROWS);boolean boss=level==9&&wave==totalWaves-1&&spawned==target-1;zombies.add(new Zombie(row,rnd.nextInt(3),boss));}
-    void removeDead(){Iterator<Zombie>it=zombies.iterator();while(it.hasNext()){Zombie z=it.next();if(z.hp<=0){it.remove();coins+=z.boss?100:5;}}for(int r=0;r<ROWS;r++)for(int c=0;c<COLS;c++)if(plants[r][c]!=null&&plants[r][c].hp<=0)plants[r][c]=null;}
+void removeDead(){Iterator<Zombie>it=zombies.iterator();while(it.hasNext()){Zombie z=it.next();if(z.hp<=0){it.remove();coins+=z.boss?100:5;}}for(int r=0;r<ROWS;r++)for(int c=0;c<COLS;c++)if(plants[r][c]!=null&&plants[r][c].hp<=0)plants[r][c]=null;}
 boolean rowHasZombie(int r){for(Zombie z:zombies)if(z.row==r&&z.x>left)return true;return false;}
 Plant plantAt(Zombie z){int col=(int)((z.x-left)/cw);return col<0||col>=COLS?null:plants[z.row][col];}
 Zombie cellZombie(int r,int col){float x=left+col*cw+cw/2;for(Zombie z:zombies)if(z.row==r&&Math.abs(z.x-x)<cw*.45f)return z;return null;}
@@ -142,5 +142,5 @@ class Pea{float x;final float y;final int row,damage;Pea(float x,float y,int row
 class SunDrop{final float x,y;SunDrop(float x,float y){this.x=x;this.y=y;}}
 class Mower{final int row;float x;boolean used,active;Mower(int row){this.row=row;this.x=left-cw*.5f;}}
 }
-        }
-                                                                                                                                                     
+    }
+    
