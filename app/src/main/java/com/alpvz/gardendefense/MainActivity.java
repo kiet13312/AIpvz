@@ -40,14 +40,14 @@ int screen=HOME, level=1, unlocked=1, selected=PEASHOOTER, tool=NONE;
 int sun=500, coins=99999, plantFood=3, wave=0, totalWaves=5, spawned=0, target=5;
 long lastFrame=System.currentTimeMillis(), lastSpawn=0, lastSun=0;
 float left, top, cw, ch;
-boolean levelStarted=false;
+boolean levelStarted=false; String pfMsg=""; long pfMsgUntil=0;
 GameView(){ super(MainActivity.this); setFocusable(true); loadImages(); for(int r=0;r<ROWS;r++)mowers[r]=new Mower(r); }
 void loadImages(){
 sunImg=load("sun"); peaImg=load("peashoot"); gigaImg=load("giganut"); chompImg=load("chomper");
 repeatImg=load("repeater"); mineImg=load("min"); zombieImg=load("zomplatz"); bulletImg=load("gigapea");
 }
 Bitmap load(String n){ int id=getResources().getIdentifier(n,"drawable",getPackageName()); return id==0?null:BitmapFactory.decodeResource(getResources(),id); }
-@Override protected void onSizeChanged(int w,int h,int ow,int oh){ left=w*0.18f; top=h*0.19f; cw=w*0.073f; ch=h*0.125f; }
+    @Override protected void onSizeChanged(int w,int h,int ow,int oh){ left=w*0.18f; top=h*0.19f; cw=w*0.073f; ch=h*0.125f; }
 @Override protected void onDraw(Canvas c){
 if(screen==HOME){drawHome(c);return;} if(screen==LEVELS_SCREEN){drawLevels(c);return;}
 drawGame(c); if(screen==PAUSE)drawPause(c); else if(screen==WIN)drawWin(c); else if(screen==LOSE)drawLose(c);
@@ -71,7 +71,7 @@ c.drawColor(Color.rgb(92,155,70));
 p.setColor(Color.rgb(38,78,40)); c.drawRect(0,0,getWidth(),top,p);
 smallAt(c,"☀ "+sun,12,getHeight()*.045f,Color.YELLOW); smallAt(c,"Màn "+level,getWidth()*.34f,getHeight()*.045f,Color.WHITE);
 smallAt(c,"Sóng "+wave+"/"+totalWaves,getWidth()*.46f,getHeight()*.045f,Color.WHITE); smallAt(c,"Xu "+coins,getWidth()*.70f,getHeight()*.045f,Color.YELLOW);
-smallAt(c,"PF "+plantFood,getWidth()*.87f,getHeight()*.045f,Color.WHITE);
+smallAt(c,"PF "+plantFood,getWidth()*.87f,getHeight()*.045f,Color.WHITE); if(System.currentTimeMillis()<pfMsgUntil)center(c,pfMsg,getWidth()*.72f,getHeight()*.16f,getHeight()*.035f,Color.YELLOW);
 drawCards(c); drawBoard(c); drawMowers(c); drawPlants(c); drawZombies(c); drawPeas(c); drawSunDrops(c);
 }
 void drawCards(Canvas c){int[] ids={SUNFLOWER,PEASHOOTER,GIGANUT,CHOMPER,REPEATER,MINE}; for(int i=0;i<ids.length;i++){float x=getWidth()*.01f+i*getWidth()*.075f,y=getHeight()*.075f,w=getWidth()*.065f,h=getHeight()*.09f;p.setColor(selected==ids[i]&&tool==NONE?Color.YELLOW:Color.rgb(45,80,45));c.drawRoundRect(x,y,x+w,y+h,10,10,p);if(plantUnlocked(ids[i]))drawPlant(c,ids[i],x+w/2,y+h/2,Math.min(w,h)*.62f);else center(c,"🔒",x+w/2,y+h*.63f,h*.35f,Color.GRAY);}
@@ -90,14 +90,14 @@ void update(){long now=System.currentTimeMillis();float dt=Math.min(.05f,(now-la
 void updatePlants(long now){for(int r=0;r<ROWS;r++)for(int col=0;col<COLS;col++){Plant a=plants[r][col];if(a==null)continue;if(a.type==SUNFLOWER&&now-a.lastAction>=7000){sunDrops.add(new SunDrop(left+col*cw+cw/2,top+r*ch+ch*.25f));a.lastAction=now;}if(a.type==PEASHOOTER&&now-a.lastAction>=1500&&rowHasZombie(r)){fire(r,col,30,0);a.lastAction=now;}if(a.type==REPEATER&&now-a.lastAction>=1800&&rowHasZombie(r)){fire(r,col,28,0);a.secondShotAt=now+500;a.lastAction=now;}if(a.type==REPEATER&&a.secondShotAt>0&&now>=a.secondShotAt){fire(r,col,28,0);a.secondShotAt=0;}if(a.type==CHOMPER&&now-a.lastAction>=3500){Zombie z=near(r,col);if(z!=null){z.hp=0;a.lastAction=now;}}if(a.type==MINE&&now>=a.armedAt){Zombie z=cellZombie(r,col);if(z!=null){z.hp=0;a.hp=0;}}}}
 void fire(int row,int col,int damage,int type){peas.add(new Pea(left+col*cw+cw*.55f,top+row*ch+ch*.50f,row,damage));}
 void updatePeas(float dt){Iterator<Pea>it=peas.iterator();while(it.hasNext()){Pea q=it.next();q.x+=cw*9f*dt;Zombie hit=null;for(Zombie z:zombies)if(z.row==q.row&&Math.abs(z.x-q.x)<cw*.28f){hit=z;break;}if(hit!=null){hit.hp-=q.damage;it.remove();}else if(q.x>getWidth()+30)it.remove();}}
-void updateZombies(long now,float dt){for(Zombie z:zombies){if(z.hp<=0)continue;if(z.boss){z.x+=z.dir*cw*1.4f*dt;float min=left+cw*2,max=getWidth()-cw;if(z.x<min){z.x=min;z.dir=1;}if(z.x>max){z.x=max;z.dir=-1;}if(now-z.bossShot>=2200){fireBoss(z);z.bossShot=now;}}else{Plant targetPlant=plantAt(z);if(targetPlant!=null){if(now-z.lastAttack>=800){targetPlant.hp-=z.damage;z.lastAttack=now;}}else z.x-=z.speed*dt;}if(!z.boss&&z.x<left-cw*.4f){Mower m=mowers[z.row];if(!m.used){m.used=true;m.active=true;m.x=left-cw*.5f;}else{screen=LOSE;return;}}}}
+void updateZombies(long now,float dt){for(Zombie z:zombies){if(z.hp<=0)continue;if(z.boss){z.x+=z.dir*cw*1.4f*dt;float min=left+cw*2,max=getWidth()-cw;if(z.x<min){z.x=min;z.dir=1;}if(z.x>max){z.x=max;z.dir=-1;}if(now-z.bossShot>=2200){fireBoss(z);z.bossShot=now;}}else{Plant targetPlant=plantAt(z);if(targetPlant!=null){if(now-z.lastAttack>=800){targetPlant.hp-=z.damage;z.lastAttack=now;}}else z.x-=Math.min(z.speed, getWidth()*.035f)*dt;}if(!z.boss&&z.x<left-cw*.4f){Mower m=mowers[z.row];if(!m.used){m.used=true;m.active=true;m.x=left-cw*.5f;}else{screen=LOSE;return;}}}}
 void fireBoss(Zombie z){peas.add(new Pea(z.x-cw*.4f,z.y+ch*.35f,z.row,40));}
 void updateMowers(float dt){for(Mower m:mowers)if(m.active){m.x+=cw*18f*dt;for(Zombie z:zombies)if(z.row==m.row&&Math.abs(z.x-m.x)<cw*.55f)z.hp=0;if(m.x>getWidth()+cw)m.active=false;}}
 void spawnZombie(){int row=rnd.nextInt(ROWS);boolean boss=level==9&&wave==totalWaves-1&&spawned==target-1;zombies.add(new Zombie(row,rnd.nextInt(3),boss));}
 void removeDead(){Iterator<Zombie>it=zombies.iterator();while(it.hasNext()){Zombie z=it.next();if(z.hp<=0){it.remove();coins+=z.boss?100:5;}}for(int r=0;r<ROWS;r++)for(int c=0;c<COLS;c++)if(plants[r][c]!=null&&plants[r][c].hp<=0)plants[r][c]=null;}
 boolean rowHasZombie(int r){for(Zombie z:zombies)if(z.row==r&&z.x>left)return true;return false;}
 Plant plantAt(Zombie z){int col=(int)((z.x-left)/cw);return col<0||col>=COLS?null:plants[z.row][col];}
-Zombie cellZombie(int r,int col){float x=left+col*cw+cw/2;for(Zombie z:zombies)if(z.row==r&&Math.abs(z.x-x)<cw*.45f)return z;return null;}
+    Zombie cellZombie(int r,int col){float x=left+col*cw+cw/2;for(Zombie z:zombies)if(z.row==r&&Math.abs(z.x-x)<cw*.45f)return z;return null;}
 Zombie near(int r,int col){float x=left+col*cw+cw/2;Zombie best=null;float bd=Float.MAX_VALUE;for(Zombie z:zombies)if(z.row==r){float d=Math.abs(z.x-x);if(d<cw*1.4f&&d<bd){best=z;bd=d;}}return best;}
 void startLevel(int lv){level=Math.max(1,Math.min(LEVELS,lv));screen=PLAY;clear();wave=0;spawned=0;target=waveTarget();totalWaves=wavesForLevel();lastSpawn=System.currentTimeMillis();lastSun=lastSpawn;}
 void clear(){for(int r=0;r<ROWS;r++){for(int c=0;c<COLS;c++)plants[r][c]=null;mowers[r]=new Mower(r);}zombies.clear();peas.clear();sunDrops.clear();selected=PEASHOOTER;tool=NONE;}
@@ -126,21 +126,25 @@ if(screen==WIN){if(inside(x,y,.30f,.55f,.70f,.68f)){if(level<LEVELS)startLevel(l
 if(screen==LOSE){if(inside(x,y,.30f,.50f,.70f,.63f)){startLevel(level);}else if(inside(x,y,.30f,.68f,.70f,.81f)){screen=HOME;}invalidate();return true;}
 if(screen==PAUSE){if(inside(x,y,.32f,.50f,.68f,.63f)){screen=PLAY;invalidate();}return true;}
 // Nhặt sun.
-Iterator<SunDrop> si=sunDrops.iterator();while(si.hasNext()){SunDrop sd=si.next();if(Math.hypot(x-sd.x,y-sd.y)<38){sun+=25;si.remove();invalidate();return true;}}
+Iterator<SunDrop> si=sunDrops.iterator();while(si.hasNext()){SunDrop sd=si.next();if(Math.hypot(x-sd.x,y-sd.y)<Math.max(55,getHeight()*.065f)){sun+=25;si.remove();invalidate();return true;}}
 // Plant cards + shovel + plant food.
 float cardY=getHeight()*.075f,cardH=getHeight()*.09f;
 if(y>=cardY&&y<=cardY+cardH){for(int i=0;i<6;i++){float x1=getWidth()*.01f+i*getWidth()*.075f;if(x>=x1&&x<=x1+getWidth()*.065f){int[] ids={SUNFLOWER,PEASHOOTER,GIGANUT,CHOMPER,REPEATER,MINE};if(plantUnlocked(ids[i])){selected=ids[i];tool=NONE;}return true;}}
 float sx=getWidth()*.465f;if(x>=sx&&x<=sx+getWidth()*.065f){tool=SHOVEL;return true;}
-float fx=getWidth()*.54f;if(x>=fx&&x<=fx+getWidth()*.09f&&plantFood>0){tool=PF_TOOL;return true;}}
-if(x>=left&&x<left+COLS*cw&&y>=top&&y<top+ROWS*ch){int col=(int)((x-left)/cw),row=(int)((y-top)/ch);if(tool==SHOVEL){plants[row][col]=null;tool=NONE;return true;}if(tool==PF_TOOL){if(plants[row][col]!=null&&plantFood>0){usePF(plants[row][col]);plantFood--;}tool=NONE;return true;}if(plants[row][col]==null&&plantUnlocked(selected)){int co=cost(selected);if(sun>=co){sun-=co;plants[row][col]=new Plant(selected,row,col);}}invalidate();return true;}return true;}
-void usePF(Plant a){if(a.type==SUNFLOWER)sun+=125;else if(a.type==PEASHOOTER){fire(a.row,a.col,70,0);fire(a.row,a.col,70,0);fire(a.row,a.col,70,0);}else if(a.type==GIGANUT)a.hp=a.maxHp;else if(a.type==CHOMPER){Zombie z=near(a.row,a.col);if(z!=null)z.hp=0;}else if(a.type==REPEATER){for(int i=0;i<6;i++)fire(a.row,a.col,55,0);}else if(a.type==MINE){for(Zombie z:zombies)if(z.row==a.row)z.hp=0;}}
+float fx=getWidth()*.54f;if(x>=fx&&x<=fx+getWidth()*.12f&&plantFood>0){tool=PF_TOOL;invalidate();return true;}}
+if(x>=left&&x<left+COLS*cw&&y>=top&&y<top+ROWS*ch){int col=(int)((x-left)/cw),row=(int)((y-top)/ch);if(tool==SHOVEL){plants[row][col]=null;tool=NONE;return true;}if(tool==PF_TOOL){Plant pfPlant=plants[row][col];if(pfPlant!=null&&plantFood>0){usePF(pfPlant);plantFood--;pfMsg="PLANT FOOD!";pfMsgUntil=System.currentTimeMillis()+900;}tool=NONE;invalidate();return true;}if(plants[row][col]==null&&plantUnlocked(selected)){int co=cost(selected);if(sun>=co){sun-=co;plants[row][col]=new Plant(selected,row,col);}}invalidate();return true;}return true;}
+void usePF(Plant a){if(a.type==SUNFLOWER)sun+=125;else if(a.type==PEASHOOTER){fire(a.row,a.col,70,0);fire(a.row,a.col,70,0);fire(a.row,a.col,70,0);}else if(a.type==GIGANUT){a.maxHp=8000;a.hp=8000;}else if(a.type==CHOMPER){Zombie z=near(a.row,a.col);if(z!=null)z.hp=0;}else if(a.type==REPEATER){for(int i=0;i<6;i++)fire(a.row,a.col,55,0);}else if(a.type==MINE){for(Zombie z:zombies)if(z.row==a.row&&Math.abs(z.x-(left+a.col*cw+cw/2))<cw*2.0f)z.hp-=1800;a.hp=0;}}
 boolean inside(float x,float y,float x1,float y1,float x2,float y2){return insidePx(x,y,getWidth()*x1,getHeight()*y1,getWidth()*x2,getHeight()*y2);}
 boolean insidePx(float x,float y,float x1,float y1,float x2,float y2){return x>=x1&&x<=x2&&y>=y1&&y<=y2;}
-class Plant{final int type,row,col,maxHp;int hp;long lastAction,secondShotAt,armedAt;Plant(int type,int row,int col){this.type=type;this.row=row;this.col=col;maxHp=type==GIGANUT?1800:type==MINE?120:500;hp=maxHp;long n=System.currentTimeMillis();lastAction=n;armedAt=type==MINE?n+3000:Long.MAX_VALUE;}}
-class Zombie{float x,y,speed,dir=-1;final int row,type;final boolean boss;float hp,maxHp;int damage;long lastAttack,slowUntil,bossShot;Zombie(int row,int type,boolean boss){this.row=row;this.type=type;this.boss=boss;x=left+COLS*cw+cw;y=top+row*ch+ch*.16f;if(boss){maxHp=5000;speed=cw*.008f;damage=45;}else if(type==1){maxHp=1000+level*100;speed=cw*.010f;damage=32;}else if(type==2){maxHp=450+level*60;speed=cw*.024f;damage=18;}else{maxHp=650+level*75;speed=cw*.014f;damage=24;}hp=maxHp;bossShot=System.currentTimeMillis();}}
+class Plant{final int type,row,col,maxHp;int hp;long lastAction,secondShotAt,armedAt;Plant(int type,int row,int col){this.type=type;this.row=row;this.col=col;maxHp=type==GIGANUT?4000:type==MINE?120:500;hp=maxHp;long n=System.currentTimeMillis();lastAction=n;armedAt=type==MINE?n+3000:Long.MAX_VALUE;}}
+class Zombie{float x,y,speed,dir=-1;final int row,type;final boolean boss;float hp,maxHp;int damage;long lastAttack,slowUntil,bossShot;Zombie(int row,int type,boolean boss){this.row=row;this.type=type;this.boss=boss;x=left+COLS*cw+cw;y=top+row*ch+ch*.16f;if(boss){maxHp=5000;speed=cw*.10f;damage=45;}
+else if(type==1){maxHp=1000+level*100;speed=cw*.13f;damage=32;}
+else if(type==2){maxHp=450+level*60;speed=cw*.32f;damage=18;}
+else{maxHp=650+level*75;speed=cw*.20f;damage=24;}
+hp=maxHp;bossShot=System.currentTimeMillis();}}
 class Pea{float x;final float y;final int row,damage;Pea(float x,float y,int row,int damage){this.x=x;this.y=y;this.row=row;this.damage=damage;}}
 class SunDrop{final float x,y;SunDrop(float x,float y){this.x=x;this.y=y;}}
 class Mower{final int row;float x;boolean used,active;Mower(int row){this.row=row;this.x=left-cw*.5f;}}
 }
-    }
+                                                                                                                                                 }
     
