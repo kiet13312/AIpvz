@@ -47,7 +47,7 @@ sunImg=load("sun"); peaImg=load("peashoot"); gigaImg=load("giganut"); chompImg=l
 repeatImg=load("repeater"); mineImg=load("min"); zombieImg=load("zomplatz"); bulletImg=load("gigapea");
 }
 Bitmap load(String n){ int id=getResources().getIdentifier(n,"drawable",getPackageName()); return id==0?null:BitmapFactory.decodeResource(getResources(),id); }
-    @Override protected void onSizeChanged(int w,int h,int ow,int oh){ left=w*0.18f; top=h*0.19f; cw=w*0.073f; ch=h*0.125f; }
+@Override protected void onSizeChanged(int w,int h,int ow,int oh){ left=w*0.18f; top=h*0.19f; cw=w*0.073f; ch=h*0.125f; }
 @Override protected void onDraw(Canvas c){
 if(screen==HOME){drawHome(c);return;} if(screen==LEVELS_SCREEN){drawLevels(c);return;}
 drawGame(c); if(screen==PAUSE)drawPause(c); else if(screen==WIN)drawWin(c); else if(screen==LOSE)drawLose(c);
@@ -97,7 +97,7 @@ void spawnZombie(){int row=rnd.nextInt(ROWS);boolean boss=level==9&&wave==totalW
 void removeDead(){Iterator<Zombie>it=zombies.iterator();while(it.hasNext()){Zombie z=it.next();if(z.hp<=0){it.remove();coins+=z.boss?100:5;}}for(int r=0;r<ROWS;r++)for(int c=0;c<COLS;c++)if(plants[r][c]!=null&&plants[r][c].hp<=0)plants[r][c]=null;}
 boolean rowHasZombie(int r){for(Zombie z:zombies)if(z.row==r&&z.x>left)return true;return false;}
 Plant plantAt(Zombie z){int col=(int)((z.x-left)/cw);return col<0||col>=COLS?null:plants[z.row][col];}
-    Zombie cellZombie(int r,int col){float x=left+col*cw+cw/2;for(Zombie z:zombies)if(z.row==r&&Math.abs(z.x-x)<cw*.45f)return z;return null;}
+Zombie cellZombie(int r,int col){float x=left+col*cw+cw/2;for(Zombie z:zombies)if(z.row==r&&Math.abs(z.x-x)<cw*.45f)return z;return null;}
 Zombie near(int r,int col){float x=left+col*cw+cw/2;Zombie best=null;float bd=Float.MAX_VALUE;for(Zombie z:zombies)if(z.row==r){float d=Math.abs(z.x-x);if(d<cw*1.4f&&d<bd){best=z;bd=d;}}return best;}
 void startLevel(int lv){level=Math.max(1,Math.min(LEVELS,lv));screen=PLAY;clear();wave=0;spawned=0;target=waveTarget();totalWaves=wavesForLevel();lastSpawn=System.currentTimeMillis();lastSun=lastSpawn;}
 void clear(){for(int r=0;r<ROWS;r++){for(int c=0;c<COLS;c++)plants[r][c]=null;mowers[r]=new Mower(r);}zombies.clear();peas.clear();sunDrops.clear();selected=PEASHOOTER;tool=NONE;}
@@ -136,7 +136,7 @@ if(x>=left&&x<left+COLS*cw&&y>=top&&y<top+ROWS*ch){int col=(int)((x-left)/cw),ro
 void usePF(Plant a){if(a.type==SUNFLOWER)sun+=125;else if(a.type==PEASHOOTER){fire(a.row,a.col,70,0);fire(a.row,a.col,70,0);fire(a.row,a.col,70,0);}else if(a.type==GIGANUT){a.maxHp=8000;a.hp=8000;}else if(a.type==CHOMPER){Zombie z=near(a.row,a.col);if(z!=null)z.hp=0;}else if(a.type==REPEATER){for(int i=0;i<6;i++)fire(a.row,a.col,55,0);}else if(a.type==MINE){for(Zombie z:zombies)if(z.row==a.row&&Math.abs(z.x-(left+a.col*cw+cw/2))<cw*2.0f)z.hp-=1800;a.hp=0;}}
 boolean inside(float x,float y,float x1,float y1,float x2,float y2){return insidePx(x,y,getWidth()*x1,getHeight()*y1,getWidth()*x2,getHeight()*y2);}
 boolean insidePx(float x,float y,float x1,float y1,float x2,float y2){return x>=x1&&x<=x2&&y>=y1&&y<=y2;}
-class Plant{final int type,row,col,maxHp;int hp;long lastAction,secondShotAt,armedAt;Plant(int type,int row,int col){this.type=type;this.row=row;this.col=col;maxHp=type==GIGANUT?4000:type==MINE?120:500;hp=maxHp;long n=System.currentTimeMillis();lastAction=n;armedAt=type==MINE?n+3000:Long.MAX_VALUE;}}
+class Plant{final int type,row,col; int maxHp;int hp;long lastAction,secondShotAt,armedAt;Plant(int type,int row,int col){this.type=type;this.row=row;this.col=col;maxHp=type==GIGANUT?4000:type==MINE?120:500;hp=maxHp;long n=System.currentTimeMillis();lastAction=n;armedAt=type==MINE?n+3000:Long.MAX_VALUE;}}
 class Zombie{float x,y,speed,dir=-1;final int row,type;final boolean boss;float hp,maxHp;int damage;long lastAttack,slowUntil,bossShot;Zombie(int row,int type,boolean boss){this.row=row;this.type=type;this.boss=boss;x=left+COLS*cw+cw;y=top+row*ch+ch*.16f;if(boss){maxHp=5000;speed=cw*.10f;damage=45;}
 else if(type==1){maxHp=1000+level*100;speed=cw*.13f;damage=32;}
 else if(type==2){maxHp=450+level*60;speed=cw*.32f;damage=18;}
@@ -146,5 +146,5 @@ class Pea{float x;final float y;final int row,damage;Pea(float x,float y,int row
 class SunDrop{final float x,y;SunDrop(float x,float y){this.x=x;this.y=y;}}
 class Mower{final int row;float x;boolean used,active;Mower(int row){this.row=row;this.x=left-cw*.5f;}}
 }
-                                                                                                                                                 }
+    }
     
