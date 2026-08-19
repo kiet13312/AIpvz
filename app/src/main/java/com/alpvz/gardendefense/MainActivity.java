@@ -7,13 +7,12 @@ import android.content.pm.ActivityInfo;
 import android.graphics.*;
 import android.media.*;
 import android.view.*;
+import android.widget.TextView;
 import java.util.*;
 
 public class MainActivity extends Activity {
 
     private GameView game;
-    private SoundPool soundPool;
-    private int peaShootSound;
     private MediaPlayer plantFoodPlayer;
     private SharedPreferences save;
 
@@ -37,35 +36,17 @@ public class MainActivity extends Activity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
         save = getSharedPreferences("garden_defense_save", MODE_PRIVATE);
-        initSound();
-
-        game = new GameView();
-        setContentView(game);
-    }
-
-    private void initSound() {
         try {
-            AudioAttributes a = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build();
-
-            soundPool = new SoundPool.Builder()
-                    .setAudioAttributes(a)
-                    .setMaxStreams(8)
-                    .build();
-
-            peaShootSound = soundPool.load(this, R.raw.peashoot, 1);
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void playPeaSound() {
-        try {
-            if (soundPool != null) {
-                soundPool.play(peaShootSound, 1f, 1f, 1, 0, 1f);
-            }
-        } catch (Exception ignored) {
+            game = new GameView();
+            setContentView(game);
+        } catch (Throwable e) {
+            game = null;
+            TextView t = new TextView(this);
+            t.setText("Garden Defense không thể khởi động.");
+            t.setTextColor(Color.WHITE);
+            t.setGravity(Gravity.CENTER);
+            t.setBackgroundColor(Color.rgb(25, 65, 30));
+            setContentView(t);
         }
     }
 
@@ -116,10 +97,6 @@ public class MainActivity extends Activity {
             if (plantFoodPlayer != null) {
                 plantFoodPlayer.release();
                 plantFoodPlayer = null;
-            }
-            if (soundPool != null) {
-                soundPool.release();
-                soundPool = null;
             }
         } catch (Exception ignored) {
         }
@@ -186,6 +163,9 @@ public class MainActivity extends Activity {
         Bitmap chomperImg;
         Bitmap repeaterImg;
         Bitmap mineImg;
+        Bitmap peaFoodImg;
+        Bitmap repeaterFoodImg;
+        Bitmap gigaFoodImg;
         Bitmap zombieImg;
         Bitmap bulletImg;
 
@@ -201,9 +181,9 @@ public class MainActivity extends Activity {
         int selected = PEASHOOTER;
         int tool = TOOL_NONE;
 
-        int sun = 500;
-        int coins = 99999;
-        int food = 3;
+        int sun = 50000;
+        int coins = 9999999;
+        int food = 10000;
 
         int killed = 0;
         int total = 0;
@@ -225,11 +205,12 @@ public class MainActivity extends Activity {
                 mowers[r] = new Mower(r);
             }
 
-            level = save.getInt("level", 1);
-            unlocked = save.getInt("unlocked", 1);
-            sun = save.getInt("sun", 500);
-            coins = save.getInt("coins", 99999);
-            food = save.getInt("food", 3);
+            level = Math.max(1, Math.min(9, save.getInt("level", 1)));
+            unlocked = Math.max(1, Math.min(9, save.getInt("unlocked", 9)));
+            unlocked = Math.max(unlocked, level);
+            sun = 50000;
+            coins = Math.max(0, save.getInt("coins", 9999999));
+            food = Math.max(10000, save.getInt("food", 10000));
 
             lastUpdate = System.currentTimeMillis();
             spawnClock = lastUpdate;
@@ -246,8 +227,11 @@ public class MainActivity extends Activity {
             if (id == 0) return null;
 
             try {
-                return BitmapFactory.decodeResource(getResources(), id);
-            } catch (Exception e) {
+                BitmapFactory.Options o = new BitmapFactory.Options();
+                o.inPreferredConfig = Bitmap.Config.RGB_565;
+                o.inScaled = true;
+                return BitmapFactory.decodeResource(getResources(), id, o);
+            } catch (Throwable e) {
                 return null;
             }
         }
@@ -259,6 +243,9 @@ public class MainActivity extends Activity {
             chomperImg = loadImage("chomper");
             repeaterImg = loadImage("repeater");
             mineImg = loadImage("min");
+            peaFoodImg = loadImage("peashootplantfood");
+            repeaterFoodImg = loadImage("repeaterplantfood");
+            gigaFoodImg = loadImage("giganutplantfood");
             zombieImg = loadImage("zomplatz");
             bulletImg = loadImage("gigapea");
         }
@@ -269,6 +256,11 @@ public class MainActivity extends Activity {
             top = h * 0.25f;
             cellW = (w * 0.78f) / COLS;
             cellH = (h * 0.70f) / ROWS;
+            for (int r = 0; r < ROWS; r++) {
+                if (mowers[r] != null && !mowers[r].active) {
+                    mowers[r].x = left - cellW * .40f;
+                }
+            }
         }
 
         @Override
@@ -507,6 +499,19 @@ public class MainActivity extends Activity {
                     Color.WHITE,
                     Paint.Align.CENTER
             );
+
+            p.setColor(Color.rgb(55, 80, 55));
+            c.drawRoundRect(
+                    getWidth() * .64f,
+                    getHeight() * .075f,
+                    getWidth() * .81f,
+                    getHeight() * .15f,
+                    8, 8, p
+            );
+            drawText(c, "MUA PF", getWidth() * .725f, getHeight() * .105f,
+                    11, Color.WHITE, Paint.Align.CENTER);
+            drawText(c, "100 xu", getWidth() * .725f, getHeight() * .138f,
+                    10, Color.YELLOW, Paint.Align.CENTER);
         }
 
         private void drawBoard(Canvas c) {
@@ -546,7 +551,8 @@ public class MainActivity extends Activity {
                             plant.type,
                             x,
                             y,
-                            Math.min(cellW, cellH) * .74f
+                            Math.min(cellW, cellH) * .74f,
+                            plant
                     );
 
                     drawHp(
@@ -561,15 +567,40 @@ public class MainActivity extends Activity {
             }
         }
 
-        private void drawPlant(Canvas c, int type, float x, float y, float size) {
+        private void drawPlant(
+                Canvas c,
+                int type,
+                float x,
+                float y,
+                float size
+        ) {
+            drawPlant(c, type, x, y, size, null);
+        }
+
+        private void drawPlant(
+                Canvas c,
+                int type,
+                float x,
+                float y,
+                float size,
+                Plant plant
+        ) {
             Bitmap b = null;
 
-            if (type == SUNFLOWER) b = sunflowerImg;
-            else if (type == PEASHOOTER) b = peashooterImg;
-            else if (type == GIGANUT) b = giganutImg;
-            else if (type == CHOMPER) b = chomperImg;
-            else if (type == REPEATER) b = repeaterImg;
-            else if (type == MINE) b = mineImg;
+            if (plant != null && plant.foodUsed) {
+                if (type == PEASHOOTER) b = peaFoodImg;
+                else if (type == REPEATER) b = repeaterFoodImg;
+                else if (type == GIGANUT) b = gigaFoodImg;
+            }
+
+            if (b == null) {
+                if (type == SUNFLOWER) b = sunflowerImg;
+                else if (type == PEASHOOTER) b = peashooterImg;
+                else if (type == GIGANUT) b = giganutImg;
+                else if (type == CHOMPER) b = chomperImg;
+                else if (type == REPEATER) b = repeaterImg;
+                else if (type == MINE) b = mineImg;
+            }
 
             if (b != null) {
                 c.drawBitmap(
@@ -774,7 +805,15 @@ public class MainActivity extends Activity {
                     Plant a = plants[r][col];
                     if (a == null) continue;
 
-                    boolean plantFoodActive = now < a.plantFoodUntil;
+                    if (a.foodUsed && a.type != GIGANUT &&
+                            a.plantFoodUntil > 0 &&
+                            now >= a.plantFoodUntil) {
+                        a.foodUsed = false;
+                        a.plantFoodUntil = 0;
+                    }
+
+                    boolean plantFoodActive =
+                            a.type == GIGANUT || now < a.plantFoodUntil;
 
                     if (a.type == SUNFLOWER) {
                         long cd = plantFoodActive ? 1800 : 7000;
@@ -795,7 +834,6 @@ public class MainActivity extends Activity {
 
                         if (now - a.last >= cd && rowHasZombie(r)) {
                             fire(r, col, 30, false);
-                            playPeaSound();
                             a.last = now;
                         }
                     }
@@ -806,7 +844,6 @@ public class MainActivity extends Activity {
                         if (now - a.last >= cd && rowHasZombie(r)) {
                             fire(r, col, 30, false);
                             fireDelayed(r, col, 30, 250);
-                            playPeaSound();
                             a.last = now;
                         }
                     }
@@ -891,7 +928,8 @@ public class MainActivity extends Activity {
                 Zombie hit = null;
 
                 for (Zombie z : zombies) {
-                    if (z.row == q.row &&
+                    if (z.hp > 0 &&
+                            z.row == q.row &&
                             Math.abs(z.x - q.x) < cellW * .30f) {
                         hit = z;
                         break;
@@ -929,7 +967,8 @@ public class MainActivity extends Activity {
                         mower.used = true;
                         mower.active = true;
                         mower.x = left - cellW * .40f;
-                    } else {
+                    } else if (!mower.active) {
+                        z.hp = 0;
                         screen = LOSE;
                         return;
                     }
@@ -944,8 +983,9 @@ public class MainActivity extends Activity {
                 m.x += cellW * 17f * dt;
 
                 for (Zombie z : zombies) {
-                    if (z.row == m.row &&
-                            Math.abs(z.x - m.x) < cellW * .55f) {
+                    if (z.hp > 0 &&
+                            z.row == m.row &&
+                            Math.abs(z.x - m.x) < cellW * .70f) {
                         z.hp = 0;
                     }
                 }
@@ -1052,8 +1092,9 @@ public class MainActivity extends Activity {
         }
 
         private void startLevel(int lv) {
-            level = lv;
+            level = Math.max(1, Math.min(9, lv));
             screen = PLAY;
+            sun = 500;
 
             killed = 0;
             spawned = 0;
@@ -1136,9 +1177,12 @@ public class MainActivity extends Activity {
             if (a.type == GIGANUT) {
                 a.maxHp = 8000;
                 a.hp = 8000;
+                a.foodUsed = true;
+                a.plantFoodUntil = Long.MAX_VALUE;
             } else if (a.type == SUNFLOWER ||
                     a.type == PEASHOOTER ||
                     a.type == REPEATER) {
+                a.foodUsed = true;
                 a.plantFoodUntil = now + 5000;
                 a.last = now - 2000;
             } else if (a.type == CHOMPER) {
@@ -1354,7 +1398,7 @@ public class MainActivity extends Activity {
                 if (Math.hypot(x - s.x, y - s.y) <
                         Math.max(45, getHeight() * .055f)) {
 
-                    sun += 25;
+                    sun += 100;
                     sunIt.remove();
                     saveGame();
                     invalidate();
@@ -1415,7 +1459,7 @@ public class MainActivity extends Activity {
             }
 
             // Buy plant food with coins
-            if (inside(x, y, .76f, .075f, .81f, .15f)) {
+            if (inside(x, y, .64f, .075f, .81f, .15f)) {
                 if (coins >= 100) {
                     coins -= 100;
                     food++;
@@ -1499,6 +1543,7 @@ public class MainActivity extends Activity {
             long armTime;
 
             boolean armed;
+            boolean foodUsed;
 
             Plant(int type, int row, int col) {
                 this.type = type;
@@ -1515,7 +1560,7 @@ public class MainActivity extends Activity {
                 last = System.currentTimeMillis();
 
                 if (type == MINE) {
-                    armTime = last + 3000;
+                    armTime = last + 30000;
                     armed = false;
                 } else {
                     armTime = Long.MAX_VALUE;
@@ -1622,5 +1667,5 @@ public class MainActivity extends Activity {
             }
         }
     }
-                }
-                    
+                        }
+            
