@@ -549,7 +549,7 @@ public class MainActivity extends Activity {
                             left + (col + 1) * cellW,
                             top + (r + 1) * cellH,
                             p
-                    );
+                            );
                 }
             }
 
@@ -1062,7 +1062,7 @@ public class MainActivity extends Activity {
 
             for (Zombie z : zombies) {
                 if (z.row == row &&
-                        Math.abs(z.x - x) < cellW * .50f) {
+                                    Math.abs(z.x - x) < cellW * .50f) {
                     return z;
                 }
             }
@@ -1670,5 +1670,5 @@ public class MainActivity extends Activity {
             }
         }
     }
-                                  }
-                        
+                }
+                                    
