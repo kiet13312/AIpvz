@@ -632,7 +632,7 @@ public class MainActivity extends Activity {
                     c.drawBitmap(
                             sunImg,null,
                             dr(s.x-18,s.y-18,
-                                  s.x+18,s.y+18),p);
+                                                 s.x+18,s.y+18),p);
             }
         }
 
@@ -1589,4 +1589,4 @@ public boolean onTouchEvent(MotionEvent e) {
             }
         }
     }
-                 }               
+                       }
