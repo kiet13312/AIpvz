@@ -712,7 +712,6 @@ public class MainActivity extends Activity {
                    binuFrame=0;
                    binuRow=-1;
                    binuCol=-1;
-                   stopBinu2();
                 }
             }
         }
@@ -774,7 +773,7 @@ public class MainActivity extends Activity {
                 if(Math.abs(z.x-cx)<=range){
                     if(z.boss)
                         z.hp=Math.max(
-                                1,(int)(z.hp*.50f));
+                                1,z.hp*.50f);
                     else
                         z.hp=0;
                 }
@@ -1497,7 +1496,7 @@ public boolean onTouchEvent(MotionEvent e) {
             return true;
         }
 
-        static class Plant{
+        class Plant{
             int type,row,col,hp,maxHp;
             long last,secondShot,
                     foodUntil,armAt;
@@ -1520,7 +1519,7 @@ public boolean onTouchEvent(MotionEvent e) {
             }
         }
 
-        static class Zombie{
+        class Zombie{
             float x,y,speed;
             int row,hp,maxHp,damage;
             boolean boss,giga;
@@ -1569,7 +1568,7 @@ public boolean onTouchEvent(MotionEvent e) {
             }
         }
 
-        static class SunDrop{
+        class SunDrop{
             float x,y;
 
             SunDrop(float x,float y){
@@ -1578,7 +1577,7 @@ public boolean onTouchEvent(MotionEvent e) {
             }
         }
 
-        static class Mower{
+        class Mower{
             int row;
             float x;
             boolean used,active;
@@ -1589,4 +1588,4 @@ public boolean onTouchEvent(MotionEvent e) {
             }
         }
     }
-                       }
+                }
