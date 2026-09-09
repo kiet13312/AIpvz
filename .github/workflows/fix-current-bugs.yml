@@ -23,65 +23,182 @@ jobs:
           p = Path('app/src/main/java/com/alpvz/gardendefense/MainActivity.java')
           s = p.read_text(encoding='utf-8')
 
-          old = '''            // Shovel
-            p.setColor(tool == TOOL_SHOVEL ? Color.YELLOW : Color.rgb(55, 80, 55));
-            c.drawRoundRect(
-                    getWidth() * .465f,
-                    getHeight() * .075f,
-                    getWidth() * .525f,
-                    getHeight() * .15f,'''
-          new = '''            // Shovel
-            p.setColor(tool == TOOL_SHOVEL ? Color.YELLOW : Color.rgb(55, 80, 55));
-            c.drawRoundRect(
-                    getWidth() * .82f,
-                    getHeight() * .075f,
-                    getWidth() * .87f,
-                    getHeight() * .15f,'''
-          if old not in s:
-              raise SystemExit('Shovel drawing block not found')
-          s = s.replace(old, new, 1)
+          # Shovel: move from the BINU card position to its own slot.
+          s = s.replace('getWidth() * .465f,', 'getWidth() * .82f,', 1)
+          s = s.replace('getWidth() * .525f,', 'getWidth() * .87f,', 1)
+          s = s.replace('getWidth() * .495f,', 'getWidth() * .845f,', 1)
 
-          old = '''                    getWidth() * .495f,
-                    getHeight() * .122f,'''
-          new = '''                    getWidth() * .845f,
-                    getHeight() * .122f,'''
-          if old not in s:
-              raise SystemExit('Shovel label block not found')
-          s = s.replace(old, new, 1)
+          # BINU real jump position state.
+          old = 'boolean binuSound1Finished = false;\n\n        MediaPlayer binuSound1Player;'
+          new = '''boolean binuSound1Finished = false;
+        float binuX = 0f;
+        float binuY = 0f;
+        float binuStartX = 0f;
+        float binuStartY = 0f;
+        float binuTargetX = 0f;
+        float binuTargetY = 0f;
 
-          old = '''        boolean binuSound1Finished = false;\n\n        MediaPlayer binuSound1Player;'''
-          new = '''        boolean binuSound1Finished = false;\n        float binuX = 0f;\n        float binuY = 0f;\n        float binuStartX = 0f;\n        float binuStartY = 0f;\n        float binuTargetX = 0f;\n        float binuTargetY = 0f;\n\n        MediaPlayer binuSound1Player;'''
+        MediaPlayer binuSound1Player;'''
           if old not in s:
               raise SystemExit('BINU state anchor not found')
           s = s.replace(old, new, 1)
 
           start = s.index('        private void drawBinu(Canvas c) {')
           end = s.index('        private void playBinuSound1() {', start)
-          draw_binu = '''        private void drawBinu(Canvas c) {\n            if (!binuWaiting && !binuJumping) return;\n            if (binuRow < 0 || binuCol < 0) return;\n\n            Bitmap b = binuImg;\n            if (binuJumping) {\n                if (binuFrame == 1) b = binu1Img;\n                else if (binuFrame == 2) b = binu2Img;\n                else if (binuFrame == 3) b = binu3Img;\n                else if (binuFrame >= 4) b = binu4Img;\n            }\n\n            if (b == null) return;\n\n            float x = binuJumping ? binuX\n                    : left + binuCol * cellW + cellW / 2f;\n            float y = binuJumping ? binuY\n                    : top + binuRow * cellH + cellH / 2f;\n\n            c.drawBitmap(\n                    b,\n                    null,\n                    new RectF(\n                            x - cellW * .37f,\n                            y - cellH * .42f,\n                            x + cellW * .37f,\n                            y + cellH * .42f\n                    ),\n                    p\n            );\n        }\n\n'''
-          s = s[:start] + draw_binu + s[end:]
+          s = s[:start] + '''        private void drawBinu(Canvas c) {
+            if (!binuWaiting && !binuJumping) return;
+            if (binuRow < 0 || binuCol < 0) return;
+
+            Bitmap b = binuImg;
+            if (binuJumping) {
+                if (binuFrame == 1) b = binu1Img;
+                else if (binuFrame == 2) b = binu2Img;
+                else if (binuFrame == 3) b = binu3Img;
+                else if (binuFrame >= 4) b = binu4Img;
+            }
+            if (b == null) return;
+
+            float x = binuJumping ? binuX : left + binuCol * cellW + cellW / 2f;
+            float y = binuJumping ? binuY : top + binuRow * cellH + cellH / 2f;
+
+            c.drawBitmap(b, null,
+                    new RectF(x - cellW * .37f, y - cellH * .42f,
+                            x + cellW * .37f, y + cellH * .42f), p);
+        }
+
+''' + s[end:]
 
           start = s.index('        private void updateBinu(long now) {')
           end = s.index('        private void updatePeas(float dt) {', start)
-          binu_logic = '''        private void updateBinu(long now) {\n            if (binuWaiting && !binuJumping &&\n                    now >= binuDetectAt && binuSound1Finished) {\n                startBinuJump(now);\n            }\n\n            if (!binuJumping) return;\n\n            long elapsed = now - binuClock;\n            float t = Math.max(0f, Math.min(1f, elapsed / 480f));\n            float smooth = t * t * (3f - 2f * t);\n\n            binuX = binuStartX + (binuTargetX - binuStartX) * smooth;\n            binuY = binuStartY + (binuTargetY - binuStartY) * smooth;\n\n            binuFrame = Math.max(1, Math.min(4, (int) (elapsed / 120L) + 1));\n\n            if (elapsed >= 480L) {\n                binuX = binuTargetX;\n                binuY = binuTargetY;\n                smashBinu();\n                binuJumping = false;\n                binuWaiting = false;\n                binuFrame = 0;\n                binuRow = -1;\n                binuCol = -1;\n            }\n        }\n\n        private void checkBinu(long now) {\n            if (binuWaiting || binuJumping) return;\n\n            for (int r = 0; r < ROWS; r++) {\n                for (int col = 0; col < COLS; col++) {\n                    Plant a = plants[r][col];\n                    if (a == null || a.type != BINU) continue;\n\n                    float bx = left + col * cellW + cellW / 2f;\n                    Zombie nearest = null;\n                    float best = Float.MAX_VALUE;\n\n                    for (Zombie z : zombies) {\n                        if (z.hp <= 0 || z.row != r || z.x <= bx) continue;\n                        float d = z.x - bx;\n                        if (d <= cellW * 1.30f && d < best) {\n                            nearest = z;\n                            best = d;\n                        }\n                    }\n\n                    if (nearest != null) {\n                        binuRow = r;\n                        binuCol = col;\n                        binuWaiting = true;\n                        binuDetectAt = now + 2000L;\n                        binuX = bx;\n                        binuY = top + r * cellH + cellH / 2f;\n                        return;\n                    }\n                }\n            }\n        }\n\n        private void startBinuJump(long now) {\n            if (!binuWaiting || binuRow < 0 || binuCol < 0) return;\n\n            float startX = left + binuCol * cellW + cellW / 2f;\n            float startY = top + binuRow * cellH + cellH / 2f;\n            Zombie target = nearestZombie(binuRow, binuCol, cellW * 1.80f);\n\n            if (target == null || target.hp <= 0) {\n                binuWaiting = false;\n                return;\n            }\n\n            binuStartX = startX;\n            binuStartY = startY;\n            binuTargetX = target.x;\n            binuTargetY = target.y;\n            binuX = startX;\n            binuY = startY;\n\n            plants[binuRow][binuCol] = null;\n            binuJumping = true;\n            binuFrame = 1;\n            binuClock = now;\n            playBinuSound2();\n        }\n\n        private void smashBinu() {\n            if (binuRow < 0) return;\n\n            float centerX = binuTargetX;\n            float range = cellW * 1.25f;\n\n            for (Zombie z : zombies) {\n                if (z.hp <= 0 || z.row != binuRow) continue;\n\n                if (Math.abs(z.x - centerX) <= range) {\n                    if (z.boss) {\n                        z.hp = Math.max(1f, z.hp * .50f);\n                    } else {\n                        z.hp = 0;\n                    }\n                }\n            }\n        }\n\n'''
-          s = s[:start] + binu_logic + s[end:]
+          s = s[:start] + '''        private void updateBinu(long now) {
+            if (binuWaiting && !binuJumping &&
+                    now >= binuDetectAt && binuSound1Finished) {
+                startBinuJump(now);
+            }
 
-          # Handle shovel before card selection; BINU no longer covers it.
-          anchor = '''            // Plant cards\n            float cardY = getHeight() * .075f;'''
-          replacement = '''            // Shovel\n            if (inside(x, y, .82f, .075f, .87f, .15f)) {\n                tool = tool == TOOL_SHOVEL ? TOOL_NONE : TOOL_SHOVEL;\n                invalidate();\n                return true;\n            }\n\n            // Plant cards\n            float cardY = getHeight() * .075f;'''
+            if (!binuJumping) return;
+
+            long elapsed = now - binuClock;
+            float t = Math.max(0f, Math.min(1f, elapsed / 480f));
+            float smooth = t * t * (3f - 2f * t);
+
+            binuX = binuStartX + (binuTargetX - binuStartX) * smooth;
+            binuY = binuStartY + (binuTargetY - binuStartY) * smooth;
+            binuFrame = Math.max(1, Math.min(4, (int)(elapsed / 120L) + 1));
+
+            if (elapsed >= 480L) {
+                binuX = binuTargetX;
+                binuY = binuTargetY;
+                smashBinu();
+                binuJumping = false;
+                binuWaiting = false;
+                binuFrame = 0;
+                binuRow = -1;
+                binuCol = -1;
+            }
+        }
+
+        private void checkBinu(long now) {
+            if (binuWaiting || binuJumping) return;
+
+            for (int r = 0; r < ROWS; r++) {
+                for (int col = 0; col < COLS; col++) {
+                    Plant a = plants[r][col];
+                    if (a == null || a.type != BINU) continue;
+
+                    float bx = left + col * cellW + cellW / 2f;
+                    Zombie nearest = null;
+                    float best = Float.MAX_VALUE;
+
+                    for (Zombie z : zombies) {
+                        if (z.hp <= 0 || z.row != r || z.x <= bx) continue;
+                        float d = z.x - bx;
+                        if (d <= cellW * 1.30f && d < best) {
+                            nearest = z;
+                            best = d;
+                        }
+                    }
+
+                    if (nearest != null) {
+                        binuRow = r;
+                        binuCol = col;
+                        binuWaiting = true;
+                        binuDetectAt = now + 2000L;
+                        binuX = bx;
+                        binuY = top + r * cellH + cellH / 2f;
+                        return;
+                    }
+                }
+            }
+        }
+
+        private void startBinuJump(long now) {
+            if (!binuWaiting || binuRow < 0 || binuCol < 0) return;
+
+            float startX = left + binuCol * cellW + cellW / 2f;
+            float startY = top + binuRow * cellH + cellH / 2f;
+            Zombie target = nearestZombie(binuRow, binuCol, cellW * 1.80f);
+
+            if (target == null || target.hp <= 0) {
+                binuWaiting = false;
+                return;
+            }
+
+            binuStartX = startX;
+            binuStartY = startY;
+            binuTargetX = target.x;
+            binuTargetY = target.y;
+            binuX = startX;
+            binuY = startY;
+
+            plants[binuRow][binuCol] = null;
+            binuJumping = true;
+            binuFrame = 1;
+            binuClock = now;
+            playBinuSound2();
+        }
+
+        private void smashBinu() {
+            if (binuRow < 0) return;
+
+            float centerX = binuTargetX;
+            float range = cellW * 1.25f;
+
+            for (Zombie z : zombies) {
+                if (z.hp <= 0 || z.row != binuRow) continue;
+                if (Math.abs(z.x - centerX) <= range) {
+                    if (z.boss) z.hp = Math.max(1f, z.hp * .50f);
+                    else z.hp = 0;
+                }
+            }
+        }
+
+''' + s[end:]
+
+          # Shovel touch: process before the plant-card loop.
+          anchor = '            // Plant cards\n            float cardY = getHeight() * .075f;'
+          replacement = '''            // Shovel
+            if (inside(x, y, .82f, .075f, .87f, .15f)) {
+                tool = tool == TOOL_SHOVEL ? TOOL_NONE : TOOL_SHOVEL;
+                invalidate();
+                return true;
+            }
+
+            // Plant cards
+            float cardY = getHeight() * .075f;'''
           if anchor not in s:
-              raise SystemExit('Plant-card touch anchor not found')
+              raise SystemExit('Touch anchor not found')
           s = s.replace(anchor, replacement, 1)
 
-          # Remove old in-card shovel handler.
-          old_shovel = '''                // Shovel\n                if (inside(x, y, .465f, .075f, .525f, .15f)) {\n                    tool = tool == TOOL_SHOVEL\n                            ? TOOL_NONE\n                            : TOOL_SHOVEL;\n                    invalidate();\n                    return true;\n                }\n\n'''
-          s = s.replace(old_shovel, '', 1)
-
-          # Reset BINU motion state on a new level.
-          old = '''            binuSound1Finished = false;\n            stopBinuSound1();'''
-          new = '''            binuSound1Finished = false;\n            binuX = binuY = 0f;\n            binuStartX = binuStartY = 0f;\n            binuTargetX = binuTargetY = 0f;\n            stopBinuSound1();'''
-          if old not in s:
+          old_reset = '            binuSound1Finished = false;\n            stopBinuSound1();'
+          new_reset = '''            binuSound1Finished = false;
+            binuX = binuY = 0f;
+            binuStartX = binuStartY = 0f;
+            binuTargetX = binuTargetY = 0f;
+            stopBinuSound1();'''
+          if old_reset not in s:
               raise SystemExit('BINU reset anchor not found')
-          s = s.replace(old, new, 1)
+          s = s.replace(old_reset, new_reset, 1)
 
           p.write_text(s, encoding='utf-8')
           PY
@@ -91,10 +208,15 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           s = Path('app/src/main/java/com/alpvz/gardendefense/MainActivity.java').read_text(encoding='utf-8')
-          assert 'getWidth() * .82f' in s
-          assert 'float binuTargetX = 0f;' in s
-          assert 'elapsed >= 480L' in s
-          assert 'float x = binuJumping ? binuX' in s
+          checks = [
+              'getWidth() * .82f',
+              'float binuTargetX = 0f;',
+              'elapsed >= 480L',
+              'float x = binuJumping ? binuX',
+              'tool = tool == TOOL_SHOVEL ? TOOL_NONE : TOOL_SHOVEL;'
+          ]
+          for x in checks:
+              assert x in s, x
           assert s.count('private void drawBinu(Canvas c) {') == 1
           assert s.count('private void updateBinu(long now) {') == 1
           assert s.count('private void smashBinu() {') == 1
@@ -109,6 +231,6 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Fix shovel interaction and BINU movement'
+            git commit -m 'Fix shovel interaction and BINU jump movement'
             git push
           fi
