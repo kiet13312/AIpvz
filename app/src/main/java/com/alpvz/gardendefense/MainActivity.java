@@ -8,6 +8,9 @@ import android.graphics.*;
 import android.media.*;
 import android.view.*;
 import android.widget.TextView;
+import android.widget.FrameLayout;
+import android.widget.VideoView;
+import android.net.Uri;
 import java.util.*;
 
 public class MainActivity extends Activity {
@@ -15,6 +18,8 @@ public class MainActivity extends Activity {
     private GameView game;
     private MediaPlayer plantFoodPlayer;
     private SharedPreferences save;
+    private FrameLayout root;
+    private VideoView winVideo;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -38,7 +43,10 @@ public class MainActivity extends Activity {
         save = getSharedPreferences("garden_defense_save", MODE_PRIVATE);
         try {
             game = new GameView();
-            setContentView(game);
+            root = new FrameLayout(MainActivity.this);
+            root.setBackgroundColor(Color.BLACK);
+            root.addView(game, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            setContentView(root);
         } catch (Throwable e) {
             game = null;
             TextView t = new TextView(this);
@@ -91,6 +99,32 @@ public class MainActivity extends Activity {
         super.onPause();
     }
 
+    private void hideFinalVideo() {
+        try {
+            if (winVideo != null) {
+                winVideo.stopPlayback();
+                if (root != null) root.removeView(winVideo);
+                winVideo = null;
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void showFinalVideo() {
+        hideFinalVideo();
+        try {
+            if (root == null || game == null) return;
+            int id = getResources().getIdentifier("win", "raw", getPackageName());
+            if (id == 0) { game.invalidate(); return; }
+            winVideo = new VideoView(MainActivity.this);
+            winVideo.setBackgroundColor(Color.BLACK);
+            winVideo.setVideoURI(Uri.parse("android.resource://" + getPackageName() + "/" + id));
+            root.addView(winVideo, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            winVideo.setOnCompletionListener(mp -> { hideFinalVideo(); if (game != null) { game.screen = GameView.WIN; game.invalidate(); } });
+            winVideo.setOnErrorListener((mp, what, extra) -> { hideFinalVideo(); if (game != null) { game.screen = GameView.WIN; game.invalidate(); } return true; });
+            winVideo.start();
+        } catch (Exception ignored) { hideFinalVideo(); if (game != null) game.invalidate(); }
+    }
+
     @Override
     protected void onDestroy() {
         try {
@@ -98,6 +132,7 @@ public class MainActivity extends Activity {
                 plantFoodPlayer.release();
                 plantFoodPlayer = null;
             }
+            hideFinalVideo();
             if (game != null) {
                 game.releaseBinuSounds();
             }
@@ -586,7 +621,7 @@ public class MainActivity extends Activity {
                 for (int col = 0; col < COLS; col++) {
                     Plant plant = plants[r][col];
                     if (plant == null) continue;
-                    if (plant.type == BINU && binuWaiting) continue;
+                    if (plant.type == BINU && (binuWaiting || binuJumping)) continue;
 
                     float x = left + col * cellW + cellW / 2f;
                     float y = top + r * cellH + cellH / 2f;
@@ -890,8 +925,10 @@ public class MainActivity extends Activity {
                         if (now - a.last >= cd && rowHasZombie(r)) {
                             fire(r, col, 30, false);
                             a.last = now;
-                            a.animFrame = 1;
-                            a.animClock = now;
+                            if (a.animFrame < 1 || a.animFrame > 10) {
+                                a.animFrame = 1;
+                                a.animClock = now;
+                            }
                         }
                     }
 
@@ -978,15 +1015,14 @@ public class MainActivity extends Activity {
             for (int r = 0; r < ROWS; r++) {
                 for (int col = 0; col < COLS; col++) {
                     Plant a = plants[r][col];
-                    if (a == null || a.type != PEASHOOTER) continue;
-
-                    if (a.animFrame > 0 && now - a.animClock >= 55) {
+                    if (a == null || a.type != PEASHOOTER || peaAnim[0] == null) continue;
+                    if (a.animFrame < 1 || a.animFrame > 10) {
+                        a.animFrame = 1;
+                        a.animClock = now;
+                    } else if (now - a.animClock >= 70L) {
                         a.animClock = now;
                         a.animFrame++;
-
-                        if (a.animFrame > 10) {
-                            a.animFrame = 0;
-                        }
+                        if (a.animFrame > 10) a.animFrame = 1;
                     }
                 }
             }
@@ -1157,11 +1193,12 @@ public class MainActivity extends Activity {
                     Plant a = plants[r][col];
                     if (a == null || a.type != BINU) continue;
                     float bx = left + col * cellW + cellW / 2f;
+                    float by = top + r * cellH + cellH / 2f;
                     Zombie nearest = null;
                     float best = Float.MAX_VALUE;
                     for (Zombie z : zombies) {
-                        if (z.hp <= 0 || z.row != r || z.x <= bx) continue;
-                        float d = z.x - bx;
+                        if (z.hp <= 0 || z.row != r) continue;
+                        float d = Math.abs(z.x - bx);
                         if (d <= cellW * 1.30f && d < best) {
                             nearest = z;
                             best = d;
@@ -1173,7 +1210,7 @@ public class MainActivity extends Activity {
                         binuWaiting = true;
                         binuDetectAt = now + 2000L;
                         binuX = bx;
-                        binuY = top + r * cellH + cellH / 2f;
+                        binuY = by;
                         return;
                     }
                 }
@@ -1187,8 +1224,8 @@ public class MainActivity extends Activity {
             Zombie target = null;
             float best = Float.MAX_VALUE;
             for (Zombie z : zombies) {
-                if (z.hp <= 0 || z.row != binuRow || z.x < startX) continue;
-                float d = z.x - startX;
+                if (z.hp <= 0 || z.row != binuRow) continue;
+                float d = Math.abs(z.x - startX);
                 if (d <= cellW * 1.80f && d < best) {
                     target = z;
                     best = d;
@@ -1214,7 +1251,7 @@ public class MainActivity extends Activity {
         private void smashBinu() {
             if (binuRow < 0) return;
             float centerX = binuTargetX;
-            float range = cellW * 1.25f;
+            float range = cellW * 1.65f;
             for (Zombie z : zombies) {
                 if (z.hp <= 0 || z.row != binuRow) continue;
                 if (Math.abs(z.x - centerX) <= range) {
@@ -1499,6 +1536,7 @@ public class MainActivity extends Activity {
             }
 
             saveGame();
+            if (level == 9) postDelayed(() -> showFinalVideo(), 80L);
         }
 
         private void usePlantFood(Plant a) {
@@ -1909,6 +1947,11 @@ public class MainActivity extends Activity {
                 hp = maxHp;
 
                 last = System.currentTimeMillis();
+
+                if (type == PEASHOOTER) {
+                    animFrame = 1;
+                    animClock = last;
+                }
 
                 if (type == MINE) {
                     armTime = last + 30000;
