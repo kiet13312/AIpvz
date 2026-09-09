@@ -20,10 +20,8 @@ s=s[:start]+'''        private void usePlantFood(Plant a) {\n            if(a==n
 old='usePlantFood(plants[row][col]);\n                        food--;'
 if old in s:r(old,'usePlantFood(plants[row][col]);')
 if 'fireDelayed(r, col, 30, 250);' in s:r('fireDelayed(r, col, 30, 250);','fireDelayed(r, col, 30, 500);')
-# Peashooter animation already resets to 0 in the current fixed source; do not fail when that is already true.
 end_old='''                        if (a.animFrame > 10) {\n                            a.animFrame = 1;\n                        }'''
-end_new='''                        if (a.animFrame > 10) {\n                            a.animFrame = 0;\n                        }'''
-if end_old in s:r(end_old,end_new)
+if end_old in s:r(end_old,'''                        if (a.animFrame > 10) {\n                            a.animFrame = 0;\n                        }''')
 if 'private int activeRows()' not in s:r('        private long spawnDelay() {','''        private int activeRows(){if(level==1)return 1;if(level<=3)return 3;return 5;}\n        private boolean activeRow(int row){int n=activeRows(),first=(ROWS-n)/2;return row>=first&&row<first+n;}\n\n        private long spawnDelay() {''')
 r('int row = random.nextInt(ROWS);\n\n            boolean boss =','int n=activeRows(),first=(ROWS-n)/2;\n            int row=first+random.nextInt(n);\n\n            boolean boss =')
 board='''                    p.setColor(\n                            (r + col) % 2 == 0\n                                    ? Color.rgb(103, 166, 78)\n                                    : Color.rgb(91, 153, 67)\n                    );'''
@@ -37,7 +35,7 @@ r('speed = cellW * .19f;','speed = cellW * .1267f;')
 start=s.index('        private void drawMowers(Canvas c) {'); end=s.index('        private void drawHp(',start)
 s=s[:start]+'''        private void drawMowers(Canvas c) {\n            for(Mower m:mowers){float y=top+m.row*cellH+cellH*.72f,L=m.x-cellW*.26f,R=m.x+cellW*.26f,T=y-cellH*.17f,wr=Math.max(3f,cellH*.045f);p.setColor(m.used?Color.DKGRAY:Color.rgb(75,125,75));c.drawRoundRect(L,T,R,y,8,8,p);p.setColor(Color.DKGRAY);c.drawCircle(L+cellW*.10f,y+wr,wr,p);c.drawCircle(R-cellW*.10f,y+wr,wr,p);p.setStrokeWidth(Math.max(3f,cellW*.025f));c.drawLine(R-cellW*.04f,T,R+cellW*.18f,T-cellH*.27f,p);c.drawLine(R+cellW*.18f,T-cellH*.27f,R+cellW*.28f,T-cellH*.27f,p);}\n        }\n\n'''+s[end:]
 if 'binuTargetX = binuTargetY = 0f;' not in s:r('binuSound1Finished = false;\n            stopBinuSound1();','binuSound1Finished = false;\n            binuX=binuY=binuStartX=binuStartY=binuTargetX=binuTargetY=0f;\n            stopBinuSound1();')
-for x in ['activeRows()','activeRow(int row)','binuTargetX','elapsed >= 480L','z.hp * (2f / 3f)','m.x += cellW * 17f * dt']:
+for x in ['activeRows()','activeRow(int row)','binuTargetX','e>=480L','z.hp>0&&z.row==a.row&&!z.boss','m.x += cellW * 17f * dt']:
  if x not in s: raise SystemExit('missing '+x)
 if any(x in s.lower() for x in ['conveyor','minigame','zen garden','zomvinhhung']): raise SystemExit('removed feature returned')
 if s.count('private void updatePlants(long now) {')!=1 or s.count('private void updateZombies(long now, float dt) {')!=1:raise SystemExit('duplicate method')
