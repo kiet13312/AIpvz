@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,6 +16,226 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply verified gameplay fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/com/alpvz/gardendefense/MainActivity.java')
+          s=p.read_text(encoding='utf-8')
+
+          # Shovel: move it out of the BINU card area and align its touch area.
+          s=s.replace('''                    getWidth() * .465f,
+                    getHeight() * .075f,
+                    getWidth() * .525f,
+                    getHeight() * .15f,''','''                    getWidth() * .82f,
+                    getHeight() * .075f,
+                    getWidth() * .87f,
+                    getHeight() * .15f,''',1)
+          s=s.replace('getWidth() * .495f,\n                    getHeight() * .122f,','getWidth() * .845f,\n                    getHeight() * .122f,',1)
+          s=s.replace('inside(x, y, .465f, .075f, .525f, .15f)','inside(x, y, .82f, .075f, .87f, .15f)',1)
+
+          # BINU state, draw position and movement.
+          if 'float binuTargetX = 0f;' not in s:
+              anchor='''        boolean binuSound1Finished = false;
+
+        MediaPlayer binuSound1Player;'''
+              repl='''        boolean binuSound1Finished = false;
+        float binuX = 0f;
+        float binuY = 0f;
+        float binuStartX = 0f;
+        float binuStartY = 0f;
+        float binuTargetX = 0f;
+        float binuTargetY = 0f;
+
+        MediaPlayer binuSound1Player;'''
+              if anchor not in s: raise SystemExit('BINU state anchor missing')
+              s=s.replace(anchor,repl,1)
+
+          old_draw='''        private void drawBinu(Canvas c) {
+            if (!binuWaiting && !binuJumping) return;
+            if (binuRow < 0 || binuCol < 0) return;
+
+            Bitmap b = binuImg;
+
+            if (binuJumping) {
+                if (binuFrame == 1) b = binu1Img;
+                else if (binuFrame == 2) b = binu2Img;
+                else if (binuFrame == 3) b = binu3Img;
+                else if (binuFrame == 4) b = binu4Img;
+            }
+
+            if (b == null) return;
+
+            float x = left + binuCol * cellW + cellW / 2f;
+            float y = top + binuRow * cellH + cellH / 2f;
+
+            c.drawBitmap(
+                    b,
+                    null,
+                    new RectF(
+                            x - cellW * .37f,
+                            y - cellH * .42f,
+                            x + cellW * .37f,
+                            y + cellH * .42f
+                    ),
+                    p
+            );
+        }
+'''
+          new_draw='''        private void drawBinu(Canvas c) {
+            if (!binuWaiting && !binuJumping) return;
+            if (binuRow < 0 || binuCol < 0) return;
+
+            Bitmap b = binuImg;
+            if (binuJumping) {
+                if (binuFrame == 1) b = binu1Img;
+                else if (binuFrame == 2) b = binu2Img;
+                else if (binuFrame == 3) b = binu3Img;
+                else if (binuFrame >= 4) b = binu4Img;
+            }
+            if (b == null) return;
+
+            float x = binuJumping ? binuX : left + binuCol * cellW + cellW / 2f;
+            float y = binuJumping ? binuY : top + binuRow * cellH + cellH / 2f;
+
+            c.drawBitmap(b, null,
+                    new RectF(x - cellW * .37f, y - cellH * .42f,
+                            x + cellW * .37f, y + cellH * .42f), p);
+        }
+'''
+          if old_draw in s:
+              s=s.replace(old_draw,new_draw,1)
+
+          old_logic_start='        private void updateBinu(long now) {'
+          old_logic_end='        private void updatePeas(float dt) {'
+          a=s.index(old_logic_start)
+          b=s.index(old_logic_end,a)
+          old_logic=s[a:b]
+          if 'float t = Math.max(0f, Math.min(1f, elapsed / 480f));' not in old_logic:
+              new_logic='''        private void updateBinu(long now) {
+            if (binuWaiting && !binuJumping && now >= binuDetectAt && binuSound1Finished) {
+                startBinuJump(now);
+            }
+            if (!binuJumping) return;
+
+            long elapsed = now - binuClock;
+            float t = Math.max(0f, Math.min(1f, elapsed / 480f));
+            float smooth = t * t * (3f - 2f * t);
+            binuX = binuStartX + (binuTargetX - binuStartX) * smooth;
+            binuY = binuStartY + (binuTargetY - binuStartY) * smooth;
+            binuFrame = Math.max(1, Math.min(4, (int)(elapsed / 120L) + 1));
+
+            if (elapsed >= 480L) {
+                binuX = binuTargetX;
+                binuY = binuTargetY;
+                smashBinu();
+                binuJumping = false;
+                binuWaiting = false;
+                binuFrame = 0;
+                binuRow = -1;
+                binuCol = -1;
+            }
+        }
+
+        private void checkBinu(long now) {
+            if (binuWaiting || binuJumping) return;
+            for (int r = 0; r < ROWS; r++) {
+                for (int col = 0; col < COLS; col++) {
+                    Plant a = plants[r][col];
+                    if (a == null || a.type != BINU) continue;
+                    float bx = left + col * cellW + cellW / 2f;
+                    Zombie nearest = null;
+                    float best = Float.MAX_VALUE;
+                    for (Zombie z : zombies) {
+                        if (z.hp <= 0 || z.row != r || z.x <= bx) continue;
+                        float d = z.x - bx;
+                        if (d <= cellW * 1.30f && d < best) {
+                            nearest = z;
+                            best = d;
+                        }
+                    }
+                    if (nearest != null) {
+                        binuRow = r;
+                        binuCol = col;
+                        binuWaiting = true;
+                        binuDetectAt = now + 2000L;
+                        binuX = bx;
+                        binuY = top + r * cellH + cellH / 2f;
+                        return;
+                    }
+                }
+            }
+        }
+
+        private void startBinuJump(long now) {
+            if (!binuWaiting || binuRow < 0 || binuCol < 0) return;
+            float startX = left + binuCol * cellW + cellW / 2f;
+            float startY = top + binuRow * cellH + cellH / 2f;
+            Zombie target = null;
+            float best = Float.MAX_VALUE;
+            for (Zombie z : zombies) {
+                if (z.hp <= 0 || z.row != binuRow || z.x < startX) continue;
+                float d = z.x - startX;
+                if (d <= cellW * 1.80f && d < best) {
+                    target = z;
+                    best = d;
+                }
+            }
+            if (target == null) {
+                binuWaiting = false;
+                return;
+            }
+            binuStartX = startX;
+            binuStartY = startY;
+            binuTargetX = target.x;
+            binuTargetY = target.y;
+            binuX = startX;
+            binuY = startY;
+            plants[binuRow][binuCol] = null;
+            binuJumping = true;
+            binuFrame = 1;
+            binuClock = now;
+            playBinuSound2();
+        }
+
+        private void smashBinu() {
+            if (binuRow < 0) return;
+            float centerX = binuTargetX;
+            float range = cellW * 1.25f;
+            for (Zombie z : zombies) {
+                if (z.hp <= 0 || z.row != binuRow) continue;
+                if (Math.abs(z.x - centerX) <= range) {
+                    if (z.boss) z.hp = Math.max(1f, z.hp * .50f);
+                    else z.hp = 0;
+                }
+            }
+        }
+
+'''
+              s=s[:a]+new_logic+s[b:]
+
+          # Avoid drawing BINU twice while waiting.
+          marker='''                    Plant plant = plants[r][col];
+                    if (plant == null) continue;'''
+          if marker in s and 'if (plant.type == BINU && binuWaiting) continue;' not in s:
+              s=s.replace(marker,marker+'\n                    if (plant.type == BINU && binuWaiting) continue;',1)
+
+          # Reset motion state on new level.
+          reset='''            binuSound1Finished = false;
+            stopBinuSound1();'''
+          reset2='''            binuSound1Finished = false;
+            binuX = binuY = 0f;
+            binuStartX = binuStartY = 0f;
+            binuTargetX = binuTargetY = 0f;
+            stopBinuSound1();'''
+          if reset in s and 'binuTargetX = binuTargetY = 0f;' not in s[s.index('private void clearBoard'):s.index('private long spawnDelay')]:
+              s=s.replace(reset,reset2,1)
+
+          p.write_text(s,encoding='utf-8')
+          PY
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -35,6 +258,13 @@ jobs:
 
       - name: Build APK
         run: gradle :app:assembleDebug --no-daemon
+
+      - name: Commit fixed source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/alpvz/gardendefense/MainActivity.java
+          if git diff --cached --quiet; then echo 'Source already fixed'; else git commit -m 'Fix BINU movement and shovel'; git push; fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
