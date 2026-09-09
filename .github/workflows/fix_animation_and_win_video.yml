@@ -1,0 +1,126 @@
+name: Apply animation and final video fix
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch MainActivity.java
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess
+
+          path = Path('app/src/main/java/com/alpvz/gardendefense/MainActivity.java')
+          s = path.read_text(encoding='utf-8')
+
+          def repl(old, new, label):
+              global s
+              n = s.count(old)
+              if n != 1:
+                  raise SystemExit(f'{label}: expected 1 match, got {n}')
+              s = s.replace(old, new)
+
+          repl(
+              'import android.view.*;\nimport android.widget.TextView;\n',
+              'import android.view.*;\nimport android.widget.TextView;\nimport android.widget.FrameLayout;\nimport android.widget.VideoView;\nimport android.net.Uri;\n',
+              'imports'
+          )
+
+          repl(
+              '    private GameView game;\n    private MediaPlayer plantFoodPlayer;\n    private SharedPreferences save;\n',
+              '    private GameView game;\n    private MediaPlayer plantFoodPlayer;\n    private SharedPreferences save;\n    private FrameLayout root;\n    private VideoView winVideo;\n',
+              'activity fields'
+          )
+
+          repl(
+              '            game = new GameView();\n            setContentView(game);\n',
+              '            game = new GameView();\n            root = new FrameLayout(MainActivity.this);\n            root.setBackgroundColor(Color.BLACK);\n            root.addView(game, new FrameLayout.LayoutParams(\n                    FrameLayout.LayoutParams.MATCH_PARENT,\n                    FrameLayout.LayoutParams.MATCH_PARENT\n            ));\n            setContentView(root);\n',
+              'root setup'
+          )
+
+          repl(
+              '    @Override\n    protected void onDestroy() {\n',
+              '    private void hideFinalVideo() {\n        try {\n            if (winVideo != null) {\n                winVideo.stopPlayback();\n                if (root != null) root.removeView(winVideo);\n                winVideo = null;\n            }\n        } catch (Exception ignored) {\n        }\n    }\n\n    private void showFinalVideo() {\n        hideFinalVideo();\n        try {\n            if (root == null || game == null) return;\n            int id = getResources().getIdentifier("win", "raw", getPackageName());\n            if (id == 0) {\n                game.invalidate();\n                return;\n            }\n            winVideo = new VideoView(MainActivity.this);\n            winVideo.setBackgroundColor(Color.BLACK);\n            winVideo.setVideoURI(Uri.parse("android.resource://" + getPackageName() + "/" + id));\n            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(\n                    FrameLayout.LayoutParams.MATCH_PARENT,\n                    FrameLayout.LayoutParams.MATCH_PARENT\n            );\n            root.addView(winVideo, lp);\n            winVideo.setOnCompletionListener(mp -> {\n                hideFinalVideo();\n                if (game != null) {\n                    game.screen = GameView.WIN;\n                    game.invalidate();\n                }\n            });\n            winVideo.setOnErrorListener((mp, what, extra) -> {\n                hideFinalVideo();\n                if (game != null) {\n                    game.screen = GameView.WIN;\n                    game.invalidate();\n                }\n                return true;\n            });\n            winVideo.start();\n        } catch (Exception ignored) {\n            hideFinalVideo();\n            if (game != null) game.invalidate();\n        }\n    }\n\n    @Override\n    protected void onDestroy() {\n',
+              'video methods'
+          )
+
+          repl(
+              '            if (game != null) {\n                game.releaseBinuSounds();\n            }\n',
+              '            hideFinalVideo();\n            if (game != null) {\n                game.releaseBinuSounds();\n            }\n',
+              'destroy video cleanup'
+          )
+
+          repl(
+              '                    Plant plant = plants[r][col];\n                    if (plant == null) continue;\n                    if (plant.type == BINU && binuWaiting) continue;\n',
+              '                    Plant plant = plants[r][col];\n                    if (plant == null) continue;\n                    if (plant.type == BINU && (binuWaiting || binuJumping)) continue;\n',
+              'hide BINU duplicate'
+          )
+
+          repl(
+              '        private void updatePlantAnimations(long now) {\n            for (int r = 0; r < ROWS; r++) {\n                for (int col = 0; col < COLS; col++) {\n                    Plant a = plants[r][col];\n                    if (a == null || a.type != PEASHOOTER) continue;\n\n                    if (a.animFrame > 0 && now - a.animClock >= 55) {\n                        a.animClock = now;\n                        a.animFrame++;\n\n                        if (a.animFrame > 10) {\n                            a.animFrame = 0;\n                        }\n                    }\n                }\n            }\n        }\n',
+              '        private void updatePlantAnimations(long now) {\n            for (int r = 0; r < ROWS; r++) {\n                for (int col = 0; col < COLS; col++) {\n                    Plant a = plants[r][col];\n                    if (a == null || a.type != PEASHOOTER) continue;\n                    if (peaAnim[0] == null) continue;\n\n                    if (a.animFrame < 1 || a.animFrame > 10) {\n                        a.animFrame = 1;\n                        a.animClock = now;\n                    } else if (now - a.animClock >= 70L) {\n                        a.animClock = now;\n                        a.animFrame++;\n                        if (a.animFrame > 10) a.animFrame = 1;\n                    }\n                }\n            }\n        }\n',
+              'peashooter animation loop'
+          )
+
+          repl(
+              '                            a.last = now;\n                            a.animFrame = 1;\n                            a.animClock = now;\n',
+              '                            a.last = now;\n                            if (a.animFrame < 1 || a.animFrame > 10) {\n                                a.animFrame = 1;\n                                a.animClock = now;\n                            }\n',
+              'peashooter fire animation reset'
+          )
+
+          repl(
+              '        private void checkBinu(long now) {\n            if (binuWaiting || binuJumping) return;\n            for (int r = 0; r < ROWS; r++) {\n                for (int col = 0; col < COLS; col++) {\n                    Plant a = plants[r][col];\n                    if (a == null || a.type != BINU) continue;\n                    float bx = left + col * cellW + cellW / 2f;\n                    Zombie nearest = null;\n                    float best = Float.MAX_VALUE;\n                    for (Zombie z : zombies) {\n                        if (z.hp <= 0 || z.row != r || z.x <= bx) continue;\n                        float d = z.x - bx;\n                        if (d <= cellW * 1.30f && d < best) {\n                            nearest = z;\n                            best = d;\n                        }\n                    }\n                    if (nearest != null) {\n                        binuRow = r;\n                        binuCol = col;\n                        binuWaiting = true;\n                        binuDetectAt = now + 2000L;\n                        binuX = bx;\n                        binuY = top + r * cellH + cellH / 2f;\n                        return;\n                    }\n                }\n            }\n        }\n',
+              '        private void checkBinu(long now) {\n            if (binuWaiting || binuJumping) return;\n            for (int r = 0; r < ROWS; r++) {\n                for (int col = 0; col < COLS; col++) {\n                    Plant a = plants[r][col];\n                    if (a == null || a.type != BINU) continue;\n                    float bx = left + col * cellW + cellW / 2f;\n                    float by = top + r * cellH + cellH / 2f;\n                    Zombie nearest = null;\n                    float best = Float.MAX_VALUE;\n                    for (Zombie z : zombies) {\n                        if (z.hp <= 0 || z.row != r) continue;\n                        float d = Math.abs(z.x - bx);\n                        if (d <= cellW * 1.35f && d < best) {\n                            nearest = z;\n                            best = d;\n                        }\n                    }\n                    if (nearest != null) {\n                        binuRow = r;\n                        binuCol = col;\n                        binuWaiting = true;\n                        binuDetectAt = now + 2000L;\n                        binuX = bx;\n                        binuY = by;\n                        return;\n                    }\n                }\n            }\n        }\n',
+              'BINU front and behind detection'
+          )
+
+          repl(
+              '            for (Zombie z : zombies) {\n                if (z.hp <= 0 || z.row != binuRow || z.x < startX) continue;\n                float d = z.x - startX;\n                if (d <= cellW * 1.80f && d < best) {\n                    target = z;\n                    best = d;\n                }\n            }\n',
+              '            for (Zombie z : zombies) {\n                if (z.hp <= 0 || z.row != binuRow) continue;\n                float d = Math.abs(z.x - startX);\n                if (d <= cellW * 1.80f && d < best) {\n                    target = z;\n                    best = d;\n                }\n            }\n',
+              'BINU jump target'
+          )
+
+          repl(
+              '            float range = cellW * 1.25f;\n',
+              '            float range = cellW * 1.65f;\n',
+              'BINU smash range'
+          )
+
+          repl(
+              '                last = System.currentTimeMillis();\n\n                if (type == MINE) {\n',
+              '                last = System.currentTimeMillis();\n\n                if (type == PEASHOOTER) {\n                    animFrame = 1;\n                    animClock = last;\n                }\n\n                if (type == MINE) {\n',
+              'peashooter initial animation'
+          )
+
+          repl(
+              '        private void winLevel() {\n            screen = WIN;\n\n            if (level < 9) {\n                unlocked = Math.max(unlocked, level + 1);\n            }\n\n            saveGame();\n        }\n',
+              '        private void winLevel() {\n            screen = WIN;\n\n            if (level < 9) {\n                unlocked = Math.max(unlocked, level + 1);\n            }\n\n            saveGame();\n\n            if (level == 9) {\n                postDelayed(() -> showFinalVideo(), 80L);\n            }\n        }\n',
+              'level 9 final video'
+          )
+
+          path.write_text(s, encoding='utf-8')
+          subprocess.run(['git', 'config', 'user.name', 'github-actions[bot]'], check=True)\n          subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          subprocess.run(['git', 'add', str(path)], check=True)
+          if subprocess.run(['git', 'diff', '--cached', '--quiet']).returncode == 0:
+              print('Already patched')
+              raise SystemExit(0)
+          subprocess.run(['git', 'commit', '-m', 'Fix looping Peashooter animation and BINU movement'], check=True)
+          subprocess.run(['git', 'push', 'origin', 'HEAD:main'], check=True)
+
+      - name: Remove temporary patch workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/fix_animation_and_win_video.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Remove temporary animation patch workflow'
+          git push origin HEAD:main
