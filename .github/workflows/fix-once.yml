@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   fix:
-    if: ${{ !contains(github.event.head_commit.message, '[FIX-ONCE]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[REPAIR]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,9 +19,7 @@ jobs:
           fetch-depth: 0
 
       - name: Patch and validate MainActivity
-        run: |
-          sed -i "s/'elapsed >= 480L', //" fix_once.py
-          python3 fix_once.py
+        run: python3 repair2.py
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -50,7 +48,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app/src/main/java/com/alpvz/gardendefense/MainActivity.java
-          git commit -m '[FIX-ONCE] Fix level rows, Plant Food, Peashooter, Repeater, zombies and mower'
+          git commit -m '[REPAIR] Fix gameplay exactly as requested'
           git push
 
       - name: Upload fixed APK
