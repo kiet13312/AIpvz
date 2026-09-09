@@ -423,8 +423,8 @@ public class MainActivity extends Activity {
             drawSuns(c);
             drawMowers(c);
 
-            button(c, .91f, .075f, .99f, .15f, speed == 2 ? "×2" : "▶");
-            button(c, .82f, .075f, .90f, .15f, "Ⅱ");
+            button(c, .94f, .075f, .99f, .15f, speed == 2 ? "×2" : "▶");
+            button(c, .88f, .075f, .93f, .15f, "Ⅱ");
 
             drawProgress(c);
         }
@@ -976,7 +976,7 @@ public class MainActivity extends Activity {
                         a.animFrame++;
 
                         if (a.animFrame > 10) {
-                            a.animFrame = 1;
+                            a.animFrame = 0;
                         }
                     }
                 }
@@ -1705,14 +1705,14 @@ public class MainActivity extends Activity {
             }
 
             // Pause button
-            if (inside(x, y, .82f, .075f, .90f, .15f)) {
+            if (inside(x, y, .88f, .075f, .93f, .15f)) {
                 screen = PAUSE;
                 invalidate();
                 return true;
             }
 
             // Speed
-            if (inside(x, y, .91f, .075f, .99f, .15f)) {
+            if (inside(x, y, .94f, .075f, .99f, .15f)) {
                 speed = speed == 1 ? 2 : 1;
                 invalidate();
                 return true;
