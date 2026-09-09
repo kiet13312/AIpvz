@@ -19,8 +19,7 @@ jobs:
           fetch-depth: 0
 
       - name: Patch and validate MainActivity
-        run: |
-          python3 -c "import base64;exec(base64.b64decode('ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCnA9UGF0aCgnYXBwL3NyYy9tYWluL2phdmEvY29tL2FscHZ6L2dhcmRlbmRlZmVuc2UvTWFpbkFjdGl2aXR5LmphdmEnKQpzPXAucmVhZF90ZXh0KGVuY29kaW5nPSd1dGYtOCcpCm9yaWdpbmFsPXMKCmRlZiBvbmNlKG9sZCxuZXcsbGFiZWwpOgogICAgZ2xvYmFsIHMKICAgIG49cy5jb3VudChvbGQpCiAgICBpZiBuIT0xOiByYWlzZSBTeXN0ZW1FeGl0KGYne2xhYmVsfTogZXhwZWN0ZWQgMSwgZ290IHtufScpCiAgICBzPXMucmVwbGFjZShvbGQsbmV3LDEpCgojIFNob3ZlbCBwb3NpdGlvbi90b3VjaDogbmV2ZXIgb3ZlcmxhcCB0aGUgQklOVSBjYXJkLgpvbmNlKCdnZXRXaWR0aCgpICogLjQ2NWYsXG4gICAgICAgICAgICAgICAgICAgIGdldEhlaWdodCgpICogLjA3NWYsXG4gICAgICAgICAgICAgICAgICAgIGdldFdpZHRoKCkgKiAuNTI1ZixcbiAgICAgICAgICAgICAgICAgICAgZ2V0SGVpZ2h0KCkgKiAuMTVmLCcsJ2dldFdpZHRoKCkgKiAuODJmLFxuICAgICAgICAgICAgICAgICAgICBnZXRESWdodCgpICogLjA3NWYsXG4gICAgICAgICAgICAgICAgICAgIGdldFdpZHRoKCkgKiAuODdmLFxuICAgICAgICAgICAgICAgICAgICAgZ2V0SGVpZ2h0KCkgKiAuMTVmLCcsJ3Nob3ZlbCBkcmF3JykK')" 
+        run: python3 fix_once.py
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -48,7 +47,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/src/main/java/com/alpvz/gardendefense/MainActivity.java
+          git add app/src/main/java/com/alpvz/gardendefense/MainActivity.java fix_once.py
           git commit -m '[FIX-ONCE] Fix level rows, Plant Food, Peashooter, Repeater, zombies and mower'
           git push
 
