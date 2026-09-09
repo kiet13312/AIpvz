@@ -26,23 +26,28 @@ jobs:
           p=Path('app/src/main/java/com/alpvz/gardendefense/MainActivity.java')
           s=p.read_text(encoding='utf-8')
 
-          # Shovel: move it out of the BINU card area and align its touch area.
-          s=s.replace('''                    getWidth() * .465f,
+          def replace_once(old,new,label):
+              global s
+              if old not in s:
+                  raise SystemExit(f'MISSING: {label}')
+              s=s.replace(old,new,1)
+
+          # Keep the shovel clear of the BINU card and keep touch area identical.
+          replace_once('''                    getWidth() * .465f,
                     getHeight() * .075f,
                     getWidth() * .525f,
                     getHeight() * .15f,''','''                    getWidth() * .82f,
                     getHeight() * .075f,
                     getWidth() * .87f,
-                    getHeight() * .15f,''',1)
-          s=s.replace('getWidth() * .495f,\n                    getHeight() * .122f,','getWidth() * .845f,\n                    getHeight() * .122f,',1)
-          s=s.replace('inside(x, y, .465f, .075f, .525f, .15f)','inside(x, y, .82f, .075f, .87f, .15f)',1)
+                    getHeight() * .15f,''','shovel draw')
+          replace_once('getWidth() * .495f,\n                    getHeight() * .122f,','getWidth() * .845f,\n                    getHeight() * .122f,','shovel label')
+          replace_once('inside(x, y, .465f, .075f, .525f, .15f)','inside(x, y, .82f, .075f, .87f, .15f)','shovel touch')
 
-          # BINU state, draw position and movement.
+          # Correct BINU movement: it travels to the zombie instead of animating in place.
           if 'float binuTargetX = 0f;' not in s:
-              anchor='''        boolean binuSound1Finished = false;
+              replace_once('''        boolean binuSound1Finished = false;
 
-        MediaPlayer binuSound1Player;'''
-              repl='''        boolean binuSound1Finished = false;
+        MediaPlayer binuSound1Player;''','''        boolean binuSound1Finished = false;
         float binuX = 0f;
         float binuY = 0f;
         float binuStartX = 0f;
@@ -50,9 +55,7 @@ jobs:
         float binuTargetX = 0f;
         float binuTargetY = 0f;
 
-        MediaPlayer binuSound1Player;'''
-              if anchor not in s: raise SystemExit('BINU state anchor missing')
-              s=s.replace(anchor,repl,1)
+        MediaPlayer binuSound1Player;''','BINU state')
 
           old_draw='''        private void drawBinu(Canvas c) {
             if (!binuWaiting && !binuJumping) return;
@@ -106,16 +109,13 @@ jobs:
                             x + cellW * .37f, y + cellH * .42f), p);
         }
 '''
-          if old_draw in s:
-              s=s.replace(old_draw,new_draw,1)
+          replace_once(old_draw,new_draw,'BINU draw')
 
-          old_logic_start='        private void updateBinu(long now) {'
-          old_logic_end='        private void updatePeas(float dt) {'
-          a=s.index(old_logic_start)
-          b=s.index(old_logic_end,a)
-          old_logic=s[a:b]
-          if 'float t = Math.max(0f, Math.min(1f, elapsed / 480f));' not in old_logic:
-              new_logic='''        private void updateBinu(long now) {
+          start='        private void updateBinu(long now) {'
+          end='        private void updatePeas(float dt) {'
+          a=s.index(start)
+          b=s.index(end,a)
+          new_logic='''        private void updateBinu(long now) {
             if (binuWaiting && !binuJumping && now >= binuDetectAt && binuSound1Finished) {
                 startBinuJump(now);
             }
@@ -215,24 +215,176 @@ jobs:
         }
 
 '''
-              s=s[:a]+new_logic+s[b:]
+          s=s[:a]+new_logic+s[b:]
 
-          # Avoid drawing BINU twice while waiting.
-          marker='''                    Plant plant = plants[r][col];
+          # Do not render the planted BINU twice while it is waiting for its jump.
+          old='''                    Plant plant = plants[r][col];
                     if (plant == null) continue;'''
-          if marker in s and 'if (plant.type == BINU && binuWaiting) continue;' not in s:
-              s=s.replace(marker,marker+'\n                    if (plant.type == BINU && binuWaiting) continue;',1)
+          if 'if (plant.type == BINU && binuWaiting) continue;' not in s:
+              replace_once(old,old+'\n                    if (plant.type == BINU && binuWaiting) continue;','BINU duplicate draw guard')
 
-          # Reset motion state on new level.
-          reset='''            binuSound1Finished = false;
-            stopBinuSound1();'''
-          reset2='''            binuSound1Finished = false;
+          # Reset BINU movement state each time a level starts.
+          replace_once('''            binuSound1Finished = false;
+            stopBinuSound1();''','''            binuSound1Finished = false;
             binuX = binuY = 0f;
             binuStartX = binuStartY = 0f;
             binuTargetX = binuTargetY = 0f;
-            stopBinuSound1();'''
-          if reset in s and 'binuTargetX = binuTargetY = 0f;' not in s[s.index('private void clearBoard'):s.index('private long spawnDelay')]:
-              s=s.replace(reset,reset2,1)
+            stopBinuSound1();''','BINU reset')
+
+          # Plant Food: consume exactly once and reduce only non-boss zombie HP to 2/3.
+          old_food='''            playPlantFoodSound();
+
+            if (a.type == GIGANUT) {'''
+          new_food='''            playPlantFoodSound();
+
+            for (Zombie z : zombies) {
+                if (z.hp > 0 && !z.boss) {
+                    z.hp = Math.max(1f, z.hp * (2f / 3f));
+                }
+            }
+
+            if (a.type == GIGANUT) {'''
+          replace_once(old_food,new_food,'Plant Food zombie reduction')
+          replace_once('''                    if (plants[row][col] != null &&
+                            plants[row][col].type != BINU &&
+                            food > 0) {
+                        usePlantFood(plants[row][col]);
+                        food--;
+                    }''','''                    if (plants[row][col] != null &&
+                            plants[row][col].type != BINU &&
+                            food > 0) {
+                        usePlantFood(plants[row][col]);
+                    }''','Plant Food double consume')
+
+          # Repeater second shot must be delayed by exactly 0.5 seconds.
+          replace_once('fireDelayed(r, col, 30, 250);','fireDelayed(r, col, 30, 500);','Repeater 0.5s delay')
+
+          # Level row layout: level 1 = center row only, levels 2-3 = 3 rows, level 4+ = all 5.
+          if 'private int activeRows()' not in s:
+              anchor='''        private long spawnDelay() {
+'''
+              helpers='''        private int activeRows() {
+            if (level == 1) return 1;
+            if (level <= 3) return 3;
+            return 5;
+        }
+
+        private boolean activeRow(int row) {
+            int n = activeRows();
+            int start = (ROWS - n) / 2;
+            return row >= start && row < start + n;
+        }
+
+        private long spawnDelay() {
+'''
+              replace_once(anchor,helpers,'active row helpers')
+
+          replace_once('''            int row = random.nextInt(ROWS);
+
+            boolean boss =''','''            int rowCount = activeRows();
+            int firstRow = (ROWS - rowCount) / 2;
+            int row = firstRow + random.nextInt(rowCount);
+
+            boolean boss =''','spawn only active rows')
+
+          replace_once('''                    c.drawRect(
+                            left + col * cellW,
+                            top + r * cellH,
+                            left + (col + 1) * cellW,
+                            top + (r + 1) * cellH,
+                            p
+                    );''','''                    if (!activeRow(r)) {
+                        p.setColor(Color.rgb(70, 105, 60));
+                    }
+                    c.drawRect(
+                            left + col * cellW,
+                            top + r * cellH,
+                            left + (col + 1) * cellW,
+                            top + (r + 1) * cellH,
+                            p
+                    );''','inactive row board visual')
+
+          replace_once('''                int col = (int) ((x - left) / cellW);
+                int row = (int) ((y - top) / cellH);
+
+                if (row < 0 || row >= ROWS ||
+                        col < 0 || col >= COLS) {''','''                int col = (int) ((x - left) / cellW);
+                int row = (int) ((y - top) / cellH);
+
+                if (row < 0 || row >= ROWS ||
+                        col < 0 || col >= COLS) {''','board coordinates')
+          if 'if (!activeRow(row))' not in s[s.index('// Board'):s.index('        private boolean inside')]:
+              marker='''                if (row < 0 || row >= ROWS ||
+                        col < 0 || col >= COLS) {
+                    return true;
+                }
+
+                if (tool == TOOL_SHOVEL) {'''
+              replace_once(marker,'''                if (row < 0 || row >= ROWS ||
+                        col < 0 || col >= COLS) {
+                    return true;
+                }
+                if (!activeRow(row)) return true;
+
+                if (tool == TOOL_SHOVEL) {''','prevent inactive row planting')
+
+          # Zombie speed: reduce existing non-boss speeds by one third; boss keeps its own lower speed.
+          replace_once('speed = cellW * .12f;','speed = cellW * .08f;','zombie type 1 speed')
+          replace_once('speed = cellW * .30f;','speed = cellW * .20f;','zombie type 2 speed')
+          replace_once('speed = cellW * .19f;','speed = cellW * .1267f;','normal zombie speed')
+          replace_once('speed = cellW * .08f;\n                    damage = 45;','speed = cellW * .0533f;\n                    damage = 45;','boss speed')
+
+          # Mower: draw a simple mower body, two wheels and handle instead of a red rectangle.
+          old_mower='''        private void drawMowers(Canvas c) {
+            for (Mower m : mowers) {
+                float y = top + m.row * cellH + cellH * .72f;
+
+                p.setColor(
+                        m.used
+                                ? Color.DKGRAY
+                                : Color.rgb(190, 70, 40)
+                );
+
+                c.drawRoundRect(
+                        m.x - cellW * .30f,
+                        y - cellH * .18f,
+                        m.x + cellW * .30f,
+                        y,
+                        8,
+                        8,
+                        p
+                );
+            }
+        }
+'''
+          new_mower='''        private void drawMowers(Canvas c) {
+            for (Mower m : mowers) {
+                float y = top + m.row * cellH + cellH * .72f;
+                p.setColor(m.used ? Color.DKGRAY : Color.rgb(60, 125, 65));
+                c.drawRoundRect(
+                        m.x - cellW * .25f,
+                        y - cellH * .16f,
+                        m.x + cellW * .25f,
+                        y,
+                        8, 8, p);
+                p.setColor(Color.DKGRAY);
+                c.drawCircle(m.x - cellW * .16f, y, cellH * .055f, p);
+                c.drawCircle(m.x + cellW * .16f, y, cellH * .055f, p);
+                p.setColor(Color.DKGRAY);
+                p.setStrokeWidth(Math.max(4f, cellW * .035f));
+                c.drawLine(m.x + cellW * .18f, y - cellH * .10f,
+                        m.x + cellW * .38f, y - cellH * .34f, p);
+            }
+        }
+'''
+          replace_once(old_mower,new_mower,'mower drawing')
+
+          # Guard against an unused BINU animation loop regression.
+          replace_once('''                        if (a.animFrame > 10) {
+                            a.animFrame = 1;
+                        }''','''                        if (a.animFrame > 10) {
+                            a.animFrame = 0;
+                        }''','Peashooter animation end')
 
           p.write_text(s,encoding='utf-8')
           PY
@@ -264,7 +416,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app/src/main/java/com/alpvz/gardendefense/MainActivity.java
-          if git diff --cached --quiet; then echo 'Source already fixed'; else git commit -m 'Fix BINU movement and shovel'; git push; fi
+          if git diff --cached --quiet; then echo 'Source already fixed'; else git commit -m 'Fix gameplay balance and level layout'; git push; fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
