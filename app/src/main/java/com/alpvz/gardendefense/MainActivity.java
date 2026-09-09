@@ -209,6 +209,12 @@ public class MainActivity extends Activity {
         boolean binuWaiting = false;
         boolean binuJumping = false;
         boolean binuSound1Finished = false;
+        float binuX = 0f;
+        float binuY = 0f;
+        float binuStartX = 0f;
+        float binuStartY = 0f;
+        float binuTargetX = 0f;
+        float binuTargetY = 0f;
 
         MediaPlayer binuSound1Player;
         MediaPlayer binuSound2Player;
@@ -495,9 +501,9 @@ public class MainActivity extends Activity {
             // Shovel
             p.setColor(tool == TOOL_SHOVEL ? Color.YELLOW : Color.rgb(55, 80, 55));
             c.drawRoundRect(
-                    getWidth() * .465f,
+                    getWidth() * .82f,
                     getHeight() * .075f,
-                    getWidth() * .525f,
+                    getWidth() * .87f,
                     getHeight() * .15f,
                     8,
                     8,
@@ -506,7 +512,7 @@ public class MainActivity extends Activity {
             drawText(
                     c,
                     "XẺNG",
-                    getWidth() * .495f,
+                    getWidth() * .845f,
                     getHeight() * .122f,
                     12,
                     Color.WHITE,
@@ -551,11 +557,15 @@ public class MainActivity extends Activity {
         private void drawBoard(Canvas c) {
             for (int r = 0; r < ROWS; r++) {
                 for (int col = 0; col < COLS; col++) {
-                    p.setColor(
-                            (r + col) % 2 == 0
-                                    ? Color.rgb(103, 166, 78)
-                                    : Color.rgb(91, 153, 67)
-                    );
+                    if (!activeRow(r)) {
+                        p.setColor(Color.rgb(72, 110, 62));
+                    } else {
+                        p.setColor(
+                                (r + col) % 2 == 0
+                                        ? Color.rgb(103, 166, 78)
+                                        : Color.rgb(91, 153, 67)
+                        );
+                    }
 
                     c.drawRect(
                             left + col * cellW,
@@ -576,6 +586,7 @@ public class MainActivity extends Activity {
                 for (int col = 0; col < COLS; col++) {
                     Plant plant = plants[r][col];
                     if (plant == null) continue;
+                    if (plant.type == BINU && binuWaiting) continue;
 
                     float x = left + col * cellW + cellW / 2f;
                     float y = top + r * cellH + cellH / 2f;
@@ -756,22 +767,20 @@ public class MainActivity extends Activity {
         private void drawMowers(Canvas c) {
             for (Mower m : mowers) {
                 float y = top + m.row * cellH + cellH * .72f;
-
-                p.setColor(
-                        m.used
-                                ? Color.DKGRAY
-                                : Color.rgb(190, 70, 40)
-                );
-
-                c.drawRoundRect(
-                        m.x - cellW * .30f,
-                        y - cellH * .18f,
-                        m.x + cellW * .30f,
-                        y,
-                        8,
-                        8,
-                        p
-                );
+                float bodyL = m.x - cellW * .26f;
+                float bodyR = m.x + cellW * .26f;
+                float bodyT = y - cellH * .17f;
+                float wheelR = Math.max(3f, cellH * .045f);
+                p.setColor(m.used ? Color.DKGRAY : Color.rgb(75, 125, 75));
+                c.drawRoundRect(bodyL, bodyT, bodyR, y, 8, 8, p);
+                p.setColor(Color.DKGRAY);
+                c.drawCircle(bodyL + cellW * .10f, y + wheelR, wheelR, p);
+                c.drawCircle(bodyR - cellW * .10f, y + wheelR, wheelR, p);
+                p.setStrokeWidth(Math.max(3f, cellW * .025f));
+                c.drawLine(bodyR - cellW * .04f, bodyT,
+                        bodyR + cellW * .18f, bodyT - cellH * .27f, p);
+                c.drawLine(bodyR + cellW * .18f, bodyT - cellH * .27f,
+                        bodyR + cellW * .28f, bodyT - cellH * .27f, p);
             }
         }
 
@@ -891,7 +900,7 @@ public class MainActivity extends Activity {
 
                         if (now - a.last >= cd && rowHasZombie(r)) {
                             fire(r, col, 30, false);
-                            fireDelayed(r, col, 30, 250);
+                            fireDelayed(r, col, 30, 500);
                             a.last = now;
                         }
                     }
@@ -986,32 +995,19 @@ public class MainActivity extends Activity {
         private void drawBinu(Canvas c) {
             if (!binuWaiting && !binuJumping) return;
             if (binuRow < 0 || binuCol < 0) return;
-
             Bitmap b = binuImg;
-
             if (binuJumping) {
                 if (binuFrame == 1) b = binu1Img;
                 else if (binuFrame == 2) b = binu2Img;
                 else if (binuFrame == 3) b = binu3Img;
-                else if (binuFrame == 4) b = binu4Img;
+                else if (binuFrame >= 4) b = binu4Img;
             }
-
             if (b == null) return;
-
-            float x = left + binuCol * cellW + cellW / 2f;
-            float y = top + binuRow * cellH + cellH / 2f;
-
-            c.drawBitmap(
-                    b,
-                    null,
-                    new RectF(
-                            x - cellW * .37f,
-                            y - cellH * .42f,
-                            x + cellW * .37f,
-                            y + cellH * .42f
-                    ),
-                    p
-            );
+            float x = binuJumping ? binuX : left + binuCol * cellW + cellW / 2f;
+            float y = binuJumping ? binuY : top + binuRow * cellH + cellH / 2f;
+            c.drawBitmap(b, null,
+                    new RectF(x - cellW * .37f, y - cellH * .42f,
+                            x + cellW * .37f, y + cellH * .42f), p);
         }
 
         private void playBinuSound1() {
@@ -1132,58 +1128,52 @@ public class MainActivity extends Activity {
         }
 
         private void updateBinu(long now) {
-            if (binuWaiting && !binuJumping) {
-                if (now >= binuDetectAt && binuSound1Finished) {
-                    startBinuJump(now);
-                }
+            if (binuWaiting && !binuJumping && now >= binuDetectAt && binuSound1Finished) {
+                startBinuJump(now);
             }
-
             if (!binuJumping) return;
-
-            if (now - binuClock >= 120) {
-                binuClock = now;
-                binuFrame++;
-
-                if (binuFrame > 4) {
-                    smashBinu();
-                    binuJumping = false;
-                    binuWaiting = false;
-                    binuFrame = 0;
-                    binuRow = -1;
-                    binuCol = -1;
-                }
+            long elapsed = now - binuClock;
+            float t = Math.max(0f, Math.min(1f, elapsed / 480f));
+            float smooth = t * t * (3f - 2f * t);
+            binuX = binuStartX + (binuTargetX - binuStartX) * smooth;
+            binuY = binuStartY + (binuTargetY - binuStartY) * smooth;
+            binuFrame = Math.max(1, Math.min(4, (int)(elapsed / 120L) + 1));
+            if (elapsed >= 480L) {
+                binuX = binuTargetX;
+                binuY = binuTargetY;
+                smashBinu();
+                binuJumping = false;
+                binuWaiting = false;
+                binuFrame = 0;
+                binuRow = -1;
+                binuCol = -1;
             }
         }
 
         private void checkBinu(long now) {
             if (binuWaiting || binuJumping) return;
-
             for (int r = 0; r < ROWS; r++) {
                 for (int col = 0; col < COLS; col++) {
                     Plant a = plants[r][col];
-
                     if (a == null || a.type != BINU) continue;
-
                     float bx = left + col * cellW + cellW / 2f;
-                    boolean found = false;
-
+                    Zombie nearest = null;
+                    float best = Float.MAX_VALUE;
                     for (Zombie z : zombies) {
-                        if (z.hp <= 0 || z.row != r) continue;
-
-                        if (z.x > bx &&
-                                z.x <= bx + cellW * 1.05f) {
-                            found = true;
-                            break;
+                        if (z.hp <= 0 || z.row != r || z.x <= bx) continue;
+                        float d = z.x - bx;
+                        if (d <= cellW * 1.30f && d < best) {
+                            nearest = z;
+                            best = d;
                         }
                     }
-
-                    if (found) {
+                    if (nearest != null) {
                         binuRow = r;
                         binuCol = col;
                         binuWaiting = true;
-
-                        // Đủ 2 giây kể từ lúc phát hiện zombie.
                         binuDetectAt = now + 2000L;
+                        binuX = bx;
+                        binuY = top + r * cellH + cellH / 2f;
                         return;
                     }
                 }
@@ -1192,39 +1182,44 @@ public class MainActivity extends Activity {
 
         private void startBinuJump(long now) {
             if (!binuWaiting || binuRow < 0 || binuCol < 0) return;
-
+            float startX = left + binuCol * cellW + cellW / 2f;
+            float startY = top + binuRow * cellH + cellH / 2f;
+            Zombie target = null;
+            float best = Float.MAX_VALUE;
+            for (Zombie z : zombies) {
+                if (z.hp <= 0 || z.row != binuRow || z.x < startX) continue;
+                float d = z.x - startX;
+                if (d <= cellW * 1.80f && d < best) {
+                    target = z;
+                    best = d;
+                }
+            }
+            if (target == null) {
+                binuWaiting = false;
+                return;
+            }
+            binuStartX = startX;
+            binuStartY = startY;
+            binuTargetX = target.x;
+            binuTargetY = target.y;
+            binuX = startX;
+            binuY = startY;
             plants[binuRow][binuCol] = null;
-
             binuJumping = true;
             binuFrame = 1;
             binuClock = now;
-
-            // Sound 2 chỉ được phát sau khi sound 1 đã kết thúc
-            // và đúng lúc BINU bắt đầu nhảy.
             playBinuSound2();
         }
 
         private void smashBinu() {
-            if (binuRow < 0 || binuCol < 0) return;
-
-            float centerX =
-                    left + binuCol * cellW + cellW;
-
-            // Vùng đáp bao gồm cả phía trước, ô BINU và zombie phía sau BINU.
-            float range = cellW * 1.55f;
-
+            if (binuRow < 0) return;
+            float centerX = binuTargetX;
+            float range = cellW * 1.25f;
             for (Zombie z : zombies) {
                 if (z.hp <= 0 || z.row != binuRow) continue;
-
                 if (Math.abs(z.x - centerX) <= range) {
-                    if (z.boss) {
-                        z.hp = Math.max(
-                                1f,
-                                z.hp * .50f
-                        );
-                    } else {
-                        z.hp = 0;
-                    }
+                    if (z.boss) z.hp = Math.max(1f, z.hp * .50f);
+                    else z.hp = 0;
                 }
             }
         }
@@ -1309,7 +1304,9 @@ public class MainActivity extends Activity {
         }
 
         private void spawnZombie() {
-            int row = random.nextInt(ROWS);
+            int n = activeRows();
+            int first = (ROWS - n) / 2;
+            int row = first + random.nextInt(n);
 
             boolean boss =
                     level == 9 &&
@@ -1446,10 +1443,23 @@ public class MainActivity extends Activity {
             binuWaiting = false;
             binuJumping = false;
             binuSound1Finished = false;
+            binuX = binuY = binuStartX = binuStartY = binuTargetX = binuTargetY = 0f;
             stopBinuSound1();
             stopBinuSound2();
 
             tool = TOOL_NONE;
+        }
+
+        private int activeRows() {
+            if (level == 1) return 1;
+            if (level <= 3) return 3;
+            return 5;
+        }
+
+        private boolean activeRow(int row) {
+            int n = activeRows();
+            int first = (ROWS - n) / 2;
+            return row >= first && row < first + n;
         }
 
         private long spawnDelay() {
@@ -1492,34 +1502,34 @@ public class MainActivity extends Activity {
         }
 
         private void usePlantFood(Plant a) {
-            if (a == null) return;
-
+            if (a == null || a.type == BINU || a.foodUsed || food <= 0) return;
             long now = System.currentTimeMillis();
-
+            food--;
+            a.foodUsed = true;
             playPlantFoodSound();
-
+            for (Zombie z : zombies) {
+                if (z.hp > 0 && !z.boss) {
+                    z.hp = Math.max(0f, z.hp * (2f / 3f));
+                }
+            }
             if (a.type == GIGANUT) {
                 a.maxHp = 8000;
                 a.hp = 8000;
-                a.foodUsed = true;
                 a.plantFoodUntil = Long.MAX_VALUE;
-            } else if (a.type == SUNFLOWER ||
-                    a.type == PEASHOOTER ||
-                    a.type == REPEATER) {
-                a.foodUsed = true;
-                a.plantFoodUntil = now + 5000;
-                a.last = now - 2000;
+            } else if (a.type == SUNFLOWER) {
+                a.plantFoodUntil = now + 5000L;
+                a.last = now - 2000L;
+            } else if (a.type == PEASHOOTER || a.type == REPEATER) {
+                a.plantFoodUntil = now + 5000L;
+                a.last = now - 1000L;
             } else if (a.type == CHOMPER) {
                 Zombie z = nearestZombie(a.row, a.col, cellW * 2f);
-                if (z != null) z.hp = 0;
+                if (z != null && !z.boss) z.hp = 0;
             } else if (a.type == MINE) {
                 for (Zombie z : zombies) {
-                    if (z.row == a.row &&
-                            Math.abs(
-                                    z.x -
-                                    (left + a.col * cellW + cellW / 2f)
-                            ) < cellW * 2.2f) {
-                        z.hp -= 1800;
+                    if (z.row == a.row && !z.boss &&
+                            Math.abs(z.x - (left + a.col * cellW + cellW / 2f)) < cellW * 2.2f) {
+                        z.hp = Math.max(0f, z.hp - 1800f);
                     }
                 }
                 a.hp = 0;
@@ -1767,7 +1777,7 @@ public class MainActivity extends Activity {
                 }
 
                 // Shovel
-                if (inside(x, y, .465f, .075f, .525f, .15f)) {
+                if (inside(x, y, .82f, .075f, .87f, .15f)) {
                     tool = tool == TOOL_SHOVEL
                             ? TOOL_NONE
                             : TOOL_SHOVEL;
@@ -1813,6 +1823,7 @@ public class MainActivity extends Activity {
                         col < 0 || col >= COLS) {
                     return true;
                 }
+                if (!activeRow(row)) return true;
 
                 if (tool == TOOL_SHOVEL) {
                     plants[row][col] = null;
@@ -1822,7 +1833,6 @@ public class MainActivity extends Activity {
                             plants[row][col].type != BINU &&
                             food > 0) {
                         usePlantFood(plants[row][col]);
-                        food--;
                     }
                     tool = TOOL_NONE;
                 } else {
@@ -1935,19 +1945,19 @@ public class MainActivity extends Activity {
 
                 if (boss) {
                     maxHp = 5000;
-                    speed = cellW * .08f;
+                    speed = cellW * .053333f;
                     damage = 45;
                 } else if (type == 1) {
                     maxHp = 900 + level * 100;
-                    speed = cellW * .12f;
+                    speed = cellW * .08f;
                     damage = 32;
                 } else if (type == 2) {
                     maxHp = 450 + level * 60;
-                    speed = cellW * .30f;
+                    speed = cellW * .20f;
                     damage = 18;
                 } else {
                     maxHp = 650 + level * 75;
-                    speed = cellW * .19f;
+                    speed = cellW * .126667f;
                     damage = 24;
                 }
 
