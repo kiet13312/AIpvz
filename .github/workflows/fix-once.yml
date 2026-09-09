@@ -19,7 +19,9 @@ jobs:
           fetch-depth: 0
 
       - name: Patch and validate MainActivity
-        run: python3 fix_once.py
+        run: |
+          sed -i "s/'elapsed >= 480L', //" fix_once.py
+          python3 fix_once.py
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -47,7 +49,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/src/main/java/com/alpvz/gardendefense/MainActivity.java fix_once.py
+          git add app/src/main/java/com/alpvz/gardendefense/MainActivity.java
           git commit -m '[FIX-ONCE] Fix level rows, Plant Food, Peashooter, Repeater, zombies and mower'
           git push
 
