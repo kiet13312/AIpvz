@@ -298,6 +298,7 @@ public class MainActivity extends Activity {
         Bitmap repeaterImg;
         Bitmap mowerImg;
         Bitmap cabbagePultImg, kernelPultImg, melonPultImg;
+        Bitmap cabbagePultFoodImg, kernelPultFoodImg, melonPultFoodImg;
         Bitmap mineImg;
         Bitmap peaFoodImg;
         Bitmap repeaterFoodImg;
@@ -501,6 +502,9 @@ public class MainActivity extends Activity {
             cabbagePultImg = loadVectorImage("cabbage_pult", 96, 96);
             kernelPultImg = loadVectorImage("kernel_pult", 96, 96);
             melonPultImg = loadVectorImage("melon_pult", 96, 96);
+            cabbagePultFoodImg = loadVectorImage("cabbage_pult_food", 96, 96);
+            kernelPultFoodImg = loadVectorImage("kernel_pult_food", 96, 96);
+            melonPultFoodImg = loadVectorImage("melon_pult_food", 96, 96);
             repeaterImg = loadVectorImage("repeater_new", 96, 96);
             if (repeaterImg == null) repeaterImg = oldRepeater;
             mowerImg = loadVectorImage("lawn_mower", 160, 96);
@@ -857,9 +861,9 @@ public class MainActivity extends Activity {
                     :(card&&gigaCardScaled!=null?gigaCardScaled:gigaFieldScaled);
                 if(bitmap==null)bitmap=plant!=null&&plant.foodUsed?gigaFoodImg:giganutImg;
             } else if(type==BINU) bitmap=binuImg;
-            else if(type==CABBAGE_PULT) bitmap=cabbagePultImg;
-            else if(type==KERNEL_PULT) bitmap=kernelPultImg;
-            else if(type==MELON_PULT) bitmap=melonPultImg;
+            else if(type==CABBAGE_PULT) bitmap=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?cabbagePultFoodImg:cabbagePultImg;
+            else if(type==KERNEL_PULT) bitmap=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?kernelPultFoodImg:kernelPultImg;
+            else if(type==MELON_PULT) bitmap=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?melonPultFoodImg:melonPultImg;
             else if(type==REPEATER) bitmap=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?repeaterFoodImg:repeaterImg;
             else {
                 Bitmap[] frames=type==SUNFLOWER?sunflowerFrames:type==PEASHOOTER?peaFrames:
