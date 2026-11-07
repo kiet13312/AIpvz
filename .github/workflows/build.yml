@@ -47,5 +47,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: GardenDefense-v0.5-APK
+          name: GardenDefense-v0.6-APK
           path: app/build/outputs/apk/debug/*.apk
