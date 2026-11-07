@@ -1356,7 +1356,6 @@ public class MainActivity extends Activity {
         }
 
         @Override
-                @Override
         public boolean onTouchEvent(MotionEvent e){
             if(e.getAction()!=MotionEvent.ACTION_UP)return true;
             float x=e.getX(),y=e.getY();
