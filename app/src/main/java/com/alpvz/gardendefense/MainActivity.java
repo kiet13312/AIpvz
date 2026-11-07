@@ -55,6 +55,7 @@ public class MainActivity extends Activity {
             root.setBackgroundColor(Color.BLACK);
             root.addView(game, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
             setContentView(root);
+            saveGame();
         } catch (Throwable e) {
             game = null;
             TextView t = new TextView(this);
@@ -1572,6 +1573,7 @@ public class MainActivity extends Activity {
             float x=e.getX(),y=e.getY();
             if(screen==HOME){
                 if(inside(x,y,.70f,.025f,.79f,.135f))screen=DAILY_QUEST;
+                else if(inside(x,y,.83f,.535f,.96f,.605f))screen=DAILY_QUEST;
                 else if(inside(x,y,.805f,.025f,.895f,.135f))screen=DAILY_REWARDS;
                 else if(inside(x,y,.91f,.025f,.99f,.135f))screen=ADMIN;
                 else if(inside(x,y,.012f,.22f,.135f,.315f)||inside(x,y,.18f,.72f,.34f,.90f))screen=WORLD;
