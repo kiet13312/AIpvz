@@ -506,7 +506,7 @@ public class MainActivity extends Activity {
         }
 
         private void drawLevels(Canvas c) {
-            c.drawColor(Color.rgb(20, 55, 30));
+            drawBackdrop(c, 105);
 
             drawText(c, "CHỌN BẢN ĐỒ", getWidth() / 2f,
                     getHeight() * .095f, 31, Color.WHITE, Paint.Align.CENTER);
@@ -611,99 +611,33 @@ public class MainActivity extends Activity {
         }
 
         private void drawCards(Canvas c) {
-            int[] types = {
-                    SUNFLOWER,
-                    PEASHOOTER,
-                    GIGANUT,
-                    CHOMPER,
-                    REPEATER,
-                    MINE,
-                    BINU
-            };
-
-            for (int i = 0; i < types.length; i++) {
-                float x = getWidth() * (.01f + i * .075f);
-                float y = getHeight() * .075f;
-                float w = getWidth() * .065f;
-                float h = getHeight() * .09f;
-
-                p.setColor(
-                        selected == types[i] && tool == TOOL_NONE
-                                ? Color.YELLOW
-                                : Color.rgb(45, 85, 45)
-                );
-
-                c.drawRoundRect(x, y, x + w, y + h, 8, 8, p);
-
-                if (isPlantUnlocked(types[i])) {
-                    drawPlant(c, types[i], x + w / 2f, y + h / 2f, Math.min(w, h) * .72f);
-                } else {
-                    drawText(
-                            c,
-                            "🔒",
-                            x + w / 2f,
-                            y + h * .62f,
-                            18,
-                            Color.LTGRAY,
-                            Paint.Align.CENTER
-                    );
-                }
+            int[] types={SUNFLOWER,PEASHOOTER,GIGANUT,CHOMPER,REPEATER,MINE,BINU};
+            for(int i=0;i<types.length;i++){
+                float x=getWidth()*(.01f+i*.075f),y=getHeight()*.075f;
+                float w=getWidth()*.065f,h=getHeight()*.09f;
+                p.setColor(Color.rgb(83,49,28));c.drawRoundRect(x,y,x+w,y+h,8,8,p);
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2f);
+                p.setColor(selected==types[i]&&tool==TOOL_NONE?Color.YELLOW:Color.rgb(221,179,99));
+                c.drawRoundRect(x,y,x+w,y+h,8,8,p);p.setStyle(Paint.Style.FILL);
+                p.setColor(Color.rgb(225,203,151));c.drawRoundRect(x+2,y+2,x+w-2,y+h-2,6,6,p);
+                if(isPlantUnlocked(types[i]))drawPlant(c,types[i],x+w/2f,y+h/2f,Math.min(w,h)*.72f);
+                else drawText(c,"🔒",x+w/2f,y+h*.62f,18,Color.DKGRAY,Paint.Align.CENTER);
             }
-
-            // Shovel
-            p.setColor(tool == TOOL_SHOVEL ? Color.YELLOW : Color.rgb(55, 80, 55));
-            c.drawRoundRect(
-                    getWidth() * .82f,
-                    getHeight() * .075f,
-                    getWidth() * .87f,
-                    getHeight() * .15f,
-                    8,
-                    8,
-                    p
-            );
-            drawText(
-                    c,
-                    "XẺNG",
-                    getWidth() * .845f,
-                    getHeight() * .122f,
-                    12,
-                    Color.WHITE,
-                    Paint.Align.CENTER
-            );
-
-            // Plant food
-            p.setColor(tool == TOOL_PLANTFOOD ? Color.YELLOW : Color.rgb(55, 80, 55));
-            c.drawRoundRect(
-                    getWidth() * .535f,
-                    getHeight() * .075f,
-                    getWidth() * .63f,
-                    getHeight() * .15f,
-                    8,
-                    8,
-                    p
-            );
-            drawText(
-                    c,
-                    "PF " + food,
-                    getWidth() * .582f,
-                    getHeight() * .122f,
-                    12,
-                    Color.WHITE,
-                    Paint.Align.CENTER
-            );
-
-            p.setColor(Color.rgb(55, 80, 55));
-            c.drawRoundRect(
-                    getWidth() * .64f,
-                    getHeight() * .075f,
-                    getWidth() * .81f,
-                    getHeight() * .15f,
-                    8, 8, p
-            );
-            drawText(c, "MUA PF", getWidth() * .725f, getHeight() * .105f,
-                    11, Color.WHITE, Paint.Align.CENTER);
-            drawText(c, "100 xu", getWidth() * .725f, getHeight() * .138f,
-                    10, Color.YELLOW, Paint.Align.CENTER);
+            p.setColor(tool==TOOL_SHOVEL?Color.YELLOW:Color.rgb(91,54,30));
+            c.drawRoundRect(getWidth()*.82f,getHeight()*.075f,getWidth()*.87f,getHeight()*.15f,8,8,p);
+            p.setStyle(Paint.Style.STROKE);p.setColor(Color.rgb(232,184,91));
+            c.drawRoundRect(getWidth()*.82f,getHeight()*.075f,getWidth()*.87f,getHeight()*.15f,8,8,p);p.setStyle(Paint.Style.FILL);
+            drawText(c,"XẺNG",getWidth()*.845f,getHeight()*.122f,12,Color.WHITE,Paint.Align.CENTER);
+            p.setColor(tool==TOOL_PLANTFOOD?Color.YELLOW:Color.rgb(91,54,30));
+            c.drawRoundRect(getWidth()*.535f,getHeight()*.075f,getWidth()*.63f,getHeight()*.15f,8,8,p);
+            p.setStyle(Paint.Style.STROKE);p.setColor(Color.rgb(232,184,91));
+            c.drawRoundRect(getWidth()*.535f,getHeight()*.075f,getWidth()*.63f,getHeight()*.15f,8,8,p);p.setStyle(Paint.Style.FILL);
+            drawText(c,"PF "+food,getWidth()*.582f,getHeight()*.122f,12,Color.WHITE,Paint.Align.CENTER);
+            p.setColor(Color.rgb(91,54,30));c.drawRoundRect(getWidth()*.64f,getHeight()*.075f,getWidth()*.81f,getHeight()*.15f,8,8,p);
+            p.setStyle(Paint.Style.STROKE);p.setColor(Color.rgb(232,184,91));
+            c.drawRoundRect(getWidth()*.64f,getHeight()*.075f,getWidth()*.81f,getHeight()*.15f,8,8,p);p.setStyle(Paint.Style.FILL);
+            drawText(c,"MUA PF",getWidth()*.725f,getHeight()*.105f,11,Color.WHITE,Paint.Align.CENTER);
+            drawText(c,"100 xu",getWidth()*.725f,getHeight()*.138f,10,Color.YELLOW,Paint.Align.CENTER);
         }
 
         private void drawBoard(Canvas c) {
@@ -778,7 +712,7 @@ public class MainActivity extends Activity {
                     if((type==PEASHOOTER||type==REPEATER)&&(plant.foodUsed||now<plant.shootUntil)) frame=5;
                     else if(type==SUNFLOWER&&plant.foodUsed&&now<plant.plantFoodUntil) frame=5;
                     else if(type==CHOMPER&&now<plant.shootUntil) frame=5;
-                    else if(type==MINE&&plant.armed) frame=2;
+                    else if(type==MINE&&plant.armed) frame=plant.animFrame%3;
                     else if(type==MINE) frame=0;
                     else frame=Math.max(0,Math.min(4,plant.animFrame));
                 }
@@ -1592,20 +1526,7 @@ public class MainActivity extends Activity {
             text.setTextAlign(align);text.setTextSize(size);text.setColor(color);c.drawText(s,x,y,text);
         }
 
-        private void drawText(
-                Canvas c,
-                String s,
-                float x,
-                float y,
-                float size,
-                int color,
-                Paint.Align align
-        ) {
-            text.setTextAlign(align);
-            text.setTextSize(size);
-            text.setColor(color);
-            c.drawText(s, x, y, text);
-        }
+        
 
         private void releaseBinuSounds() {
             stopBinuSound1();
@@ -1894,7 +1815,7 @@ public class MainActivity extends Activity {
         }
 
         private void drawMiniGameMenu(Canvas c) {
-            c.drawColor(Color.rgb(24, 57, 33));
+            drawBackdrop(c, 90);
             drawText(c, "MINI GAME", getWidth() / 2f, getHeight() * .16f,
                     34, Color.WHITE, Paint.Align.CENTER);
             drawText(c, "Chơi 30 giây để nhận xu thưởng",
@@ -1912,7 +1833,7 @@ public class MainActivity extends Activity {
         }
 
         private void drawMiniGame(Canvas c) {
-            c.drawColor(miniMode == 1 ? Color.rgb(70, 130, 75) : Color.rgb(37, 55, 68));
+            drawBackdrop(c, 65);
             long remaining = Math.max(0L, 30000L - (System.currentTimeMillis() - miniStartedAt));
             drawText(c, miniMode == 1 ? "SUN RUSH" : "ZOMBIE TAP",
                     getWidth() * .06f, getHeight() * .10f, 23,
@@ -1938,7 +1859,7 @@ public class MainActivity extends Activity {
         }
 
         private void drawMiniGameResult(Canvas c) {
-            c.drawColor(Color.rgb(20, 55, 30));
+            drawBackdrop(c, 105);
             drawText(c, "HOÀN THÀNH MINI GAME",
                     getWidth() / 2f, getHeight() * .30f, 30,
                     Color.WHITE, Paint.Align.CENTER);
@@ -1950,7 +1871,7 @@ public class MainActivity extends Activity {
         }
 
         private void drawAdmin(Canvas c) {
-            c.drawColor(Color.rgb(26, 37, 48));
+            drawBackdrop(c, 125);
             drawText(c, "ADMIN PANEL", getWidth() / 2f,
                     getHeight() * .17f, 33, Color.YELLOW, Paint.Align.CENTER);
             drawText(c, "Lệnh nhanh và công cụ kiểm tra tiến trình",
