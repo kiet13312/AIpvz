@@ -581,77 +581,108 @@ public class MainActivity extends Activity {
             }
         }
 
-                private void drawHome(Canvas c){
-            drawBackdrop(c,54);
+                        private void drawHome(Canvas c) {
+            drawBackdrop(c,18);
             float w=getWidth(),h=getHeight();
-            p.setColor(Color.argb(218,30,28,20));c.drawRoundRect(w*.57f,h*.105f,w*.97f,h*.93f,24,24,p);
-            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3f);p.setColor(Color.rgb(238,190,92));
-            c.drawRoundRect(w*.57f,h*.105f,w*.97f,h*.93f,24,24,p);p.setStyle(Paint.Style.FILL);
-            drawText(c,"GARDEN",w*.29f,h*.27f,46,Color.WHITE,Paint.Align.CENTER);
-            drawText(c,"DEFENSE",w*.29f,h*.40f,46,Color.rgb(255,211,91),Paint.Align.CENTER);
-            drawText(c,"PVZ-STYLE  •  15 MÀN  •  3 BOSS",w*.29f,h*.52f,15,Color.WHITE,Paint.Align.CENTER);
-            drawText(c,"☀ "+sun+"    🪙 "+coins,w*.29f,h*.64f,17,Color.YELLOW,Paint.Align.CENTER);
-            drawText(c,"PLANT FOOD: "+food,w*.29f,h*.71f,14,Color.rgb(210,255,195),Paint.Align.CENTER);
-            button(c,.63f,.17f,.92f,.255f,"CHƠI TIẾP");
-            button(c,.63f,.285f,.92f,.37f,"CHỌN BẢN ĐỒ");
-            button(c,.63f,.40f,.92f,.485f,"SANDBOX");
-            button(c,.63f,.515f,.92f,.60f,"MINI GAME");
-            button(c,.63f,.63f,.92f,.715f,"ADMIN PANEL");
-            button(c,.63f,.745f,.92f,.83f,"VIDEO +100 XU");
-        }
-
-        private void drawLevels(Canvas c) {
-            drawBackdrop(c, 105);
-
-            drawText(c, "CHỌN BẢN ĐỒ", getWidth() / 2f,
-                    getHeight() * .095f, 31, Color.WHITE, Paint.Align.CENTER);
-            drawText(c, "Mở khóa: " + unlocked + "/" + MAX_LEVEL,
-                    getWidth() / 2f, getHeight() * .145f, 16,
-                    Color.YELLOW, Paint.Align.CENTER);
-
-            for (int i = 1; i <= MAX_LEVEL; i++) {
-                int col = (i - 1) % 5;
-                int row = (i - 1) / 5;
-                float x = .08f + col * .17f;
-                float y = .20f + row * .19f;
-                boolean open = i <= unlocked;
-                boolean boss = i % 5 == 0;
-
-                p.setColor(!open ? Color.rgb(62, 67, 64)
-                        : boss ? Color.rgb(153, 91, 37)
-                        : Color.rgb(65, 145, 70));
-                c.drawRoundRect(getWidth() * x, getHeight() * y,
-                        getWidth() * (x + .14f), getHeight() * (y + .12f),
-                        12, 12, p);
-
-                if (open) {
-                    drawText(c, boss ? "BOSS " + i : "MÀN " + i,
-                            getWidth() * (x + .07f),
-                            getHeight() * (y + .052f), 17,
-                            Color.WHITE, Paint.Align.CENTER);
-                    drawText(c, boss ? "TRÙM CUỐI" : worldName(i),
-                            getWidth() * (x + .07f),
-                            getHeight() * (y + .092f), 9,
-                            Color.rgb(255, 238, 180), Paint.Align.CENTER);
-                } else {
-                    drawText(c, "KHÓA", getWidth() * (x + .07f),
-                            getHeight() * (y + .073f), 14,
-                            Color.LTGRAY, Paint.Align.CENTER);
-                }
+            p.setColor(Color.argb(230,35,53,27));c.drawRoundRect(w*.012f,h*.018f,w*.30f,h*.15f,18,18,p);
+            p.setColor(Color.rgb(255,211,97));c.drawCircle(w*.065f,h*.083f,h*.055f,p);
+            drawText(c,"GARDEN DEFENSE",w*.125f,h*.065f,19,Color.WHITE,Paint.Align.LEFT);
+            drawText(c,"Cấp "+Math.max(1,(unlocked+3)/4)+"  •  "+unlocked+"/"+MAX_LEVEL+" màn",w*.125f,h*.113f,13,Color.rgb(235,245,198),Paint.Align.LEFT);
+            drawText(c,"☀ "+sun,w*.36f,h*.083f,19,Color.YELLOW,Paint.Align.CENTER);
+            drawText(c,"🪙 "+coins,w*.49f,h*.083f,19,Color.rgb(255,214,74),Paint.Align.CENTER);
+            drawText(c,"PF "+food,w*.61f,h*.083f,17,Color.WHITE,Paint.Align.CENTER);
+            button(c,.70f,.025f,.79f,.135f,"NHIỆM VỤ");
+            button(c,.805f,.025f,.895f,.135f,"QUÀ NGÀY");
+            button(c,.91f,.025f,.99f,.135f,"ADMIN");
+            button(c,.012f,.22f,.135f,.315f,"CHIẾN DỊCH");
+            button(c,.012f,.335f,.135f,.43f,"MINI GAME");
+            button(c,.012f,.45f,.135f,.545f,"SANDBOX");
+            button(c,.012f,.565f,.135f,.66f,"CỬA HÀNG");
+            button(c,.012f,.68f,.135f,.775f,"XEM VIDEO");
+            button(c,.012f,.795f,.135f,.89f,"THÀNH TÍCH");
+            drawText(c,"CHỌN THẾ GIỚI",w*.47f,h*.205f,24,Color.WHITE,Paint.Align.CENTER);
+            int[] colors={Color.rgb(82,151,61),Color.rgb(190,143,60),Color.rgb(48,142,165),Color.rgb(77,71,117)};
+            int start=worldPage*4;
+            for(int i=0;i<4;i++){
+                int world=start+i;if(world>=WORLD_COUNT)break;
+                float x=.17f+i*.16f,y=.25f,right=x+.145f,bottom=.57f;
+                int first=world*LEVELS_PER_WORLD+1;boolean open=unlocked>=first;
+                p.setColor(Color.argb(232,28,37,30));c.drawRoundRect(w*x,h*y,w*right,h*bottom,18,18,p);
+                p.setColor(colors[world%colors.length]);c.drawRoundRect(w*(x+.008f),h*(y+.012f),w*(right-.008f),h*(y+.19f),14,14,p);
+                drawText(c,"WORLD "+(world+1),w*(x+.0725f),h*(y+.075f),15,Color.WHITE,Paint.Align.CENTER);
+                drawText(c,worldName(first),w*(x+.0725f),h*(y+.145f),12,Color.WHITE,Paint.Align.CENTER);
+                drawText(c,open?"MỞ":"KHÓA",w*(x+.0725f),h*(y+.235f),14,open?Color.rgb(255,222,100):Color.LTGRAY,Paint.Align.CENTER);
+                drawText(c,Math.max(0,Math.min(20,unlocked-first+1))+"/20",w*(x+.0725f),h*(y+.285f),13,Color.WHITE,Paint.Align.CENTER);
+                if(world==selectedWorld){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);p.setColor(Color.YELLOW);
+                    c.drawRoundRect(w*x,h*y,w*right,h*bottom,18,18,p);p.setStyle(Paint.Style.FILL);}
             }
-
-            button(c, .04f, .84f, .20f, .94f, "QUAY LẠI");
+            button(c,.17f,.59f,.22f,.66f,"◀");button(c,.72f,.59f,.77f,.66f,"▶");
+            drawText(c,"Thế giới "+(start+1)+"–"+Math.min(WORLD_COUNT,start+4)+" / "+WORLD_COUNT,w*.47f,h*.635f,12,Color.WHITE,Paint.Align.CENTER);
+            p.setColor(Color.argb(225,45,35,23));c.drawRoundRect(w*.80f,h*.18f,w*.99f,h*.63f,16,16,p);
+            p.setColor(Color.rgb(230,183,91));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawRoundRect(w*.80f,h*.18f,w*.99f,h*.63f,16,16,p);p.setStyle(Paint.Style.FILL);
+            drawText(c,"NHIỆM VỤ NGÀY",w*.895f,h*.235f,16,Color.YELLOW,Paint.Align.CENTER);
+            drawText(c,"Vượt 1 màn  ("+dailyWins+"/1)",w*.895f,h*.32f,12,Color.WHITE,Paint.Align.CENTER);
+            drawText(c,"Nhặt 500 SUN  ("+Math.min(500,dailySuns)+"/500)",w*.895f,h*.405f,12,Color.WHITE,Paint.Align.CENTER);
+            drawText(c,"Hạ 20 zombie  ("+Math.min(20,dailyKills)+"/20)",w*.895f,h*.49f,12,Color.WHITE,Paint.Align.CENTER);
+            button(c,.83f,.535f,.96f,.605f,"XEM NHIỆM VỤ");
+            button(c,.18f,.72f,.34f,.90f,"CHIẾN DỊCH");
+            button(c,.36f,.72f,.52f,.90f,"MINI GAME");
+            button(c,.54f,.72f,.70f,.90f,"SANDBOX");
+            button(c,.72f,.72f,.88f,.90f,"QUÀ HẰNG NGÀY");
+            drawText(c,"10 thế giới • 200 bản đồ • Boss mỗi 5 màn",w*.47f,h*.965f,12,Color.WHITE,Paint.Align.CENTER);
         }
 
-        private String worldName(int lv) {
-            if (lv <= 5) return "BÃI CỎ";
-            if (lv <= 10) return "ĐÊM TỐI";
-            return "VƯỜN MÁI NHÀ";
+        private void drawWorlds(Canvas c) {
+            drawBackdrop(c,22);
+            drawText(c,"BẢN ĐỒ THẾ GIỚI",getWidth()/2f,getHeight()*.095f,30,Color.WHITE,Paint.Align.CENTER);
+            drawText(c,"10 thế giới • 20 màn mỗi thế giới • Tổng 200 màn",getWidth()/2f,getHeight()*.15f,15,Color.YELLOW,Paint.Align.CENTER);
+            int[] colors={Color.rgb(82,151,61),Color.rgb(190,143,60),Color.rgb(48,142,165),Color.rgb(77,71,117),
+                    Color.rgb(155,190,218),Color.rgb(66,145,160),Color.rgb(116,78,150),Color.rgb(89,133,65),
+                    Color.rgb(85,58,100),Color.rgb(48,68,120)};
+            for(int world=0;world<WORLD_COUNT;world++){
+                int col=world%5,row=world/5;float x=.035f+col*.19f,y=.23f+row*.34f;
+                float right=x+.17f,bottom=y+.27f;int first=world*LEVELS_PER_WORLD+1;boolean open=unlocked>=first;
+                p.setColor(open?Color.argb(235,35,45,29):Color.argb(220,40,40,40));
+                c.drawRoundRect(getWidth()*x,getHeight()*y,getWidth()*right,getHeight()*bottom,18,18,p);
+                p.setColor(colors[world]);c.drawRoundRect(getWidth()*(x+.006f),getHeight()*(y+.006f),
+                        getWidth()*(right-.006f),getHeight()*(y+.13f),14,14,p);
+                drawText(c,"THẾ GIỚI "+(world+1),getWidth()*(x+.085f),getHeight()*(y+.06f),15,Color.WHITE,Paint.Align.CENTER);
+                drawText(c,worldName(first),getWidth()*(x+.085f),getHeight()*(y+.185f),13,Color.WHITE,Paint.Align.CENTER);
+                drawText(c,open?("MÀN "+first+"–"+(first+19)):"CHƯA MỞ KHÓA",
+                        getWidth()*(x+.085f),getHeight()*(y+.235f),11,open?Color.YELLOW:Color.LTGRAY,Paint.Align.CENTER);
+                if(world==selectedWorld){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);p.setColor(Color.YELLOW);
+                    c.drawRoundRect(getWidth()*x,getHeight()*y,getWidth()*right,getHeight()*bottom,18,18,p);p.setStyle(Paint.Style.FILL);}
+            }
+            button(c,.035f,.90f,.18f,.98f,"VỀ SẢNH");
         }
 
-        private boolean isBossLevel(int lv) {
-            return lv == 5 || lv == 10 || lv == 15;
+                private void drawLevels(Canvas c) {
+            drawBackdrop(c,30);
+            int first=selectedWorld*LEVELS_PER_WORLD+1;
+            drawText(c,"THẾ GIỚI "+(selectedWorld+1)+" • "+worldName(first),getWidth()/2f,getHeight()*.095f,27,Color.WHITE,Paint.Align.CENTER);
+            drawText(c,"MÀN ĐÃ MỞ: "+Math.max(0,Math.min(20,unlocked-first+1))+"/20",getWidth()/2f,getHeight()*.15f,15,Color.YELLOW,Paint.Align.CENTER);
+            for(int local=1;local<=LEVELS_PER_WORLD;local++){
+                int number=first+local-1,col=(local-1)%5,row=(local-1)/5;
+                float x=.07f+col*.18f,y=.21f+row*.16f;
+                boolean open=number<=unlocked,boss=isBossLevel(number);
+                p.setColor(!open?Color.rgb(64,68,63):boss?Color.rgb(167,92,31):Color.rgb(53,135,67));
+                c.drawRoundRect(getWidth()*x,getHeight()*y,getWidth()*(x+.15f),getHeight()*(y+.115f),12,12,p);
+                if(open){
+                    drawText(c,boss?"BOSS "+local:"MÀN "+local,getWidth()*(x+.075f),getHeight()*(y+.048f),16,Color.WHITE,Paint.Align.CENTER);
+                    drawText(c,"MAP "+number,getWidth()*(x+.075f),getHeight()*(y+.088f),10,Color.rgb(255,238,180),Paint.Align.CENTER);
+                }else drawText(c,"🔒",getWidth()*(x+.075f),getHeight()*(y+.076f),18,Color.LTGRAY,Paint.Align.CENTER);
+            }
+            button(c,.035f,.88f,.18f,.97f,"THẾ GIỚI");button(c,.82f,.88f,.965f,.97f,"VỀ SẢNH");
         }
+
+                private String worldName(int levelNumber) {
+            String[] names={"KHU VƯỜN NHÀ","AI CẬP CỔ ĐẠI","BIỂN CƯỚP BIỂN","MIỀN TÂY HOANG DÃ",
+                    "KỶ BĂNG HÀ","THÀNH PHỐ TƯƠNG LAI","ĐÊM NEON","RỪNG KHỦNG LONG","ĐẢO BÓNG TỐI","VŨ TRỤ HỖN LOẠN"};
+            int index=Math.max(0,Math.min(WORLD_COUNT-1,(levelNumber-1)/LEVELS_PER_WORLD));
+            return names[index];
+        }
+
+                private boolean isBossLevel(int lv) { return lv > 0 && lv % 5 == 0; }
 
                 private void drawGame(Canvas c){
             c.drawColor(Color.rgb(92,155,70));
@@ -711,22 +742,26 @@ public class MainActivity extends Activity {
             drawText(c,"100 xu",getWidth()*.725f,getHeight()*.185f,10,Color.YELLOW,Paint.Align.CENTER);
         }
 
-        private void drawBoard(Canvas c) {
-            if (gardenBackground != null) {
-                spriteRect.set(0, top, getWidth(), top + ROWS * cellH);
-                c.drawBitmap(gardenBackground, null, spriteRect, p);
-                for (int r=0;r<ROWS;r++) if (!activeRow(r)) {
-                    p.setColor(Color.argb(95,30,35,30));
-                    c.drawRect(left,top+r*cellH,left+COLS*cellW,top+(r+1)*cellH,p);
+                private void drawBoard(Canvas c) {
+            int world=(level-1)/LEVELS_PER_WORLD;
+            if(gardenBackground!=null&&world==0){
+                spriteRect.set(0,top,getWidth(),top+ROWS*cellH);
+                spritePaint.setAlpha(255);spritePaint.setColorFilter(null);
+                c.drawBitmap(gardenBackground,null,spriteRect,spritePaint);
+                for(int row=0;row<ROWS;row++)if(!activeRow(row)){
+                    p.setColor(Color.argb(80,30,35,30));c.drawRect(left,top+row*cellH,left+COLS*cellW,top+(row+1)*cellH,p);
                 }
                 return;
             }
-            int world=(level-1)/5;
-            int a=world==0?Color.rgb(111,177,78):world==1?Color.rgb(65,112,81):Color.rgb(157,139,83);
-            int b=world==0?Color.rgb(96,160,68):world==1?Color.rgb(53,96,74):Color.rgb(139,119,70);
-            for(int r=0;r<ROWS;r++) for(int col=0;col<COLS;col++){
-                p.setColor(!activeRow(r)?Color.rgb(55,78,54):((r+col)%2==0?a:b));
-                c.drawRect(left+col*cellW,top+r*cellH,left+(col+1)*cellW,top+(r+1)*cellH,p);
+            int[] light={Color.rgb(111,177,78),Color.rgb(207,166,85),Color.rgb(79,173,190),Color.rgb(123,92,146),
+                    Color.rgb(207,227,237),Color.rgb(93,166,175),Color.rgb(106,78,133),Color.rgb(112,159,75),
+                    Color.rgb(80,63,104),Color.rgb(64,87,145)};
+            int[] dark={Color.rgb(96,160,68),Color.rgb(184,139,61),Color.rgb(60,145,167),Color.rgb(89,66,116),
+                    Color.rgb(178,201,218),Color.rgb(65,134,153),Color.rgb(75,55,105),Color.rgb(86,131,62),
+                    Color.rgb(57,47,80),Color.rgb(46,68,119)};
+            for(int row=0;row<ROWS;row++)for(int col=0;col<COLS;col++){
+                p.setColor(!activeRow(row)?Color.rgb(48,60,48):((row+col)%2==0?light[world]:dark[world]));
+                c.drawRect(left+col*cellW,top+row*cellH,left+(col+1)*cellW,top+(row+1)*cellH,p);
             }
         }
 
@@ -1212,11 +1247,18 @@ public class MainActivity extends Activity {
             );
         }
 
-                private void removeDead(){
+                        private void removeDead() {
             boolean earned=false;
-            for(int i=zombies.size()-1;i>=0;i--){Zombie z=zombies.get(i);if(!z.dummy&&z.hp<=0){zombies.remove(i);killed++;
-                int reward=z.boss?60+random.nextInt(141):3+random.nextInt(18);coins=Math.min(99999999,coins+reward);earned=true;}}
-            for(int r=0;r<ROWS;r++)for(int col=0;col<COLS;col++)if(plants[r][col]!=null&&plants[r][col].hp<=0)plants[r][col]=null;
+            for(int i=zombies.size()-1;i>=0;i--){
+                Zombie zombie=zombies.get(i);
+                if(!zombie.dummy&&zombie.hp<=0){
+                    zombies.remove(i);killed++;dailyKills=Math.min(9999,dailyKills+1);
+                    int reward=zombie.boss?60+random.nextInt(141):3+random.nextInt(18);
+                    coins=Math.min(99999999,coins+reward);earned=true;
+                }
+            }
+            for(int row=0;row<ROWS;row++)for(int col=0;col<COLS;col++)
+                if(plants[row][col]!=null&&plants[row][col].hp<=0)plants[row][col]=null;
             if(earned)saveGame();
         }
 
@@ -1246,10 +1288,12 @@ public class MainActivity extends Activity {
             return best;
         }
 
-                private void startLevel(int lv){
+                        private void startLevel(int lv) {
             sandboxMode=false;binuFoodBoost=false;speed=1;
-            level=Math.max(1,Math.min(MAX_LEVEL,lv));screen=PLAY;sun=500;killed=0;spawned=0;
-            total=isBossLevel(level)?15+(level/5)*2:8+(level-1)/2;
+            level=Math.max(1,Math.min(MAX_LEVEL,lv));selectedWorld=(level-1)/LEVELS_PER_WORLD;
+            screen=PLAY;sun=500;killed=0;spawned=0;
+            int local=((level-1)%LEVELS_PER_WORLD)+1;
+            total=isBossLevel(level)?18+selectedWorld*2:8+(local-1)/2;
             clearBoard();long now=System.currentTimeMillis();lastUpdate=now;spawnClock=now;lastSun=now;saveGame();
         }
 
@@ -1260,6 +1304,76 @@ public class MainActivity extends Activity {
             dummy.dummy=true;dummy.hp=Float.POSITIVE_INFINITY;dummy.maxHp=Float.POSITIVE_INFINITY;
             dummy.speed=0f;dummy.damage=0;dummy.x=left+cellW*(COLS*.5f);
             dummy.y=top+(ROWS/2f)*cellH+cellH*.58f;zombies.add(dummy);
+        }
+
+        private String dayKey(int offset) {
+            Calendar calendar=Calendar.getInstance();calendar.add(Calendar.DAY_OF_YEAR,offset);
+            return calendar.get(Calendar.YEAR)+"-"+(calendar.get(Calendar.MONTH)+1)+"-"+calendar.get(Calendar.DAY_OF_MONTH);
+        }
+
+        private void refreshDaily() {
+            String today=dayKey(0);
+            if(!today.equals(dailyDate)){
+                boolean consecutive=dailyDate.equals(dayKey(-1));
+                dailyStreak=dailyDate.isEmpty()?1:(consecutive?Math.min(7,dailyStreak+1):1);
+                dailyDate=today;dailyWins=0;dailySuns=0;dailyKills=0;
+                dailyQuestClaimed=false;dailyRewardClaimed=false;
+            }
+        }
+
+        private void claimDailyQuest() {
+            refreshDaily();
+            if(dailyQuestClaimed||dailyWins<1||dailySuns<500||dailyKills<20)return;
+            dailyQuestClaimed=true;coins=Math.min(99999999,coins+600);food=Math.min(99999,food+3);saveGame();
+        }
+
+        private void claimDailyReward() {
+            refreshDaily();
+            if(dailyRewardClaimed)return;
+            dailyRewardClaimed=true;coins=Math.min(99999999,coins+200+((dailyStreak-1)%7)*50);
+            if(dailyStreak%7==0)food=Math.min(99999,food+1);
+            saveGame();
+        }
+
+        private void drawDailyQuest(Canvas c) {
+            drawBackdrop(c,60);
+            drawText(c,"NHIỆM VỤ HẰNG NGÀY",getWidth()/2f,getHeight()*.12f,30,Color.WHITE,Paint.Align.CENTER);
+            drawText(c,"Làm mới mỗi ngày • Hoàn thành cả 3 nhiệm vụ để nhận thưởng",getWidth()/2f,getHeight()*.19f,14,Color.YELLOW,Paint.Align.CENTER);
+            String[] names={"Hoàn thành 1 màn chơi","Thu thập 500 SUN","Đánh bại 20 zombie"};
+            int[] values={Math.min(1,dailyWins),Math.min(500,dailySuns),Math.min(20,dailyKills)};
+            int[] goals={1,500,20};
+            for(int i=0;i<3;i++){
+                float y=.28f+i*.17f;
+                p.setColor(Color.argb(225,50,40,26));c.drawRoundRect(getWidth()*.18f,getHeight()*y,getWidth()*.82f,getHeight()*(y+.125f),13,13,p);
+                drawText(c,names[i],getWidth()*.23f,getHeight()*(y+.05f),16,Color.WHITE,Paint.Align.LEFT);
+                drawText(c,values[i]+"/"+goals[i],getWidth()*.77f,getHeight()*(y+.05f),15,Color.YELLOW,Paint.Align.RIGHT);
+                p.setColor(Color.DKGRAY);c.drawRoundRect(getWidth()*.23f,getHeight()*(y+.075f),getWidth()*.77f,getHeight()*(y+.095f),8,8,p);
+                p.setColor(Color.rgb(70,190,83));c.drawRoundRect(getWidth()*.23f,getHeight()*(y+.075f),
+                        getWidth()*(.23f+.54f*values[i]/(float)goals[i]),getHeight()*(y+.095f),8,8,p);
+            }
+            boolean done=dailyWins>=1&&dailySuns>=500&&dailyKills>=20;
+            drawText(c,dailyQuestClaimed?"ĐÃ NHẬN THƯỞNG":done?"ĐÃ HOÀN THÀNH!":"PHẦN THƯỞNG: 600 XU + 3 PF",
+                    getWidth()/2f,getHeight()*.82f,16,Color.YELLOW,Paint.Align.CENTER);
+            button(c,.35f,.86f,.65f,.96f,dailyQuestClaimed?"ĐÃ NHẬN":done?"NHẬN THƯỞNG":"CHƯA ĐỦ");
+            button(c,.035f,.86f,.19f,.96f,"QUAY LẠI");
+        }
+
+        private void drawDailyRewards(Canvas c) {
+            drawBackdrop(c,55);
+            drawText(c,"QUÀ ĐĂNG NHẬP HẰNG NGÀY",getWidth()/2f,getHeight()*.13f,28,Color.WHITE,Paint.Align.CENTER);
+            drawText(c,"Chuỗi đăng nhập: "+dailyStreak+" ngày",getWidth()/2f,getHeight()*.21f,17,Color.YELLOW,Paint.Align.CENTER);
+            for(int i=0;i<7;i++){
+                float x=.08f+i*.12f;
+                p.setColor(i==(dailyStreak-1)%7?Color.rgb(190,126,38):Color.argb(225,45,45,45));
+                c.drawRoundRect(getWidth()*x,getHeight()*.34f,getWidth()*(x+.105f),getHeight()*.60f,12,12,p);
+                drawText(c,"NGÀY "+(i+1),getWidth()*(x+.0525f),getHeight()*.405f,12,Color.WHITE,Paint.Align.CENTER);
+                drawText(c,(200+i*50)+" xu",getWidth()*(x+.0525f),getHeight()*.49f,13,Color.YELLOW,Paint.Align.CENTER);
+                if(i==6)drawText(c,"+1 PF",getWidth()*(x+.0525f),getHeight()*.55f,11,Color.GREEN,Paint.Align.CENTER);
+            }
+            drawText(c,dailyRewardClaimed?"ĐÃ NHẬN QUÀ HÔM NAY":"Nhận quà mỗi ngày để tăng chuỗi",
+                    getWidth()/2f,getHeight()*.72f,16,Color.WHITE,Paint.Align.CENTER);
+            button(c,.35f,.80f,.65f,.91f,dailyRewardClaimed?"ĐÃ NHẬN":"NHẬN QUÀ");
+            button(c,.035f,.86f,.19f,.96f,"QUAY LẠI");
         }
 
         private void clearBoard() {
@@ -1289,9 +1403,10 @@ public class MainActivity extends Activity {
             tool = TOOL_NONE;
         }
 
-        private int activeRows() {
-            if (level == 1) return 1;
-            if (level <= 3) return 3;
+                private int activeRows() {
+            int local=((level-1)%LEVELS_PER_WORLD)+1;
+            if(local==1)return 1;
+            if(local<=3)return 3;
             return 5;
         }
 
@@ -1300,12 +1415,12 @@ public class MainActivity extends Activity {
             int first = (ROWS - n) / 2;
             return row >= first && row < first + n;
         }
-        private long spawnDelay() {
-            if (level <= 2) return 4200;
-            if (level <= 4) return 3600;
-            if (level <= 5) return 3100;
-            if (level <= 10) return 2800;
-            return 2450;
+                private long spawnDelay() {
+            int world=(level-1)/LEVELS_PER_WORLD,local=((level-1)%LEVELS_PER_WORLD)+1;
+            if(local<=2)return 4200L-world*90L;
+            if(local<=5)return 3600L-world*80L;
+            if(local<=10)return 3100L-world*70L;
+            return Math.max(1700L,2700L-world*90L);
         }
 
                 private boolean isPlantUnlocked(int type){
@@ -1331,7 +1446,10 @@ public class MainActivity extends Activity {
             return 99999;
         }
 
-        private void winLevel() { screen=WIN; if(level<MAX_LEVEL)unlocked=Math.max(unlocked,level+1); saveGame(); }
+                private void winLevel() {
+            screen=WIN;if(level<MAX_LEVEL)unlocked=Math.max(unlocked,level+1);
+            if(!sandboxMode)dailyWins=Math.min(99,dailyWins+1);saveGame();
+        }
 
                 private void usePlantFood(Plant a){
             if(a==null||a.foodUsed||food<=0)return;
