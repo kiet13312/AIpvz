@@ -140,20 +140,35 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {}
     }
 
-    private void showFinalVideo() {
+        private void showFinalVideo(){
         hideFinalVideo();
-        try {
-            if(root==null||game==null)return;
-            int id=getResources().getIdentifier("win","raw",getPackageName());
-            if(id==0){Toast.makeText(this,"Không tìm thấy video win.mp4",Toast.LENGTH_SHORT).show();return;}
+        if(root==null||game==null)return;
+        int id=getResources().getIdentifier("win","raw",getPackageName());
+        if(id==0){Toast.makeText(this,"Không tìm thấy video win.mp4",Toast.LENGTH_SHORT).show();return;}
+        try{
             game.screen=GameView.HOME;
-            winVideo=new VideoView(MainActivity.this);winVideo.setBackgroundColor(Color.BLACK);
-            winVideo.setVideoURI(Uri.parse("android.resource://"+getPackageName()+"/"+id));
+            winVideo=new VideoView(MainActivity.this);
+            winVideo.setBackgroundColor(Color.BLACK);
+            winVideo.setZOrderOnTop(true);
+            winVideo.setOnPreparedListener(mp->{
+                try{mp.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);winVideo.start();}
+                catch(Exception ex){hideFinalVideo();Toast.makeText(MainActivity.this,"Không hiển thị được khung hình video",Toast.LENGTH_SHORT).show();}
+            });
+            winVideo.setOnCompletionListener(mp->{
+                hideFinalVideo();
+                if(game!=null){game.coins=Math.min(99999999,game.coins+100);saveGame();game.screen=GameView.HOME;game.invalidate();
+                    Toast.makeText(MainActivity.this,"+100 xu",Toast.LENGTH_SHORT).show();}
+            });
+            winVideo.setOnErrorListener((mp,what,extra)->{
+                hideFinalVideo();if(game!=null){game.screen=GameView.HOME;game.invalidate();}
+                Toast.makeText(MainActivity.this,"Lỗi giải mã video ("+what+"/"+extra+")",Toast.LENGTH_LONG).show();return true;
+            });
             root.addView(winVideo,new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,FrameLayout.LayoutParams.MATCH_PARENT));
-            winVideo.setOnCompletionListener(mp->{hideFinalVideo();if(game!=null){game.coins=Math.min(99999999,game.coins+100);saveGame();game.screen=GameView.HOME;game.invalidate();Toast.makeText(MainActivity.this,"+100 xu",Toast.LENGTH_SHORT).show();}});
-            winVideo.setOnErrorListener((mp,what,extra)->{hideFinalVideo();if(game!=null){game.screen=GameView.HOME;game.invalidate();}Toast.makeText(MainActivity.this,"Không phát được video",Toast.LENGTH_SHORT).show();return true;});
-            winVideo.start();
-        }catch(Exception ignored){hideFinalVideo();if(game!=null)game.invalidate();}
+            winVideo.setVideoURI(Uri.parse("android.resource://"+getPackageName()+"/"+id));
+        }catch(Exception ex){
+            hideFinalVideo();if(game!=null)game.invalidate();
+            Toast.makeText(this,"Không mở được video",Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -1051,7 +1066,7 @@ public class MainActivity extends Activity {
             }
         }
 
-                private void checkBinu(long now){
+                        private void checkBinu(long now){
             if(binuWaiting||binuJumping)return;
             for(int r=0;r<ROWS;r++)for(int col=0;col<COLS;col++){
                 Plant a=plants[r][col];if(a==null||a.type!=BINU)continue;
@@ -1060,12 +1075,12 @@ public class MainActivity extends Activity {
                 Zombie nearest=null;float best=Float.MAX_VALUE;
                 for(Zombie z:zombies){if(z.hp<=0||z.dummy||z.row!=r)continue;float d=Math.abs(z.x-bx);
                     if(d<=cellW*(boost?2.25f:1.30f)&&d<best){nearest=z;best=d;}}
-                if(nearest!=null){binuRow=r;binuCol=col;binuWaiting=true;binuFoodBoost=boost;
-                    binuDetectAt=now+(boost?350L:2000L);binuX=bx;binuY=by;if(boost)binuSound1Finished=true;return;}
+                if(nearest!=null){binuRow=r;binuCol=col;binuWaiting=true;binuFoodBoost=boost;binuDetectAt=now+(boost?350L:2000L);binuX=bx;binuY=by;
+                    if(boost)binuSound1Finished=true;return;}
             }
         }
 
-                private void startBinuJump(long now){
+                        private void startBinuJump(long now){
             if(!binuWaiting||binuRow<0||binuCol<0)return;
             float sx=left+binuCol*cellW+cellW/2f,sy=top+binuRow*cellH+cellH/2f;
             Zombie target=null;float best=Float.MAX_VALUE;
@@ -1076,7 +1091,7 @@ public class MainActivity extends Activity {
             plants[binuRow][binuCol]=null;binuJumping=true;binuFrame=1;binuClock=now;playBinuSound2();
         }
 
-                private void smashBinu(){
+                        private void smashBinu(){
             if(binuRow<0)return;
             float cx=binuTargetX,range=cellW*(binuFoodBoost?3f:1.65f);
             for(Zombie z:zombies){if(z.hp<=0||z.dummy||z.row!=binuRow)continue;
