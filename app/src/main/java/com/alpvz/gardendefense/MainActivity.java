@@ -2163,21 +2163,7 @@ public class MainActivity extends Activity {
             }
         }
 
-        class MiniTarget {
-            float x;
-            float y;
-            float radius;
-            int kind;
-            float speed;
 
-            MiniTarget(float x, float y, float radius, int kind, float speed) {
-                this.x = x;
-                this.y = y;
-                this.radius = radius;
-                this.kind = kind;
-                this.speed = speed;
-            }
-        }
 
         class Plant {
             int type;
