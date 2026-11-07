@@ -241,6 +241,7 @@ public class MainActivity extends Activity {
         final ArrayList<Pea> peas = new ArrayList<>();
         final ArrayList<SunDrop> suns = new ArrayList<>();
         final Mower[] mowers = new Mower[ROWS];
+        final int[] cardTypes = {SUNFLOWER, PEASHOOTER, GIGANUT, CHOMPER, REPEATER, MINE, BINU};
 
         Bitmap sunflowerImg;
         Bitmap peashooterImg;
@@ -561,8 +562,8 @@ public class MainActivity extends Activity {
         private void drawGame(Canvas c) {
             c.drawColor(Color.rgb(92, 155, 70));
 
-            p.setShader(new LinearGradient(0,0,0,top,new int[]{Color.rgb(120,72,34),Color.rgb(62,38,24)},null,Shader.TileMode.CLAMP));
-            c.drawRect(0,0,getWidth(),top,p);p.setShader(null);
+            p.setColor(Color.rgb(77,45,25));c.drawRect(0,0,getWidth(),top,p);
+            p.setColor(Color.rgb(137,83,39));c.drawRect(0,0,getWidth(),top*.24f,p);
             p.setColor(Color.rgb(231,183,89));c.drawRect(0,top-2,getWidth(),top,p);
 
             drawText(c, "☀ " + sun, 14, 34, 23, Color.YELLOW, Paint.Align.LEFT);
@@ -611,16 +612,16 @@ public class MainActivity extends Activity {
         }
 
         private void drawCards(Canvas c) {
-            int[] types={SUNFLOWER,PEASHOOTER,GIGANUT,CHOMPER,REPEATER,MINE,BINU};
-            for(int i=0;i<types.length;i++){
+            for(int i=0;i<cardTypes.length;i++){
+                int type=cardTypes[i];
                 float x=getWidth()*(.01f+i*.075f),y=getHeight()*.075f;
                 float w=getWidth()*.065f,h=getHeight()*.09f;
                 p.setColor(Color.rgb(83,49,28));c.drawRoundRect(x,y,x+w,y+h,8,8,p);
                 p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2f);
-                p.setColor(selected==types[i]&&tool==TOOL_NONE?Color.YELLOW:Color.rgb(221,179,99));
+                p.setColor(selected==type&&tool==TOOL_NONE?Color.YELLOW:Color.rgb(221,179,99));
                 c.drawRoundRect(x,y,x+w,y+h,8,8,p);p.setStyle(Paint.Style.FILL);
                 p.setColor(Color.rgb(225,203,151));c.drawRoundRect(x+2,y+2,x+w-2,y+h-2,6,6,p);
-                if(isPlantUnlocked(types[i]))drawPlant(c,types[i],x+w/2f,y+h/2f,Math.min(w,h)*.72f);
+                if(isPlantUnlocked(type))drawPlant(c,type,x+w/2f,y+h/2f,Math.min(w,h)*.72f);
                 else drawText(c,"🔒",x+w/2f,y+h*.62f,18,Color.DKGRAY,Paint.Align.CENTER);
             }
             p.setColor(tool==TOOL_SHOVEL?Color.YELLOW:Color.rgb(91,54,30));
@@ -1181,30 +1182,13 @@ public class MainActivity extends Activity {
         }
 
         private void updatePeas(float dt) {
-            Iterator<Pea> it = peas.iterator();
-
-            while (it.hasNext()) {
-                Pea q = it.next();
-
-                q.x += q.direction * cellW * 8.5f * dt;
-
-                Zombie hit = null;
-
-                for (Zombie z : zombies) {
-                    if (z.hp > 0 &&
-                            z.row == q.row &&
-                            Math.abs(z.x - q.x) < cellW * .30f) {
-                        hit = z;
-                        break;
-                    }
-                }
-
-                if (hit != null) {
-                    hit.hp -= q.damage;
-                    it.remove();
-                } else if (q.x > getWidth() + 40) {
-                    it.remove();
-                }
+            for(int i=peas.size()-1;i>=0;i--){
+                Pea q=peas.get(i);
+                q.x+=q.direction*cellW*8.5f*dt;
+                Zombie hit=null;
+                for(Zombie z:zombies)if(z.hp>0&&z.row==q.row&&Math.abs(z.x-q.x)<cellW*.30f){hit=z;break;}
+                if(hit!=null){hit.hp-=q.damage;peas.remove(i);}
+                else if(q.x>getWidth()+40)peas.remove(i);
             }
         }
 
@@ -1278,11 +1262,14 @@ public class MainActivity extends Activity {
         }
 
         private void removeDead() {
-            Iterator<Zombie> it=zombies.iterator();boolean earned=false;
-            while(it.hasNext()){
-                Zombie z=it.next();
-                if(z.hp<=0){it.remove();killed++;int reward=z.boss?60+random.nextInt(141):3+random.nextInt(18);
-                    coins=Math.min(99999999,coins+reward);earned=true;}
+            boolean earned=false;
+            for(int i=zombies.size()-1;i>=0;i--){
+                Zombie z=zombies.get(i);
+                if(z.hp<=0){
+                    zombies.remove(i);killed++;
+                    int reward=z.boss?60+random.nextInt(141):3+random.nextInt(18);
+                    coins=Math.min(99999999,coins+reward);earned=true;
+                }
             }
             for(int r=0;r<ROWS;r++)for(int col=0;col<COLS;col++)
                 if(plants[r][col]!=null&&plants[r][col].hp<=0)plants[r][col]=null;
@@ -1509,10 +1496,10 @@ public class MainActivity extends Activity {
 
         private void button(Canvas c,float x1,float y1,float x2,float y2,String label) {
             float l=getWidth()*x1,t=getHeight()*y1,r=getWidth()*x2,b=getHeight()*y2;
-            p.setShader(new LinearGradient(l,t,l,b,new int[]{Color.rgb(177,113,48),Color.rgb(105,58,25),Color.rgb(65,37,21)},null,Shader.TileMode.CLAMP));
-            c.drawRoundRect(l,t,r,b,13,13,p); p.setShader(null);
-            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2.2f); p.setColor(Color.rgb(241,193,95));
-            c.drawRoundRect(l,t,r,b,13,13,p); p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.rgb(83,47,25));c.drawRoundRect(l,t,r,b,13,13,p);
+            p.setColor(Color.rgb(151,94,43));c.drawRoundRect(l+2,t+2,r-2,t+(b-t)*.48f,11,11,p);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2.2f);p.setColor(Color.rgb(241,193,95));
+            c.drawRoundRect(l,t,r,b,13,13,p);p.setStyle(Paint.Style.FILL);
             drawText(c,label,getWidth()*((x1+x2)/2f),getHeight()*((y1+y2)/2f)+7,17,Color.WHITE,Paint.Align.CENTER);
         }
 
