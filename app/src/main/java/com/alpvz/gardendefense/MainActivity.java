@@ -1566,7 +1566,6 @@ public class MainActivity extends Activity {
         }
 
         @Override
-                @Override
         public boolean onTouchEvent(MotionEvent e) {
             if(e.getAction()!=MotionEvent.ACTION_UP)return true;
             refreshDaily();
@@ -1823,7 +1822,7 @@ public class MainActivity extends Activity {
                     return "Đã đặt màn hiện tại: " + level;
                 }
                 if (command.equals("/help")) {
-                    return "/unlock_all_maps, /give_sun 5000, /give_pf 10, /give_coins 1000, /set_level 15, /reset_maps";
+                    return "/unlock_all_maps, /give_sun 5000, /give_pf 10, /give_coins 1000, /set_level 200, /reset_maps";
                 }
             } catch (NumberFormatException ignored) {
                 return "Giá trị lệnh không hợp lệ";
