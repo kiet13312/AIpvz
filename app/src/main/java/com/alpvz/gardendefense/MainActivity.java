@@ -458,7 +458,7 @@ public class MainActivity extends Activity {
             gigaFoodFieldScaled = scaleBitmap(gigaFoodImg, plantSize * .74f, plantSize * .74f);
             gigaFoodCardScaled = scaleBitmap(gigaFoodImg, 44f, 44f);
             for (int r = 0; r < ROWS; r++) {
-                if (mowers[r] != null && !mowers[r].active) mowers[r].x = left - cellW * .40f;
+                if (mowers[r] != null && !mowers[r].active) mowers[r].x = left - cellW * .30f;
             }
         }
 
@@ -789,23 +789,58 @@ public class MainActivity extends Activity {
             }
         }
 
-        private void drawMowers(Canvas c) {
+                private void drawMowers(Canvas c) {
             for (Mower m : mowers) {
-                float y = top + m.row * cellH + cellH * .72f;
-                float bodyL = m.x - cellW * .26f;
-                float bodyR = m.x + cellW * .26f;
-                float bodyT = y - cellH * .17f;
-                float wheelR = Math.max(3f, cellH * .045f);
-                p.setColor(m.used ? Color.DKGRAY : Color.rgb(75, 125, 75));
-                c.drawRoundRect(bodyL, bodyT, bodyR, y, 8, 8, p);
-                p.setColor(Color.DKGRAY);
-                c.drawCircle(bodyL + cellW * .10f, y + wheelR, wheelR, p);
-                c.drawCircle(bodyR - cellW * .10f, y + wheelR, wheelR, p);
-                p.setStrokeWidth(Math.max(3f, cellW * .025f));
-                c.drawLine(bodyR - cellW * .04f, bodyT,
-                        bodyR + cellW * .18f, bodyT - cellH * .27f, p);
-                c.drawLine(bodyR + cellW * .18f, bodyT - cellH * .27f,
-                        bodyR + cellW * .28f, bodyT - cellH * .27f, p);
+                if (m == null || (m.used && !m.active && m.x > getWidth())) continue;
+                float y = top + m.row * cellH + cellH * .66f;
+                float l = m.x - cellW * .36f;
+                float r = m.x + cellW * .34f;
+                float t = y - cellH * .15f;
+                float b = y + cellH * .035f;
+                float wheel = Math.max(4f, cellH * .065f);
+
+                // Shadow under the mower.
+                p.setStyle(Paint.Style.FILL);
+                p.setColor(Color.argb(90, 20, 25, 15));
+                c.drawOval(l - 2f, y + wheel * .55f, r + 4f, y + wheel * 1.25f, p);
+
+                // Two visible rubber wheels and metal hubs.
+                p.setColor(Color.rgb(25, 27, 27));
+                c.drawCircle(l + cellW * .17f, y + wheel * .55f, wheel, p);
+                c.drawCircle(r - cellW * .13f, y + wheel * .55f, wheel * .92f, p);
+                p.setColor(Color.rgb(185, 190, 184));
+                c.drawCircle(l + cellW * .17f, y + wheel * .55f, wheel * .42f, p);
+                c.drawCircle(r - cellW * .13f, y + wheel * .55f, wheel * .40f, p);
+
+                // Red mower deck with a green engine cover.
+                p.setColor(m.used ? Color.rgb(105, 65, 50) : Color.rgb(205, 55, 37));
+                c.drawRoundRect(l, t, r, b, 7f, 7f, p);
+                p.setColor(Color.rgb(45, 135, 62));
+                c.drawRoundRect(l + cellW * .13f, t - cellH * .09f,
+                        r - cellW * .11f, y - cellH * .01f, 6f, 6f, p);
+                p.setColor(Color.rgb(245, 190, 55));
+                c.drawRoundRect(l + cellW * .20f, t - cellH * .07f,
+                        l + cellW * .32f, t - cellH * .025f, 3f, 3f, p);
+
+                // Front cutting guard.
+                p.setColor(Color.rgb(235, 185, 55));
+                c.drawRoundRect(r - cellW * .04f, y - cellH * .035f,
+                        r + cellW * .09f, y + cellH * .045f, 3f, 3f, p);
+
+                // Handle points backwards, away from the direction of travel.
+                p.setColor(Color.rgb(55, 60, 62));
+                p.setStrokeWidth(Math.max(3f, cellW * .035f));
+                p.setStrokeCap(Paint.Cap.ROUND);
+                c.drawLine(l + cellW * .08f, t + cellH * .015f,
+                        l - cellW * .12f, t - cellH * .20f, p);
+                c.drawLine(l - cellW * .12f, t - cellH * .20f,
+                        l - cellW * .23f, t - cellH * .20f, p);
+                p.setStrokeCap(Paint.Cap.BUTT);
+
+                // Small highlight so the mower remains clear on bright grass.
+                p.setColor(Color.rgb(255, 220, 140));
+                c.drawRect(l + cellW * .06f, t + cellH * .035f,
+                        l + cellW * .15f, t + cellH * .055f, p);
             }
         }
 
@@ -872,11 +907,11 @@ public class MainActivity extends Activity {
                 if(a.type==SUNFLOWER){
                     if(now-a.last>=7000L){if(!sandboxMode)addSunDrop(new SunDrop(left+col*cellW+cellW/2f,top+r*cellH+cellH*.22f));a.last=now;a.shootUntil=now+500L;a.animFrame=5;}
                 }else if(a.type==PEASHOOTER){
-                    if(a.foodUsed&&a.foodShotsRemaining>0){int n=0;while(a.foodShotsRemaining>0&&now>=a.nextFoodShotAt&&n<5){fire(r,col,20,false);a.foodShotsRemaining--;a.nextFoodShotAt+=50L;n++;}}
-                    else if(!a.foodUsed&&now-a.last>=1500L&&rowHasZombie(r)){fire(r,col,25,false);a.last=now;a.animFrame=1;a.animClock=now;a.shootUntil=now+360L;}
+                    if(a.foodUsed&&a.foodShotsRemaining>0){int n=0;while(a.foodShotsRemaining>0&&now>=a.nextFoodShotAt&&n<5){fire(r,col,20,false);a.foodShotsRemaining--;a.nextFoodShotAt+=55L;n++;}}
+                    else if(!a.foodUsed&&now-a.last>=1500L&&rowHasZombie(r)){fire(r,col,20,false);a.last=now;a.animFrame=1;a.animClock=now;a.shootUntil=now+360L;}
                 }else if(a.type==REPEATER){
                     if(a.foodUsed&&a.foodShotsRemaining>0){int n=0;while(a.foodShotsRemaining>0&&now>=a.nextFoodShotAt&&n<6){fire(r,col,20,false);a.foodShotsRemaining--;a.nextFoodShotAt+=34L;n++;}
-                        if(a.foodShotsRemaining==0&&!a.foodGiantShotDone){fire(r,col,600,true);a.foodGiantShotDone=true;a.shootUntil=now+450L;}}
+                        if(a.foodShotsRemaining==0&&!a.foodGiantShotDone){fire(r,col,400,true);a.foodGiantShotDone=true;a.shootUntil=now+450L;}}
                     else if(!a.foodUsed&&now-a.last>=1500L&&rowHasZombie(r)){firePair(r,col,20);a.last=now;a.animFrame=1;a.animClock=now;a.shootUntil=now+300L;}
                 }else if(a.type==CHOMPER){
                     if(a.chompTarget!=null&&now>=a.attackResolveAt){if(!a.chompTarget.dummy)a.chompTarget.hp=0;a.chompTarget=null;}
@@ -1105,32 +1140,44 @@ public class MainActivity extends Activity {
                 if(hit!=null){if(!hit.dummy)hit.hp-=q.damage;peas.remove(i);}else if(q.x>getWidth()+40)peas.remove(i);}
         }
 
-                private void updateZombies(long now,float dt){
-            for(Zombie z:zombies){if(z.hp<=0||z.dummy)continue;Plant plant=plantInFront(z);
-                if(plant!=null){if(now-z.lastAttack>=800L){plant.hp-=z.damage;z.lastAttack=now;}}
-                else z.x-=z.speed*dt;
-                if(z.x<=left-cellW*.45f){Mower mower=mowers[z.row];if(!mower.used){mower.used=true;mower.active=true;mower.x=left-cellW*.40f;}
-                    else if(!mower.active){z.hp=0;screen=LOSE;return;}}
+                        private void updateZombies(long now, float dt) {
+            for (Zombie z : zombies) {
+                if (z.hp <= 0 || z.dummy) continue;
+                Plant plant = plantInFront(z);
+                if (plant != null) {
+                    if (now - z.lastAttack >= 800L) {
+                        plant.hp -= z.damage;
+                        z.lastAttack = now;
+                    }
+                } else {
+                    z.x -= z.speed * dt;
+                }
+                if (z.x <= left - cellW * .45f) {
+                    Mower mower = mowers[z.row];
+                    if (!mower.used) {
+                        mower.used = true;
+                        mower.active = true;
+                        mower.x = left - cellW * .30f;
+                    } else if (!mower.active) {
+                        z.hp = 0;
+                        screen = LOSE;
+                        return;
+                    }
+                }
             }
         }
 
-        private void updateMowers(float dt) {
+                private void updateMowers(float dt) {
             for (Mower m : mowers) {
                 if (!m.active) continue;
-
                 m.x += cellW * 17f * dt;
-
                 for (Zombie z : zombies) {
-                    if (z.hp > 0 &&
-                            z.row == m.row &&
-                            Math.abs(z.x - m.x) < cellW * .70f) {
+                    if (!z.dummy && z.hp > 0 && z.row == m.row
+                            && Math.abs(z.x - m.x) < cellW * .62f) {
                         z.hp = 0;
                     }
                 }
-
-                if (m.x > getWidth() + cellW) {
-                    m.active = false;
-                }
+                if (m.x > getWidth() + cellW) m.active = false;
             }
         }
 
@@ -1260,14 +1307,14 @@ public class MainActivity extends Activity {
             return false;
         }
 
-        private int plantCost(int type) {
+                private int plantCost(int type) {
             if (type == SUNFLOWER) return 50;
             if (type == PEASHOOTER) return 100;
-            if (type == GIGANUT) return 125;
+            if (type == GIGANUT) return 175;
             if (type == CHOMPER) return 150;
             if (type == REPEATER) return 200;
-            if (type == MINE) return 50;
-            if (type == BINU) return 500;
+            if (type == MINE) return 25;
+            if (type == BINU) return 450;
             return 99999;
         }
 
@@ -1280,7 +1327,7 @@ public class MainActivity extends Activity {
             if(a.type==GIGANUT){a.maxHp=12000f;a.hp=12000f;a.plantFoodUntil=Long.MAX_VALUE;}
             else if(a.type==SUNFLOWER){sun=Math.min(999999,sun+150);a.plantFoodUntil=now+900L;a.shootUntil=now+900L;a.animFrame=5;}
             else if(a.type==PEASHOOTER){a.foodShotsRemaining=60;a.nextFoodShotAt=now;a.plantFoodUntil=now+3600L;a.shootUntil=now+3600L;a.animFrame=5;}
-            else if(a.type==REPEATER){a.foodShotsRemaining=90;a.foodGiantShotDone=false;a.nextFoodShotAt=now;a.plantFoodUntil=now+3700L;a.shootUntil=now+3700L;}
+            else if(a.type==REPEATER){a.foodShotsRemaining=60;a.foodGiantShotDone=false;a.nextFoodShotAt=now;a.plantFoodUntil=now+3700L;a.shootUntil=now+3700L;}
             else if(a.type==CHOMPER){
                 a.plantFoodUntil=now+1400L;a.shootUntil=now+1200L;a.animFrame=1;a.animClock=now;float cx=left+a.col*cellW+cellW/2f;
                 for(int pass=0;pass<3;pass++){Zombie best=null;float dist=Float.MAX_VALUE;
@@ -1658,10 +1705,10 @@ public class MainActivity extends Activity {
 
             Zombie(int row,int type,boolean boss){
                 this.row=row;this.type=type;this.boss=boss;x=left+COLS*cellW+cellW;y=top+row*cellH+cellH*.58f;
-                if(boss){maxHp=2800f+Math.max(0,(level/5)-1)*900f;speed=cellW*.048f;damage=34+(level/5)*3;}
-                else if(type==1){maxHp=420f+level*18f;speed=cellW*.075f;damage=25;}
-                else if(type==2){maxHp=180f+level*10f;speed=cellW*.17f;damage=16;}
-                else{maxHp=260f+level*15f;speed=cellW*.12f;damage=20;}hp=maxHp;
+                if(boss){maxHp=2200f+Math.max(0,(level/5)-1)*600f;speed=cellW*.052f;damage=32+(level/5)*2;}
+                else if(type==1){maxHp=340f+level*14f;speed=cellW*.070f;damage=22;}
+                else if(type==2){maxHp=130f+level*8f;speed=cellW*.155f;damage=14;}
+                else{maxHp=220f+level*13f;speed=cellW*.105f;damage=18;}hp=maxHp;
             }
         }
 
@@ -1718,7 +1765,7 @@ public class MainActivity extends Activity {
 
             Mower(int row) {
                 this.row = row;
-                this.x = left - cellW * .40f;
+                this.x = left - cellW * .30f;
             }
         }
     }
