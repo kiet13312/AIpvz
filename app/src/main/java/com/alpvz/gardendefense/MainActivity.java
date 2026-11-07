@@ -122,7 +122,24 @@ public class MainActivity extends Activity {
                 .putInt("sun", game.sun)
                 .putInt("coins", game.coins)
                 .putInt("food", game.food)
+                .putString("dailyDate", game.dailyDate)
+                .putInt("dailyStreak", game.dailyStreak)
+                .putInt("dailyWins", game.dailyWins)
+                .putInt("dailySuns", game.dailySuns)
+                .putInt("dailyKills", game.dailyKills)
+                .putBoolean("dailyQuestClaimed", game.dailyQuestClaimed)
+                .putBoolean("dailyRewardClaimed", game.dailyRewardClaimed)
                 .apply();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (game != null) {
+            game.refreshDaily();
+            saveGame();
+            game.invalidate();
+        }
     }
 
     @Override
@@ -206,6 +223,9 @@ public class MainActivity extends Activity {
                    game.screen == GameView.MINIGAME_RESULT ||
                    game.screen == GameView.ADMIN ||
                    game.screen == GameView.LEVEL ||
+                   game.screen == GameView.WORLD ||
+                   game.screen == GameView.DAILY_QUEST ||
+                   game.screen == GameView.DAILY_REWARDS ||
                    game.screen == GameView.WIN ||
                    game.screen == GameView.LOSE) {
             game.screen = GameView.HOME;
@@ -527,8 +547,20 @@ public class MainActivity extends Activity {
                 return;
             }
 
+            if (screen == WORLD) {
+                drawWorlds(c);
+                return;
+            }
             if (screen == LEVEL) {
                 drawLevels(c);
+                return;
+            }
+            if (screen == DAILY_QUEST) {
+                drawDailyQuest(c);
+                return;
+            }
+            if (screen == DAILY_REWARDS) {
+                drawDailyRewards(c);
                 return;
             }
 
@@ -1534,35 +1566,82 @@ public class MainActivity extends Activity {
         }
 
         @Override
-        public boolean onTouchEvent(MotionEvent e){
+                @Override
+        public boolean onTouchEvent(MotionEvent e) {
             if(e.getAction()!=MotionEvent.ACTION_UP)return true;
+            refreshDaily();
             float x=e.getX(),y=e.getY();
             if(screen==HOME){
-                if(inside(x,y,.63f,.17f,.92f,.255f))startLevel(level);
-                else if(inside(x,y,.63f,.285f,.92f,.37f))screen=LEVEL;
-                else if(inside(x,y,.63f,.40f,.92f,.485f))startSandbox();
-                else if(inside(x,y,.63f,.515f,.92f,.60f))screen=MINIGAME_MENU;
-                else if(inside(x,y,.63f,.63f,.92f,.715f))screen=ADMIN;
-                else if(inside(x,y,.63f,.745f,.92f,.83f))MainActivity.this.showFinalVideo();
-                invalidate();return true;
+                if(inside(x,y,.70f,.025f,.79f,.135f))screen=DAILY_QUEST;
+                else if(inside(x,y,.805f,.025f,.895f,.135f))screen=DAILY_REWARDS;
+                else if(inside(x,y,.91f,.025f,.99f,.135f))screen=ADMIN;
+                else if(inside(x,y,.012f,.22f,.135f,.315f)||inside(x,y,.18f,.72f,.34f,.90f))screen=WORLD;
+                else if(inside(x,y,.012f,.335f,.135f,.43f)||inside(x,y,.36f,.72f,.52f,.90f))screen=MINIGAME_MENU;
+                else if(inside(x,y,.012f,.45f,.135f,.545f)||inside(x,y,.54f,.72f,.70f,.90f))startSandbox();
+                else if(inside(x,y,.012f,.565f,.135f,.66f)){if(coins>=100){coins-=100;food++;saveGame();}}
+                else if(inside(x,y,.012f,.68f,.135f,.775f))MainActivity.this.showFinalVideo();
+                else if(inside(x,y,.012f,.795f,.135f,.89f))screen=DAILY_REWARDS;
+                else if(inside(x,y,.17f,.59f,.22f,.66f))worldPage=Math.max(0,worldPage-1);
+                else if(inside(x,y,.72f,.59f,.77f,.66f))worldPage=Math.min(2,worldPage+1);
+                else{
+                    int index=worldPage*4;
+                    for(int i=0;i<4;i++){float bx=.17f+i*.16f;if(inside(x,y,bx,.25f,bx+.145f,.57f)){
+                        int world=index+i;
+                        if(world<WORLD_COUNT){selectedWorld=world;int first=world*LEVELS_PER_WORLD+1;
+                            if(unlocked>=first)screen=LEVEL;else Toast.makeText(MainActivity.this,"Thế giới này chưa mở khóa",Toast.LENGTH_SHORT).show();}
+                        break;
+                    }}
+                }
+                saveGame();invalidate();return true;
             }
-            if(screen==LEVEL){
-                if(inside(x,y,.04f,.84f,.20f,.94f)){screen=HOME;invalidate();return true;}
-                for(int i=1;i<=MAX_LEVEL;i++){int col=(i-1)%5,row=(i-1)/5;float bx=.08f+col*.17f,by=.20f+row*.19f;
-                    if(inside(x,y,bx,by,bx+.14f,by+.12f)&&i<=unlocked){startLevel(i);invalidate();return true;}}
+            if(screen==WORLD){
+                if(inside(x,y,.035f,.90f,.18f,.98f)){screen=HOME;invalidate();return true;}
+                for(int world=0;world<WORLD_COUNT;world++){
+                    int col=world%5,row=world/5;float bx=.035f+col*.19f,by=.23f+row*.34f;
+                    if(inside(x,y,bx,by,bx+.17f,by+.27f)){
+                        int first=world*LEVELS_PER_WORLD+1;
+                        if(unlocked>=first){selectedWorld=world;screen=LEVEL;}
+                        else Toast.makeText(MainActivity.this,"Hoàn thành thế giới trước để mở khóa",Toast.LENGTH_SHORT).show();
+                        invalidate();return true;
+                    }
+                }
                 return true;
             }
+            if(screen==LEVEL){
+                if(inside(x,y,.035f,.88f,.18f,.97f)){screen=WORLD;invalidate();return true;}
+                if(inside(x,y,.82f,.88f,.965f,.97f)){screen=HOME;invalidate();return true;}
+                int first=selectedWorld*LEVELS_PER_WORLD+1;
+                for(int local=1;local<=LEVELS_PER_WORLD;local++){
+                    int col=(local-1)%5,row=(local-1)/5;float bx=.07f+col*.18f,by=.21f+row*.16f;
+                    if(inside(x,y,bx,by,bx+.15f,by+.115f)){
+                        int number=first+local-1;
+                        if(number<=unlocked)startLevel(number);
+                        else Toast.makeText(MainActivity.this,"Màn này đang khóa",Toast.LENGTH_SHORT).show();
+                        invalidate();return true;
+                    }
+                }
+                return true;
+            }
+            if(screen==DAILY_QUEST){
+                if(inside(x,y,.035f,.86f,.19f,.96f))screen=HOME;
+                else if(inside(x,y,.35f,.86f,.65f,.96f))claimDailyQuest();
+                invalidate();return true;
+            }
+            if(screen==DAILY_REWARDS){
+                if(inside(x,y,.035f,.86f,.19f,.96f))screen=HOME;
+                else if(inside(x,y,.35f,.80f,.65f,.91f))claimDailyReward();
+                invalidate();return true;
+            }
             if(screen==MINIGAME_MENU){
-                if(inside(x,y,.04f,.84f,.20f,.94f))screen=HOME;
-                else if(inside(x,y,.07f,.34f,.33f,.62f))startMiniGame(1);
-                else if(inside(x,y,.37f,.34f,.63f,.62f))startMiniGame(2);
-                else if(inside(x,y,.67f,.34f,.93f,.62f))startMiniGame(3);
+                if(inside(x,y,.035f,.87f,.19f,.97f))screen=HOME;
+                else for(int i=0;i<6;i++){int col=i%3,row=i/3;float bx=.12f+col*.26f,by=.23f+row*.30f;
+                    if(inside(x,y,bx,by,bx+.22f,by+.22f)){startMiniGame(i+1);break;}}
                 invalidate();return true;
             }
             if(screen==MINIGAME_PLAY){
                 if(inside(x,y,.88f,.04f,.98f,.15f)){screen=MINIGAME_MENU;miniTargets.clear();invalidate();return true;}
                 Iterator<MiniTarget> it=miniTargets.iterator();
-                while(it.hasNext()){MiniTarget t=it.next();if(Math.hypot(x-t.x,y-t.y)<=t.radius*1.35f){
+                while(it.hasNext()){MiniTarget target=it.next();if(Math.hypot(x-target.x,y-target.y)<=target.radius*1.35f){
                     miniScore+=miniMode==1?10:miniMode==2?20:15;it.remove();invalidate();return true;}}
                 return true;
             }
@@ -1574,7 +1653,7 @@ public class MainActivity extends Activity {
             if(screen==ADMIN){
                 if(inside(x,y,.04f,.84f,.20f,.94f))screen=HOME;
                 else if(inside(x,y,.30f,.46f,.70f,.57f))showAdminCommandDialog();
-                else if(inside(x,y,.30f,.61f,.70f,.72f)){runAdminCommand("/unlock_all_maps");Toast.makeText(MainActivity.this,"Đã mở khóa 15 bản đồ",Toast.LENGTH_SHORT).show();}
+                else if(inside(x,y,.30f,.61f,.70f,.72f)){runAdminCommand("/unlock_all_maps");Toast.makeText(MainActivity.this,"Đã mở khóa 200 bản đồ",Toast.LENGTH_SHORT).show();}
                 invalidate();return true;
             }
             if(screen==PAUSE){
@@ -1596,9 +1675,10 @@ public class MainActivity extends Activity {
             }
             if(inside(x,y,.88f,.105f,.93f,.21f)){screen=PAUSE;invalidate();return true;}
             if(inside(x,y,.94f,.105f,.99f,.21f)){speed=speed==1?2:1;invalidate();return true;}
-            Iterator<SunDrop> si=suns.iterator();
-            while(si.hasNext()){SunDrop drop=si.next();if(Math.hypot(x-drop.x,y-drop.y)<Math.max(45,getHeight()*.055f)){
-                if(!sandboxMode)sun+=100;si.remove();saveGame();invalidate();return true;}}
+            Iterator<SunDrop> sunIt=suns.iterator();
+            while(sunIt.hasNext()){SunDrop drop=sunIt.next();if(Math.hypot(x-drop.x,y-drop.y)<Math.max(45,getHeight()*.055f)){
+                if(!sandboxMode){sun+=100;dailySuns=Math.min(999999,dailySuns+100);}
+                sunIt.remove();saveGame();invalidate();return true;}}
             float cy=getHeight()*.105f,ch=getHeight()*.105f;
             if(y>=cy&&y<=cy+ch){
                 int[] types={SUNFLOWER,PEASHOOTER,GIGANUT,CHOMPER,REPEATER,MINE,BINU};
@@ -1620,50 +1700,61 @@ public class MainActivity extends Activity {
             return true;
         }
 
-                private void startMiniGame(int mode){
-            miniMode=Math.max(1,Math.min(3,mode));miniScore=0;miniTargets.clear();
+                        private void startMiniGame(int mode) {
+            miniMode=Math.max(1,Math.min(6,mode));miniScore=0;miniTargets.clear();
             miniStartedAt=System.currentTimeMillis();miniLastSpawn=miniStartedAt;miniLastFrame=miniStartedAt;screen=MINIGAME_PLAY;
         }
 
-                private void updateMiniGame(){
+                        private void updateMiniGame() {
             long now=System.currentTimeMillis();
-            if(now-miniStartedAt>=30000L){screen=MINIGAME_RESULT;coins+=miniScore/10;saveGame();return;}
+            if(now-miniStartedAt>=30000L){screen=MINIGAME_RESULT;coins=Math.min(99999999,coins+miniScore/10);saveGame();return;}
             float dt=Math.min(.05f,Math.max(0f,(now-miniLastFrame)/1000f));miniLastFrame=now;
-            long interval=miniMode==1?620L:miniMode==2?820L:540L;
-            if(now-miniLastSpawn>=interval&&miniTargets.size()<20){
-                miniLastSpawn=now;float rad=Math.max(18f,Math.min(getWidth(),getHeight())*.035f);
-                if(miniMode==1)miniTargets.add(new MiniTarget(getWidth()*(.10f+random.nextFloat()*.80f),-rad,rad,1,getHeight()*.42f));
-                else if(miniMode==2)miniTargets.add(new MiniTarget(getWidth()+rad,getHeight()*(.24f+random.nextFloat()*.65f),rad,2,getWidth()*.33f));
-                else miniTargets.add(new MiniTarget(-rad,getHeight()*(.22f+random.nextFloat()*.65f),rad,3,getWidth()*.48f));
+            long interval=miniMode==1?620L:miniMode==2?820L:miniMode==3?540L:miniMode==4?720L:miniMode==5?650L:500L;
+            if(now-miniLastSpawn>=interval&&miniTargets.size()<24){
+                miniLastSpawn=now;float radius=Math.max(18f,Math.min(getWidth(),getHeight())*.035f);
+                if(miniMode==1)miniTargets.add(new MiniTarget(getWidth()*(.10f+random.nextFloat()*.80f),-radius,radius,1,getHeight()*.42f));
+                else if(miniMode==2)miniTargets.add(new MiniTarget(getWidth()+radius,getHeight()*(.24f+random.nextFloat()*.65f),radius,2,getWidth()*.33f));
+                else if(miniMode==3)miniTargets.add(new MiniTarget(-radius,getHeight()*(.22f+random.nextFloat()*.65f),radius,3,getWidth()*.48f));
+                else if(miniMode==4)miniTargets.add(new MiniTarget(getWidth()*(.08f+random.nextFloat()*.84f),-radius,radius,4,getHeight()*.34f));
+                else if(miniMode==5)miniTargets.add(new MiniTarget(getWidth()+radius,getHeight()*(.24f+random.nextFloat()*.65f),radius,5,getWidth()*.40f));
+                else miniTargets.add(new MiniTarget(random.nextBoolean()?-radius:getWidth()+radius,
+                        getHeight()*(.18f+random.nextFloat()*.62f),radius,random.nextInt(5)+1,getWidth()*.55f));
             }
             Iterator<MiniTarget> it=miniTargets.iterator();
-            while(it.hasNext()){MiniTarget t=it.next();
-                if(miniMode==1){t.y+=t.speed*dt;if(t.y>getHeight()+t.radius)it.remove();}
-                else if(miniMode==2){t.x-=t.speed*dt;if(t.x< -t.radius)it.remove();}
-                else{t.x+=t.speed*dt;t.y+=t.speed*dt*.10f;if(t.x>getWidth()+t.radius)it.remove();}
+            while(it.hasNext()){
+                MiniTarget target=it.next();
+                if(miniMode==1||miniMode==4){target.y+=target.speed*dt;if(target.y>getHeight()+target.radius)it.remove();}
+                else if(miniMode==2||miniMode==5){target.x-=target.speed*dt;if(target.x< -target.radius)it.remove();}
+                else if(miniMode==3){target.x+=target.speed*dt;if(target.x>getWidth()+target.radius)it.remove();}
+                else{target.x+=target.x<0?target.speed*dt:-target.speed*dt;target.y+=target.speed*dt*.12f;
+                    if(target.x< -target.radius||target.x>getWidth()+target.radius||target.y>getHeight()+target.radius)it.remove();}
             }
         }
 
-                private void drawMiniGameMenu(Canvas c){
-            drawBackdrop(c,72);drawText(c,"MINI GAMES",getWidth()/2f,getHeight()*.16f,34,Color.WHITE,Paint.Align.CENTER);
-            drawText(c,"Chơi 30 giây • Điểm càng cao, xu thưởng càng nhiều",getWidth()/2f,getHeight()*.24f,15,Color.YELLOW,Paint.Align.CENTER);
-            button(c,.07f,.34f,.33f,.62f,"SUN RUSH");button(c,.37f,.34f,.63f,.62f,"ZOMBIE TAP");button(c,.67f,.34f,.93f,.62f,"PEA RUSH");
-            drawText(c,"Hứng nắng",getWidth()*.20f,getHeight()*.69f,13,Color.WHITE,Paint.Align.CENTER);
-            drawText(c,"Chạm mục tiêu",getWidth()*.50f,getHeight()*.69f,13,Color.WHITE,Paint.Align.CENTER);
-            drawText(c,"Chạm đậu bay",getWidth()*.80f,getHeight()*.69f,13,Color.WHITE,Paint.Align.CENTER);
-            button(c,.04f,.84f,.20f,.94f,"QUAY LẠI");
+                        private void drawMiniGameMenu(Canvas c) {
+            drawBackdrop(c,45);
+            drawText(c,"VƯỜN MINI GAME",getWidth()/2f,getHeight()*.10f,29,Color.WHITE,Paint.Align.CENTER);
+            drawText(c,"6 thử thách ngắn • Chạm mục tiêu để kiếm xu",getWidth()/2f,getHeight()*.16f,14,Color.YELLOW,Paint.Align.CENTER);
+            String[] labels={"SUN RUSH","ZOMBIE TAP","PEA RUSH","NUT CATCH","PF HUNT","MIXED RUSH"};
+            for(int i=0;i<6;i++){int col=i%3,row=i/3;float x=.12f+col*.26f,y=.23f+row*.30f;button(c,x,y,x+.22f,y+.22f,labels[i]);}
+            button(c,.035f,.87f,.19f,.97f,"QUAY LẠI");
         }
 
-                private void drawMiniGame(Canvas c){
-            drawBackdrop(c,55);long remain=Math.max(0L,30000L-(System.currentTimeMillis()-miniStartedAt));
-            String label=miniMode==1?"SUN RUSH":miniMode==2?"ZOMBIE TAP":"PEA RUSH";
-            drawText(c,label,getWidth()*.06f,getHeight()*.10f,23,Color.WHITE,Paint.Align.LEFT);
-            drawText(c,"ĐIỂM "+miniScore,getWidth()*.50f,getHeight()*.10f,22,Color.YELLOW,Paint.Align.CENTER);
-            drawText(c,"GIÂY "+(remain/1000L),getWidth()*.82f,getHeight()*.10f,20,Color.WHITE,Paint.Align.CENTER);
+                        private void drawMiniGame(Canvas c) {
+            drawBackdrop(c,35);
+            long remain=Math.max(0L,30000L-(System.currentTimeMillis()-miniStartedAt));
+            String[] labels={"","SUN RUSH","ZOMBIE TAP","PEA RUSH","NUT CATCH","PF HUNT","MIXED RUSH"};
+            drawText(c,labels[miniMode],getWidth()*.06f,getHeight()*.10f,22,Color.WHITE,Paint.Align.LEFT);
+            drawText(c,"ĐIỂM "+miniScore,getWidth()*.50f,getHeight()*.10f,20,Color.YELLOW,Paint.Align.CENTER);
+            drawText(c,"GIÂY "+(remain/1000L),getWidth()*.82f,getHeight()*.10f,19,Color.WHITE,Paint.Align.CENTER);
             button(c,.88f,.04f,.98f,.15f,"THOÁT");
-            for(MiniTarget t:miniTargets){Bitmap image=t.kind==1?sunflowerImg:t.kind==2?zombieImg:bulletImg;
-                if(image!=null){spriteRect.set(t.x-t.radius,t.y-t.radius,t.x+t.radius,t.y+t.radius);c.drawBitmap(image,null,spriteRect,p);}
-                else{p.setColor(t.kind==1?Color.YELLOW:t.kind==2?Color.GRAY:Color.GREEN);c.drawCircle(t.x,t.y,t.radius,p);}}
+            for(MiniTarget target:miniTargets){
+                Bitmap image=target.kind==1?sunflowerImg:target.kind==2?zombieImg:target.kind==3?bulletImg:
+                        target.kind==4?giganutImg:peaFoodImg;
+                if(image!=null){spriteRect.set(target.x-target.radius,target.y-target.radius,target.x+target.radius,target.y+target.radius);
+                    spritePaint.setAlpha(255);spritePaint.setColorFilter(null);c.drawBitmap(image,null,spriteRect,spritePaint);}
+                else{p.setColor(target.kind==1?Color.YELLOW:target.kind==2?Color.GRAY:Color.GREEN);c.drawCircle(target.x,target.y,target.radius,p);}
+            }
         }
 
         private void drawMiniGameResult(Canvas c) {
@@ -1692,7 +1783,7 @@ public class MainActivity extends Activity {
                     getWidth() / 2f, getHeight() * .87f, 15,
                     fpsLast >= 58 ? Color.GREEN : Color.YELLOW, Paint.Align.CENTER);
             button(c, .30f, .46f, .70f, .57f, "NHẬP LỆNH ADMIN");
-            button(c, .30f, .61f, .70f, .72f, "MỞ KHÓA 15 MAP");
+            button(c, .30f, .61f, .70f, .72f, "MỞ KHÓA 200 MAP");
             button(c, .04f, .84f, .20f, .94f, "QUAY LẠI");
         }
 
@@ -1701,9 +1792,7 @@ public class MainActivity extends Activity {
             String command = raw.trim().toLowerCase(Locale.ROOT);
             try {
                 if (command.equals("/unlock_all_maps")) {
-                    unlocked = MAX_LEVEL;
-                    saveGame();
-                    return "Đã mở khóa toàn bộ 15 bản đồ";
+                    unlocked = MAX_LEVEL;saveGame();return "Đã mở khóa toàn bộ 200 bản đồ";
                 }
                 if (command.equals("/reset_maps")) {
                     level = 1;
