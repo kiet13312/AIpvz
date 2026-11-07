@@ -1,7 +1,9 @@
 package com.alpvz.gardendefense;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.os.Bundle;
+import android.text.InputType;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.graphics.*;
@@ -10,6 +12,8 @@ import android.view.*;
 import android.widget.TextView;
 import android.widget.FrameLayout;
 import android.widget.VideoView;
+import android.widget.EditText;
+import android.widget.Toast;
 import android.net.Uri;
 import java.util.*;
 
@@ -65,20 +69,44 @@ public class MainActivity extends Activity {
                 plantFoodPlayer = null;
             }
 
-            plantFoodPlayer = MediaPlayer.create(
+            final MediaPlayer player = MediaPlayer.create(
                     MainActivity.this,
                     R.raw.peashootplantfood
             );
 
-            if (plantFoodPlayer != null) {
-                plantFoodPlayer.setOnCompletionListener(mp -> {
-                    mp.release();
-                    plantFoodPlayer = null;
+            plantFoodPlayer = player;
+            if (player != null) {
+                player.setOnCompletionListener(mp -> {
+                    try { mp.release(); } catch (Exception ignored) {}
+                    if (plantFoodPlayer == mp) {
+                        plantFoodPlayer = null;
+                    }
                 });
-                plantFoodPlayer.start();
+                player.start();
             }
         } catch (Exception ignored) {
         }
+    }
+
+    private void showAdminCommandDialog() {
+        if (game == null) return;
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setTextSize(16f);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        input.setHint("/unlock_all_maps");
+        new AlertDialog.Builder(this)
+                .setTitle("Lệnh ADMIN")
+                .setMessage("Nhập /help để xem danh sách lệnh.")
+                .setView(input)
+                .setPositiveButton("CHẠY", (dialog, which) -> {
+                    if (game == null) return;
+                    String result = game.runAdminCommand(input.getText().toString());
+                    Toast.makeText(this, result, Toast.LENGTH_LONG).show();
+                    game.invalidate();
+                })
+                .setNegativeButton("HỦY", null)
+                .show();
     }
 
     private void saveGame() {
@@ -152,7 +180,14 @@ public class MainActivity extends Activity {
             game.screen = GameView.PAUSE;
         } else if (game.screen == GameView.PAUSE) {
             game.screen = GameView.PLAY;
-        } else if (game.screen != GameView.HOME) {
+        } else if (game.screen == GameView.MINIGAME_PLAY) {
+            game.screen = GameView.MINIGAME_MENU;
+        } else if (game.screen == GameView.MINIGAME_MENU ||
+                   game.screen == GameView.MINIGAME_RESULT ||
+                   game.screen == GameView.ADMIN ||
+                   game.screen == GameView.LEVEL ||
+                   game.screen == GameView.WIN ||
+                   game.screen == GameView.LOSE) {
             game.screen = GameView.HOME;
         } else {
             super.onBackPressed();
@@ -185,6 +220,12 @@ public class MainActivity extends Activity {
         static final int TOOL_NONE = 0;
         static final int TOOL_SHOVEL = 1;
         static final int TOOL_PLANTFOOD = 2;
+
+        static final int MAX_LEVEL = 15;
+        static final int MINIGAME_MENU = 6;
+        static final int MINIGAME_PLAY = 7;
+        static final int MINIGAME_RESULT = 8;
+        static final int ADMIN = 9;
 
         final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -236,6 +277,13 @@ public class MainActivity extends Activity {
 
         int speed = 1;
 
+        final ArrayList<MiniTarget> miniTargets = new ArrayList<>();
+        int miniMode = 1;
+        int miniScore = 0;
+        long miniStartedAt = 0L;
+        long miniLastSpawn = 0L;
+        long miniLastFrame = 0L;
+
         int binuRow = -1;
         int binuCol = -1;
         int binuFrame = 0;
@@ -268,8 +316,8 @@ public class MainActivity extends Activity {
                 mowers[r] = new Mower(r);
             }
 
-            level = Math.max(1, Math.min(9, save.getInt("level", 1)));
-            unlocked = Math.max(1, Math.min(9, save.getInt("unlocked", 1)));
+            level = Math.max(1, Math.min(MAX_LEVEL, save.getInt("level", 1)));
+            unlocked = Math.max(1, Math.min(MAX_LEVEL, save.getInt("unlocked", 1)));
             unlocked = Math.max(unlocked, level);
             sun = 500;
             coins = Math.max(0, save.getInt("coins", 99999));
@@ -298,7 +346,6 @@ public class MainActivity extends Activity {
                 return null;
             }
         }
-
         private void loadImages() {
             sunflowerImg = loadImage("sun");
             peashooterImg = loadImage("peashoot");
@@ -350,6 +397,28 @@ public class MainActivity extends Activity {
                 return;
             }
 
+            if (screen == MINIGAME_MENU) {
+                drawMiniGameMenu(c);
+                return;
+            }
+
+            if (screen == MINIGAME_PLAY) {
+                drawMiniGame(c);
+                updateMiniGame();
+                postInvalidateOnAnimation();
+                return;
+            }
+
+            if (screen == MINIGAME_RESULT) {
+                drawMiniGameResult(c);
+                return;
+            }
+
+            if (screen == ADMIN) {
+                drawAdmin(c);
+                return;
+            }
+
             drawGame(c);
 
             if (screen == PAUSE) {
@@ -362,85 +431,86 @@ public class MainActivity extends Activity {
 
             if (screen == PLAY) {
                 updateGame();
-                postInvalidateDelayed(30);
+                postInvalidateOnAnimation();
             }
         }
 
         private void drawHome(Canvas c) {
-            c.drawColor(Color.rgb(25, 65, 30));
+            c.drawColor(Color.rgb(24, 57, 33));
 
-            drawText(
-                    c,
-                    "GARDEN DEFENSE",
-                    getWidth() / 2f,
-                    getHeight() * 0.22f,
-                    42,
-                    Color.WHITE,
-                    Paint.Align.CENTER
-            );
+            p.setShader(new LinearGradient(
+                    0, 0, getWidth(), getHeight(),
+                    new int[]{Color.rgb(39, 105, 54), Color.rgb(16, 45, 31)},
+                    null, Shader.TileMode.CLAMP));
+            c.drawRect(0, 0, getWidth(), getHeight(), p);
+            p.setShader(null);
 
-            drawText(
-                    c,
-                    "☀ " + sun + "     🪙 " + coins + "     PF " + food,
-                    getWidth() / 2f,
-                    getHeight() * 0.31f,
-                    22,
-                    Color.YELLOW,
-                    Paint.Align.CENTER
-            );
+            drawText(c, "GARDEN DEFENSE", getWidth() / 2f,
+                    getHeight() * .20f, 40, Color.WHITE, Paint.Align.CENTER);
+            drawText(c, "15 MÀN  •  3 TRẬN BOSS  •  MINI GAME",
+                    getWidth() / 2f, getHeight() * .29f, 17,
+                    Color.rgb(235, 242, 207), Paint.Align.CENTER);
+            drawText(c, "☀ " + sun + "     🪙 " + coins + "     PF " + food,
+                    getWidth() / 2f, getHeight() * .35f, 19,
+                    Color.YELLOW, Paint.Align.CENTER);
 
-            button(c, .30f, .40f, .70f, .51f, "CHƠI");
-            button(c, .30f, .56f, .70f, .67f, "CHỌN MÀN");
+            button(c, .32f, .40f, .68f, .50f, "CHƠI TIẾP");
+            button(c, .32f, .52f, .68f, .62f, "CHỌN BẢN ĐỒ");
+            button(c, .32f, .64f, .68f, .74f, "MINI GAME");
+            button(c, .32f, .76f, .68f, .86f, "ADMIN PANEL");
         }
 
         private void drawLevels(Canvas c) {
-            c.drawColor(Color.rgb(20, 55, 25));
+            c.drawColor(Color.rgb(20, 55, 30));
 
-            drawText(
-                    c,
-                    "CHỌN MÀN",
-                    getWidth() / 2f,
-                    getHeight() * .10f,
-                    32,
-                    Color.WHITE,
-                    Paint.Align.CENTER
-            );
+            drawText(c, "CHỌN BẢN ĐỒ", getWidth() / 2f,
+                    getHeight() * .095f, 31, Color.WHITE, Paint.Align.CENTER);
+            drawText(c, "Mở khóa: " + unlocked + "/" + MAX_LEVEL,
+                    getWidth() / 2f, getHeight() * .145f, 16,
+                    Color.YELLOW, Paint.Align.CENTER);
 
-            for (int i = 1; i <= 9; i++) {
-                int col = (i - 1) % 3;
-                int row = (i - 1) / 3;
+            for (int i = 1; i <= MAX_LEVEL; i++) {
+                int col = (i - 1) % 5;
+                int row = (i - 1) / 5;
+                float x = .08f + col * .17f;
+                float y = .20f + row * .19f;
+                boolean open = i <= unlocked;
+                boolean boss = i % 5 == 0;
 
-                float x = .18f + col * .22f;
-                float y = .18f + row * .19f;
+                p.setColor(!open ? Color.rgb(62, 67, 64)
+                        : boss ? Color.rgb(153, 91, 37)
+                        : Color.rgb(65, 145, 70));
+                c.drawRoundRect(getWidth() * x, getHeight() * y,
+                        getWidth() * (x + .14f), getHeight() * (y + .12f),
+                        12, 12, p);
 
-                p.setColor(
-                        i <= unlocked
-                                ? Color.rgb(65, 145, 70)
-                                : Color.rgb(70, 70, 70)
-                );
-
-                c.drawRoundRect(
-                        getWidth() * x,
-                        getHeight() * y,
-                        getWidth() * (x + .17f),
-                        getHeight() * (y + .13f),
-                        14,
-                        14,
-                        p
-                );
-
-                drawText(
-                        c,
-                        i <= unlocked ? "MÀN " + i : "KHÓA",
-                        getWidth() * (x + .085f),
-                        getHeight() * (y + .082f),
-                        20,
-                        Color.WHITE,
-                        Paint.Align.CENTER
-                );
+                if (open) {
+                    drawText(c, boss ? "BOSS " + i : "MÀN " + i,
+                            getWidth() * (x + .07f),
+                            getHeight() * (y + .052f), 17,
+                            Color.WHITE, Paint.Align.CENTER);
+                    drawText(c, boss ? "TRÙM CUỐI" : worldName(i),
+                            getWidth() * (x + .07f),
+                            getHeight() * (y + .092f), 9,
+                            Color.rgb(255, 238, 180), Paint.Align.CENTER);
+                } else {
+                    drawText(c, "KHÓA", getWidth() * (x + .07f),
+                            getHeight() * (y + .073f), 14,
+                            Color.LTGRAY, Paint.Align.CENTER);
+                }
             }
 
             button(c, .04f, .84f, .20f, .94f, "QUAY LẠI");
+        }
+
+        private String worldName(int lv) {
+            if (lv <= 5) return "BÃI CỎ";
+            if (lv <= 10) return "ĐÊM TỐI";
+            return "VƯỜN MÁI NHÀ";
+        }
+
+        private boolean isBossLevel(int lv) {
+            return lv == 5 || lv == 10 || lv == 15;
         }
 
         private void drawGame(Canvas c) {
@@ -450,7 +520,8 @@ public class MainActivity extends Activity {
             c.drawRect(0, 0, getWidth(), top, p);
 
             drawText(c, "☀ " + sun, 14, 34, 23, Color.YELLOW, Paint.Align.LEFT);
-            drawText(c, "MÀN " + level, getWidth() * .27f, 34, 22, Color.WHITE, Paint.Align.LEFT);
+            drawText(c, isBossLevel(level) ? "MÀN " + level + " • BOSS" : "MÀN " + level,
+                    getWidth() * .27f, 34, 20, isBossLevel(level) ? Color.YELLOW : Color.WHITE, Paint.Align.LEFT);
             drawText(c, "ZOM " + killed + "/" + total, getWidth() * .47f, 34, 20, Color.WHITE, Paint.Align.LEFT);
             drawText(c, "🪙 " + coins, getWidth() * .68f, 34, 20, Color.YELLOW, Paint.Align.LEFT);
             drawText(c, "PF " + food, getWidth() * .86f, 34, 20, Color.WHITE, Paint.Align.LEFT);
@@ -590,30 +661,37 @@ public class MainActivity extends Activity {
         }
 
         private void drawBoard(Canvas c) {
+            int world = (level - 1) / 5;
+            int a = world == 0 ? Color.rgb(111, 177, 78)
+                    : world == 1 ? Color.rgb(65, 112, 81)
+                    : Color.rgb(157, 139, 83);
+            int b = world == 0 ? Color.rgb(96, 160, 68)
+                    : world == 1 ? Color.rgb(53, 96, 74)
+                    : Color.rgb(139, 119, 70);
+
             for (int r = 0; r < ROWS; r++) {
                 for (int col = 0; col < COLS; col++) {
-                    if (!activeRow(r)) {
-                        p.setColor(Color.rgb(72, 110, 62));
-                    } else {
-                        p.setColor(
-                                (r + col) % 2 == 0
-                                        ? Color.rgb(103, 166, 78)
-                                        : Color.rgb(91, 153, 67)
-                        );
-                    }
+                    p.setColor(!activeRow(r) ? Color.rgb(55, 78, 54)
+                            : ((r + col) % 2 == 0 ? a : b));
+                    c.drawRect(left + col * cellW, top + r * cellH,
+                            left + (col + 1) * cellW, top + (r + 1) * cellH, p);
 
-                    c.drawRect(
-                            left + col * cellW,
-                            top + r * cellH,
-                            left + (col + 1) * cellW,
-                            top + (r + 1) * cellH,
-                            p
-                    );
+                    if (activeRow(r)) {
+                        p.setColor(Color.argb(28, 255, 255, 255));
+                        p.setStyle(Paint.Style.STROKE);
+                        p.setStrokeWidth(1f);
+                        c.drawRect(left + col * cellW, top + r * cellH,
+                                left + (col + 1) * cellW, top + (r + 1) * cellH, p);
+                        p.setStyle(Paint.Style.FILL);
+                    }
                 }
             }
 
-            p.setColor(Color.rgb(135, 95, 55));
+            p.setColor(world == 2 ? Color.rgb(121, 94, 68) : Color.rgb(92, 74, 49));
             c.drawRect(0, top, left, top + ROWS * cellH, p);
+            p.setColor(Color.argb(65, 25, 35, 20));
+            c.drawRect(left, top, left + COLS * cellW,
+                    top + ROWS * cellH, p);
         }
 
         private void drawPlants(Canvas c) {
@@ -692,17 +770,15 @@ public class MainActivity extends Activity {
             }
 
             if (b != null) {
-                c.drawBitmap(
-                        b,
-                        null,
-                        new RectF(
-                                x - size / 2f,
-                                y - size / 2f,
-                                x + size / 2f,
-                                y + size / 2f
-                        ),
-                        p
-                );
+                float kick = 1f;
+                if (plant != null && plant.type != GIGANUT &&
+                        (plant.type == PEASHOOTER || plant.type == REPEATER) &&
+                        System.currentTimeMillis() < plant.shootUntil) {
+                    kick = 1.055f;
+                }
+                c.drawBitmap(b, null,
+                        new RectF(x - size * kick / 2f, y - size / kick / 2f,
+                                x + size * kick / 2f, y + size / kick / 2f), p);
                 return;
             }
 
@@ -846,8 +922,8 @@ public class MainActivity extends Activity {
             long now = System.currentTimeMillis();
 
             float dt = Math.min(
-                    .08f,
-                    (now - lastUpdate) / 1000f
+                    .033333f,
+                    Math.max(0f, (now - lastUpdate) / 1000f)
             ) * speed;
 
             lastUpdate = now;
@@ -897,8 +973,7 @@ public class MainActivity extends Activity {
 
                     if (a.foodUsed && a.type != GIGANUT &&
                             a.plantFoodUntil > 0 &&
-                            now >= a.plantFoodUntil) {
-                        a.foodUsed = false;
+                            now >= a.plantFoodUntil) {                        a.foodUsed = false;
                         a.plantFoodUntil = 0;
                     }
 
@@ -925,10 +1000,9 @@ public class MainActivity extends Activity {
                         if (now - a.last >= cd && rowHasZombie(r)) {
                             fire(r, col, 30, false);
                             a.last = now;
-                            if (a.animFrame < 1 || a.animFrame > 10) {
-                                a.animFrame = 1;
-                                a.animClock = now;
-                            }
+                            a.animFrame = 1;
+                            a.animClock = now;
+                            a.shootUntil = now + 180L;
                         }
                     }
 
@@ -939,6 +1013,7 @@ public class MainActivity extends Activity {
                             fire(r, col, 30, false);
                             fireDelayed(r, col, 30, 500);
                             a.last = now;
+                            a.shootUntil = now + 180L;
                         }
                     }
 
@@ -1015,14 +1090,12 @@ public class MainActivity extends Activity {
             for (int r = 0; r < ROWS; r++) {
                 for (int col = 0; col < COLS; col++) {
                     Plant a = plants[r][col];
-                    if (a == null || a.type != PEASHOOTER || peaAnim[0] == null) continue;
-                    if (a.animFrame < 1 || a.animFrame > 10) {
-                        a.animFrame = 1;
-                        a.animClock = now;
-                    } else if (now - a.animClock >= 70L) {
+                    if (a == null || a.type != PEASHOOTER) continue;
+                    if (a.animFrame <= 0 || a.animFrame > 10) continue;
+                    if (now - a.animClock >= 55L) {
                         a.animClock = now;
                         a.animFrame++;
-                        if (a.animFrame > 10) a.animFrame = 1;
+                        if (a.animFrame > 10) a.animFrame = 0;
                     }
                 }
             }
@@ -1197,8 +1270,7 @@ public class MainActivity extends Activity {
                     Zombie nearest = null;
                     float best = Float.MAX_VALUE;
                     for (Zombie z : zombies) {
-                        if (z.hp <= 0 || z.row != r) continue;
-                        float d = Math.abs(z.x - bx);
+                        if (z.hp <= 0 || z.row != r) continue;                        float d = Math.abs(z.x - bx);
                         if (d <= cellW * 1.30f && d < best) {
                             nearest = z;
                             best = d;
@@ -1346,7 +1418,7 @@ public class MainActivity extends Activity {
             int row = first + random.nextInt(n);
 
             boolean boss =
-                    level == 9 &&
+                    isBossLevel(level) &&
                     spawned == total - 1;
 
             zombies.add(
@@ -1438,17 +1510,16 @@ public class MainActivity extends Activity {
         }
 
         private void startLevel(int lv) {
-            level = Math.max(1, Math.min(9, lv));
+            level = Math.max(1, Math.min(MAX_LEVEL, lv));
             screen = PLAY;
             sun = 500;
 
             killed = 0;
             spawned = 0;
 
-            total = lv <= 2 ? 8 :
-                    lv <= 4 ? 10 :
-                    lv <= 8 ? 12 :
-                    15;
+            total = isBossLevel(level)
+                    ? 15 + (level / 5) * 2
+                    : 8 + (level - 1) / 2;
 
             clearBoard();
 
@@ -1498,12 +1569,12 @@ public class MainActivity extends Activity {
             int first = (ROWS - n) / 2;
             return row >= first && row < first + n;
         }
-
         private long spawnDelay() {
             if (level <= 2) return 4200;
             if (level <= 4) return 3600;
-            if (level <= 8) return 3100;
-            return 2600;
+            if (level <= 5) return 3100;
+            if (level <= 10) return 2800;
+            return 2450;
         }
 
         private boolean isPlantUnlocked(int type) {
@@ -1531,12 +1602,12 @@ public class MainActivity extends Activity {
         private void winLevel() {
             screen = WIN;
 
-            if (level < 9) {
+            if (level < MAX_LEVEL) {
                 unlocked = Math.max(unlocked, level + 1);
             }
 
             saveGame();
-            if (level == 9) postDelayed(() -> showFinalVideo(), 80L);
+            if (level == MAX_LEVEL) postDelayed(() -> showFinalVideo(), 80L);
         }
 
         private void usePlantFood(Plant a) {
@@ -1797,7 +1868,6 @@ public class MainActivity extends Activity {
                         MINE,
                         BINU
                 };
-
                 for (int i = 0; i < types.length; i++) {
                     float bx = getWidth() * (.01f + i * .075f);
 
@@ -1902,6 +1972,175 @@ public class MainActivity extends Activity {
             return true;
         }
 
+        private void startMiniGame(int mode) {
+            miniMode = mode;
+            miniScore = 0;
+            miniTargets.clear();
+            miniStartedAt = System.currentTimeMillis();
+            miniLastSpawn = miniStartedAt;
+            miniLastFrame = miniStartedAt;
+            screen = MINIGAME_PLAY;
+        }
+
+        private void updateMiniGame() {
+            long now = System.currentTimeMillis();
+            if (now - miniStartedAt >= 30000L) {
+                screen = MINIGAME_RESULT;
+                coins += miniScore / 10;
+                saveGame();
+                return;
+            }
+
+            float dt = Math.min(.05f, Math.max(0f, (now - miniLastFrame) / 1000f));
+            miniLastFrame = now;
+
+            long spawnInterval = miniMode == 1 ? 620L : 820L;
+            if (now - miniLastSpawn >= spawnInterval) {
+                miniLastSpawn = now;
+                float radius = Math.max(18f, Math.min(getWidth(), getHeight()) * .035f);
+                if (miniMode == 1) {
+                    miniTargets.add(new MiniTarget(
+                            getWidth() * (.10f + random.nextFloat() * .80f),
+                            -radius, radius, 1, getHeight() * .42f));
+                } else {
+                    miniTargets.add(new MiniTarget(
+                            getWidth() + radius,
+                            getHeight() * (.24f + random.nextFloat() * .65f),
+                            radius, 2, getWidth() * .33f));
+                }
+            }
+
+            Iterator<MiniTarget> it = miniTargets.iterator();
+            while (it.hasNext()) {
+                MiniTarget target = it.next();
+                if (miniMode == 1) {
+                    target.y += target.speed * dt;
+                    if (target.y > getHeight() + target.radius) it.remove();
+                } else {
+                    target.x -= target.speed * dt;
+                    if (target.x < -target.radius) it.remove();
+                }
+            }
+        }
+
+        private void drawMiniGameMenu(Canvas c) {
+            c.drawColor(Color.rgb(24, 57, 33));
+            drawText(c, "MINI GAME", getWidth() / 2f, getHeight() * .16f,
+                    34, Color.WHITE, Paint.Align.CENTER);
+            drawText(c, "Chơi 30 giây để nhận xu thưởng",
+                    getWidth() / 2f, getHeight() * .24f, 17,
+                    Color.YELLOW, Paint.Align.CENTER);
+            button(c, .18f, .34f, .48f, .61f, "SUN RUSH");
+            button(c, .52f, .34f, .82f, .61f, "ZOMBIE TAP");
+            drawText(c, "SUN RUSH: chạm mặt trời đang rơi",
+                    getWidth() * .33f, getHeight() * .68f, 14,
+                    Color.WHITE, Paint.Align.CENTER);
+            drawText(c, "ZOMBIE TAP: chạm zombie để ghi điểm",
+                    getWidth() * .67f, getHeight() * .68f, 14,
+                    Color.WHITE, Paint.Align.CENTER);
+            button(c, .04f, .84f, .20f, .94f, "QUAY LẠI");
+        }
+
+        private void drawMiniGame(Canvas c) {
+            c.drawColor(miniMode == 1 ? Color.rgb(70, 130, 75) : Color.rgb(37, 55, 68));
+            long remaining = Math.max(0L, 30000L - (System.currentTimeMillis() - miniStartedAt));
+            drawText(c, miniMode == 1 ? "SUN RUSH" : "ZOMBIE TAP",
+                    getWidth() * .06f, getHeight() * .10f, 23,
+                    Color.WHITE, Paint.Align.LEFT);
+            drawText(c, "ĐIỂM " + miniScore,
+                    getWidth() * .50f, getHeight() * .10f, 22,
+                    Color.YELLOW, Paint.Align.CENTER);
+            drawText(c, "GIÂY " + (remaining / 1000L),
+                    getWidth() * .82f, getHeight() * .10f, 20,
+                    Color.WHITE, Paint.Align.CENTER);
+            button(c, .88f, .04f, .98f, .15f, "THOÁT");
+
+            for (MiniTarget target : miniTargets) {
+                Bitmap image = target.kind == 1 ? sunflowerImg : zombieImg;
+                if (image != null) {
+                    c.drawBitmap(image, null, new RectF(
+                            target.x - target.radius, target.y - target.radius,
+                            target.x + target.radius, target.y + target.radius), p);
+                } else {
+                    p.setColor(target.kind == 1 ? Color.YELLOW : Color.GRAY);
+                    c.drawCircle(target.x, target.y, target.radius, p);
+                }
+            }
+        }
+
+        private void drawMiniGameResult(Canvas c) {
+            c.drawColor(Color.rgb(20, 55, 30));
+            drawText(c, "HOÀN THÀNH MINI GAME",
+                    getWidth() / 2f, getHeight() * .30f, 30,
+                    Color.WHITE, Paint.Align.CENTER);
+            drawText(c, "Điểm: " + miniScore + "   •   Xu nhận: " + (miniScore / 10),
+                    getWidth() / 2f, getHeight() * .42f, 20,
+                    Color.YELLOW, Paint.Align.CENTER);
+            button(c, .30f, .52f, .70f, .62f, "CHƠI LẠI");
+            button(c, .30f, .67f, .70f, .77f, "MENU MINI GAME");
+        }
+
+        private void drawAdmin(Canvas c) {
+            c.drawColor(Color.rgb(26, 37, 48));
+            drawText(c, "ADMIN PANEL", getWidth() / 2f,
+                    getHeight() * .17f, 33, Color.YELLOW, Paint.Align.CENTER);
+            drawText(c, "Lệnh nhanh và công cụ kiểm tra tiến trình",
+                    getWidth() / 2f, getHeight() * .27f, 16,
+                    Color.WHITE, Paint.Align.CENTER);
+            drawText(c, "Lệnh mở toàn bộ bản đồ: /unlock_all_maps",
+                    getWidth() / 2f, getHeight() * .38f, 17,
+                    Color.rgb(170, 230, 190), Paint.Align.CENTER);
+            button(c, .30f, .46f, .70f, .57f, "NHẬP LỆNH ADMIN");
+            button(c, .30f, .61f, .70f, .72f, "MỞ KHÓA 15 MAP");
+            button(c, .04f, .84f, .20f, .94f, "QUAY LẠI");
+        }
+
+        private String runAdminCommand(String raw) {
+            if (raw == null) return "Lệnh trống";
+            String command = raw.trim().toLowerCase(Locale.ROOT);
+            try {
+                if (command.equals("/unlock_all_maps")) {
+                    unlocked = MAX_LEVEL;
+                    saveGame();
+                    return "Đã mở khóa toàn bộ 15 bản đồ";
+                }
+                if (command.equals("/reset_maps")) {
+                    level = 1;
+                    unlocked = 1;
+                    saveGame();
+                    return "Đã đặt lại tiến trình bản đồ";
+                }
+                if (command.startsWith("/give_sun ")) {
+                    sun = Math.min(999999, sun + Math.max(0, Integer.parseInt(command.substring(10).trim())));
+                    saveGame();
+                    return "Đã cộng SUN";
+                }
+                if (command.startsWith("/give_pf ")) {
+                    food = Math.min(99999, food + Math.max(0, Integer.parseInt(command.substring(9).trim())));
+                    saveGame();
+                    return "Đã cộng Plant Food";
+                }
+                if (command.startsWith("/give_coins ")) {
+                    coins = Math.min(99999999, coins + Math.max(0, Integer.parseInt(command.substring(12).trim())));
+                    saveGame();
+                    return "Đã cộng xu";
+                }
+                if (command.startsWith("/set_level ")) {
+                    level = Math.max(1, Math.min(MAX_LEVEL,
+                            Integer.parseInt(command.substring(11).trim())));
+                    unlocked = Math.max(unlocked, level);
+                    saveGame();
+                    return "Đã đặt màn hiện tại: " + level;
+                }
+                if (command.equals("/help")) {
+                    return "/unlock_all_maps, /give_sun 5000, /give_pf 10, /give_coins 1000, /set_level 15, /reset_maps";
+                }
+            } catch (NumberFormatException ignored) {
+                return "Giá trị lệnh không hợp lệ";
+            }
+            return "Không nhận diện lệnh. Dùng /help";
+        }
+
         private boolean inside(
                 float x,
                 float y,
@@ -1914,6 +2153,38 @@ public class MainActivity extends Activity {
                     x <= getWidth() * x2 &&
                     y >= getHeight() * y1 &&
                     y <= getHeight() * y2;
+        }
+
+        class MiniTarget {
+            float x;
+            float y;
+            float radius;
+            int kind;
+            float speed;
+
+            MiniTarget(float x, float y, float radius, int kind, float speed) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.kind = kind;
+                this.speed = speed;
+            }
+        }
+
+        class MiniTarget {
+            float x;
+            float y;
+            float radius;
+            int kind;
+            float speed;
+
+            MiniTarget(float x, float y, float radius, int kind, float speed) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.kind = kind;
+                this.speed = speed;
+            }
         }
 
         class Plant {
@@ -1929,6 +2200,7 @@ public class MainActivity extends Activity {
             long plantFoodUntil;
             long armTime;
             long animClock;
+            long shootUntil;
             int animFrame;
 
             boolean armed;
@@ -1949,7 +2221,7 @@ public class MainActivity extends Activity {
                 last = System.currentTimeMillis();
 
                 if (type == PEASHOOTER) {
-                    animFrame = 1;
+                    animFrame = 0;
                     animClock = last;
                 }
 
@@ -1987,9 +2259,9 @@ public class MainActivity extends Activity {
                 y = top + row * cellH + cellH * .58f;
 
                 if (boss) {
-                    maxHp = 5000;
+                    maxHp = 5500f + Math.max(0, (level / 5) - 1) * 3500f;
                     speed = cellW * .053333f;
-                    damage = 45;
+                    damage = 45 + (level / 5) * 5;
                 } else if (type == 1) {
                     maxHp = 900 + level * 100;
                     speed = cellW * .08f;
