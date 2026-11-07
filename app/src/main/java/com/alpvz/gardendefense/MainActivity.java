@@ -517,6 +517,90 @@ public class MainActivity extends Activity {
             bulletImg = loadImage("gigapea");
             binuImg = loadImage("binu"); binu1Img = loadImage("binu1");
             binu2Img = loadImage("binu2"); binu3Img = loadImage("binu3"); binu4Img = loadImage("binu4");
+            loadDownloadedPultArtwork();
+        }
+
+
+        private Bitmap loadDownloadedPng(String name) {
+            int id = getResources().getIdentifier(name, "drawable", getPackageName());
+            if (id == 0) return null;
+            try {
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+                options.inScaled = false;
+                return BitmapFactory.decodeResource(getResources(), id, options);
+            } catch (Throwable ignored) {
+                return null;
+            }
+        }
+
+        private Bitmap cropArtwork(Bitmap sheet, float leftPart, float topPart, float rightPart, float bottomPart) {
+            if (sheet == null || sheet.isRecycled()) return null;
+            int leftPx = Math.max(0, Math.min(sheet.getWidth() - 1, Math.round(sheet.getWidth() * leftPart)));
+            int topPx = Math.max(0, Math.min(sheet.getHeight() - 1, Math.round(sheet.getHeight() * topPart)));
+            int rightPx = Math.max(leftPx + 1, Math.min(sheet.getWidth(), Math.round(sheet.getWidth() * rightPart)));
+            int bottomPx = Math.max(topPx + 1, Math.min(sheet.getHeight(), Math.round(sheet.getHeight() * bottomPart)));
+            try {
+                return Bitmap.createBitmap(sheet, leftPx, topPx, rightPx - leftPx, bottomPx - topPx);
+            } catch (Throwable ignored) {
+                return null;
+            }
+        }
+
+        private Bitmap makePlantFoodArtwork(Bitmap normal) {
+            if (normal == null) return null;
+            try {
+                Bitmap foodArt = Bitmap.createBitmap(normal.getWidth(), normal.getHeight(), Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(foodArt);
+                Paint tint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+                tint.setColorFilter(new LightingColorFilter(Color.rgb(255, 255, 175), 0));
+                canvas.drawBitmap(normal, 0f, 0f, tint);
+                Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
+                glow.setColor(Color.argb(70, 255, 215, 70));
+                canvas.drawCircle(foodArt.getWidth() * .5f, foodArt.getHeight() * .5f,
+                        Math.min(foodArt.getWidth(), foodArt.getHeight()) * .48f, glow);
+                canvas.drawBitmap(normal, 0f, 0f, tint);
+                return foodArt;
+            } catch (Throwable ignored) {
+                return normal;
+            }
+        }
+
+        private void loadDownloadedPultArtwork() {
+            Bitmap vegetables = loadDownloadedPng("pult_vegetables_sheet");
+            Bitmap cereals = loadDownloadedPng("pult_cereals_sheet");
+            Bitmap fruits = loadDownloadedPng("pult_fruits_sheet");
+
+            // ScratchIO's CC0 vegetable sheet: cabbage is the leafy round sprite in the lower-right area.
+            Bitmap cabbage = cropArtwork(vegetables, .60f, .53f, .96f, .80f);
+            // The CC0 cereal sheet is five 32px cereal sprites; the first slot is corn.
+            Bitmap corn = null;
+            if (cereals != null) {
+                if (cereals.getWidth() >= cereals.getHeight()) {
+                    corn = cropArtwork(cereals, 0f, 0f, .20f, 1f);
+                } else {
+                    corn = cropArtwork(cereals, 0f, 0f, 1f, .20f);
+                }
+            }
+            // ScratchIO's CC0 fruit sheet: crop the whole watermelon from its lower-left fruit slot.
+            Bitmap melon = cropArtwork(fruits, .05f, .50f, .43f, .79f);
+
+            if (cabbage != null) {
+                cabbagePultImg = cabbage;
+                cabbagePultFoodImg = makePlantFoodArtwork(cabbage);
+            }
+            if (corn != null) {
+                kernelPultImg = corn;
+                kernelPultFoodImg = makePlantFoodArtwork(corn);
+            }
+            if (melon != null) {
+                melonPultImg = melon;
+                melonPultFoodImg = makePlantFoodArtwork(melon);
+            }
+
+            if (vegetables != null && !vegetables.isRecycled()) vegetables.recycle();
+            if (cereals != null && !cereals.isRecycled()) cereals.recycle();
+            if (fruits != null && !fruits.isRecycled()) fruits.recycle();
         }
 
         @Override
