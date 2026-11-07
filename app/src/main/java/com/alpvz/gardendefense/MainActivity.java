@@ -444,9 +444,11 @@ public class MainActivity extends Activity {
 
         @Override
         protected void onSizeChanged(int w, int h, int oldW, int oldH) {
-            left = w * 0.18f;
+            // The lawn in garden_bg.webp starts at x=55 of a 384px image.
+            // Match the 9x5 logical grid to that exact visible lawn rectangle.
+            left = w * (55f / 384f);
             top = h * 0.25f;
-            cellW = (w * 0.78f) / COLS;
+            cellW = (w - left) / COLS;
             cellH = (h * 0.70f) / ROWS;
             float plantSize = Math.max(1f, Math.min(cellW, cellH));
             zombieNormalScaled = scaleBitmap(zombieImg, cellW * .68f, cellH * .82f);
@@ -685,33 +687,18 @@ public class MainActivity extends Activity {
             }
         }
 
-        private void drawPlants(Canvas c) {
-            for (int r = 0; r < ROWS; r++) {
+                private void drawPlants(Canvas c) {
+            for (int row = 0; row < ROWS; row++) {
                 for (int col = 0; col < COLS; col++) {
-                    Plant plant = plants[r][col];
+                    Plant plant = plants[row][col];
                     if (plant == null) continue;
                     if (plant.type == BINU && (binuWaiting || binuJumping)) continue;
-
-                    float x = left + col * cellW + cellW / 2f;
-                    float y = top + r * cellH + cellH / 2f;
-
-                    drawPlant(
-                            c,
-                            plant.type,
-                            x,
-                            y,
-                            Math.min(cellW, cellH) * .74f,
-                            plant
-                    );
-
-                    drawHp(
-                            c,
-                            x - cellW * .30f,
-                            y + cellH * .32f,
-                            cellW * .60f,
-                            plant.hp,
-                            plant.maxHp
-                    );
+                    // Plant art, HP bar and tap target all share the exact cell center.
+                    float x = left + (col + 0.5f) * cellW;
+                    float y = top + (row + 0.5f) * cellH;
+                    drawPlant(c, plant.type, x, y, Math.min(cellW, cellH) * .74f, plant);
+                    drawHp(c, x - cellW * .30f, y + cellH * .32f,
+                            cellW * .60f, plant.hp, plant.maxHp);
                 }
             }
         }
@@ -789,58 +776,54 @@ public class MainActivity extends Activity {
             }
         }
 
-                private void drawMowers(Canvas c) {
+                        private void drawMowers(Canvas c) {
             for (Mower m : mowers) {
                 if (m == null || (m.used && !m.active && m.x > getWidth())) continue;
-                float y = top + m.row * cellH + cellH * .66f;
-                float l = m.x - cellW * .36f;
-                float r = m.x + cellW * .34f;
-                float t = y - cellH * .15f;
-                float b = y + cellH * .035f;
+
+                // Baseline sits just left of the first plant cell, in the stone strip.
+                float y = top + (m.row + 0.80f) * cellH;
+                float l = m.x - cellW * .37f;
+                float r = m.x + cellW * .37f;
+                float t = y - cellH * .19f;
+                float b = y + cellH * .025f;
                 float wheel = Math.max(4f, cellH * .065f);
 
-                // Shadow under the mower.
                 p.setStyle(Paint.Style.FILL);
-                p.setColor(Color.argb(90, 20, 25, 15));
-                c.drawOval(l - 2f, y + wheel * .55f, r + 4f, y + wheel * 1.25f, p);
+                p.setColor(Color.argb(95, 15, 18, 12));
+                c.drawOval(l - 2f, y + wheel * .40f, r + 4f, y + wheel * 1.15f, p);
 
-                // Two visible rubber wheels and metal hubs.
-                p.setColor(Color.rgb(25, 27, 27));
-                c.drawCircle(l + cellW * .17f, y + wheel * .55f, wheel, p);
-                c.drawCircle(r - cellW * .13f, y + wheel * .55f, wheel * .92f, p);
-                p.setColor(Color.rgb(185, 190, 184));
-                c.drawCircle(l + cellW * .17f, y + wheel * .55f, wheel * .42f, p);
-                c.drawCircle(r - cellW * .13f, y + wheel * .55f, wheel * .40f, p);
+                // Wheels and hubs.
+                p.setColor(Color.rgb(24, 26, 27));
+                c.drawCircle(l + cellW * .17f, y + wheel * .45f, wheel, p);
+                c.drawCircle(r - cellW * .15f, y + wheel * .45f, wheel, p);
+                p.setColor(Color.rgb(195, 199, 188));
+                c.drawCircle(l + cellW * .17f, y + wheel * .45f, wheel * .42f, p);
+                c.drawCircle(r - cellW * .15f, y + wheel * .45f, wheel * .42f, p);
 
-                // Red mower deck with a green engine cover.
-                p.setColor(m.used ? Color.rgb(105, 65, 50) : Color.rgb(205, 55, 37));
+                // Deck, engine and front cutting guard.
+                p.setColor(m.used ? Color.rgb(104, 68, 53) : Color.rgb(205, 48, 35));
                 c.drawRoundRect(l, t, r, b, 7f, 7f, p);
-                p.setColor(Color.rgb(45, 135, 62));
-                c.drawRoundRect(l + cellW * .13f, t - cellH * .09f,
-                        r - cellW * .11f, y - cellH * .01f, 6f, 6f, p);
-                p.setColor(Color.rgb(245, 190, 55));
-                c.drawRoundRect(l + cellW * .20f, t - cellH * .07f,
-                        l + cellW * .32f, t - cellH * .025f, 3f, 3f, p);
+                p.setColor(Color.rgb(44, 137, 60));
+                c.drawRoundRect(l + cellW * .14f, t - cellH * .10f,
+                        r - cellW * .12f, y - cellH * .015f, 6f, 6f, p);
+                p.setColor(Color.rgb(246, 197, 62));
+                c.drawRoundRect(r - cellW * .02f, y - cellH * .045f,
+                        r + cellW * .10f, y + cellH * .035f, 3f, 3f, p);
 
-                // Front cutting guard.
-                p.setColor(Color.rgb(235, 185, 55));
-                c.drawRoundRect(r - cellW * .04f, y - cellH * .035f,
-                        r + cellW * .09f, y + cellH * .045f, 3f, 3f, p);
-
-                // Handle points backwards, away from the direction of travel.
-                p.setColor(Color.rgb(55, 60, 62));
+                // Handle.
+                p.setColor(Color.rgb(49, 54, 57));
                 p.setStrokeWidth(Math.max(3f, cellW * .035f));
                 p.setStrokeCap(Paint.Cap.ROUND);
-                c.drawLine(l + cellW * .08f, t + cellH * .015f,
+                c.drawLine(l + cellW * .10f, t + cellH * .02f,
                         l - cellW * .12f, t - cellH * .20f, p);
                 c.drawLine(l - cellW * .12f, t - cellH * .20f,
-                        l - cellW * .23f, t - cellH * .20f, p);
+                        l - cellW * .24f, t - cellH * .20f, p);
                 p.setStrokeCap(Paint.Cap.BUTT);
 
-                // Small highlight so the mower remains clear on bright grass.
-                p.setColor(Color.rgb(255, 220, 140));
-                c.drawRect(l + cellW * .06f, t + cellH * .035f,
-                        l + cellW * .15f, t + cellH * .055f, p);
+                // Metallic highlight.
+                p.setColor(Color.rgb(255, 219, 135));
+                c.drawRoundRect(l + cellW * .08f, t + cellH * .035f,
+                        l + cellW * .18f, t + cellH * .06f, 2f, 2f, p);
             }
         }
 
