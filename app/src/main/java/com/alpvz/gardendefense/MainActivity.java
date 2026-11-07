@@ -1731,26 +1731,25 @@ public class MainActivity extends Activity {
 
         @Override
         public boolean onTouchEvent(MotionEvent e) {
-            if (e.getAction() != MotionEvent.ACTION_UP) {
-                return true;
-            }
+            if (e.getAction() != MotionEvent.ACTION_UP) return true;
 
             float x = e.getX();
             float y = e.getY();
 
-            // HOME
             if (screen == HOME) {
-                if (inside(x, y, .30f, .40f, .70f, .51f)) {
+                if (inside(x, y, .32f, .40f, .68f, .50f)) {
                     startLevel(level);
-                } else if (inside(x, y, .30f, .56f, .70f, .67f)) {
+                } else if (inside(x, y, .32f, .52f, .68f, .62f)) {
                     screen = LEVEL;
+                } else if (inside(x, y, .32f, .64f, .68f, .74f)) {
+                    screen = MINIGAME_MENU;
+                } else if (inside(x, y, .32f, .76f, .68f, .86f)) {
+                    screen = ADMIN;
                 }
-
                 invalidate();
                 return true;
             }
 
-            // LEVEL SELECT
             if (screen == LEVEL) {
                 if (inside(x, y, .04f, .84f, .20f, .94f)) {
                     screen = HOME;
@@ -1758,94 +1757,131 @@ public class MainActivity extends Activity {
                     return true;
                 }
 
-                for (int i = 1; i <= 9; i++) {
-                    int col = (i - 1) % 3;
-                    int row = (i - 1) / 3;
-
-                    float bx = .18f + col * .22f;
-                    float by = .18f + row * .19f;
-
-                    if (inside(
-                            x, y,
-                            bx, by,
-                            bx + .17f, by + .13f
-                    ) && i <= unlocked) {
+                for (int i = 1; i <= MAX_LEVEL; i++) {
+                    int col = (i - 1) % 5;
+                    int row = (i - 1) / 5;
+                    float bx = .08f + col * .17f;
+                    float by = .20f + row * .19f;
+                    if (inside(x, y, bx, by, bx + .14f, by + .12f) &&
+                            i <= unlocked) {
                         startLevel(i);
                         invalidate();
                         return true;
                     }
                 }
-
                 return true;
             }
 
-            // PAUSE
+            if (screen == MINIGAME_MENU) {
+                if (inside(x, y, .04f, .84f, .20f, .94f)) {
+                    screen = HOME;
+                } else if (inside(x, y, .18f, .34f, .48f, .61f)) {
+                    startMiniGame(1);
+                } else if (inside(x, y, .52f, .34f, .82f, .61f)) {
+                    startMiniGame(2);
+                }
+                invalidate();
+                return true;
+            }
+
+            if (screen == MINIGAME_PLAY) {
+                if (inside(x, y, .88f, .04f, .98f, .15f)) {
+                    screen = MINIGAME_MENU;
+                    miniTargets.clear();
+                    invalidate();
+                    return true;
+                }
+
+                Iterator<MiniTarget> it = miniTargets.iterator();
+                while (it.hasNext()) {
+                    MiniTarget target = it.next();
+                    if (Math.hypot(x - target.x, y - target.y) <= target.radius * 1.35f) {
+                        miniScore += miniMode == 1 ? 10 : 20;
+                        it.remove();
+                        invalidate();
+                        return true;
+                    }
+                }
+                return true;
+            }
+
+            if (screen == MINIGAME_RESULT) {
+                if (inside(x, y, .30f, .52f, .70f, .62f)) {
+                    startMiniGame(miniMode);
+                } else if (inside(x, y, .30f, .67f, .70f, .77f)) {
+                    screen = MINIGAME_MENU;
+                }
+                invalidate();
+                return true;
+            }
+
+            if (screen == ADMIN) {
+                if (inside(x, y, .04f, .84f, .20f, .94f)) {
+                    screen = HOME;
+                } else if (inside(x, y, .30f, .46f, .70f, .57f)) {
+                    showAdminCommandDialog();
+                } else if (inside(x, y, .30f, .61f, .70f, .72f)) {
+                    runAdminCommand("/unlock_all_maps");
+                    Toast.makeText(MainActivity.this,
+                            "Đã mở khóa 15 bản đồ", Toast.LENGTH_SHORT).show();
+                }
+                invalidate();
+                return true;
+            }
+
             if (screen == PAUSE) {
                 if (inside(x, y, .32f, .42f, .68f, .52f)) {
                     screen = PLAY;
+                    lastUpdate = System.currentTimeMillis();
                 } else if (inside(x, y, .32f, .55f, .68f, .65f)) {
                     startLevel(level);
                 } else if (inside(x, y, .32f, .68f, .68f, .78f)) {
                     screen = HOME;
                 }
-
                 invalidate();
                 return true;
             }
 
-            // WIN
             if (screen == WIN) {
                 if (inside(x, y, .32f, .42f, .68f, .52f)) {
-                    if (level < 9) {
-                        startLevel(level + 1);
-                    } else {
-                        screen = HOME;
-                    }
+                    if (level < MAX_LEVEL) startLevel(level + 1);
+                    else screen = HOME;
                 } else if (inside(x, y, .32f, .55f, .68f, .65f)) {
                     startLevel(level);
                 } else if (inside(x, y, .32f, .68f, .68f, .78f)) {
                     screen = HOME;
                 }
-
                 invalidate();
                 return true;
             }
 
-            // LOSE
             if (screen == LOSE) {
                 if (inside(x, y, .32f, .42f, .68f, .52f)) {
                     startLevel(level);
                 } else if (inside(x, y, .32f, .68f, .68f, .78f)) {
                     screen = HOME;
                 }
-
                 invalidate();
                 return true;
             }
 
-            // Pause button
             if (inside(x, y, .88f, .075f, .93f, .15f)) {
                 screen = PAUSE;
                 invalidate();
                 return true;
             }
 
-            // Speed
             if (inside(x, y, .94f, .075f, .99f, .15f)) {
                 speed = speed == 1 ? 2 : 1;
                 invalidate();
                 return true;
             }
 
-            // Collect sun
             Iterator<SunDrop> sunIt = suns.iterator();
-
             while (sunIt.hasNext()) {
                 SunDrop s = sunIt.next();
-
                 if (Math.hypot(x - s.x, y - s.y) <
                         Math.max(45, getHeight() * .055f)) {
-
                     sun += 100;
                     sunIt.remove();
                     saveGame();
@@ -1854,83 +1890,51 @@ public class MainActivity extends Activity {
                 }
             }
 
-            // Plant cards
             float cardY = getHeight() * .075f;
             float cardH = getHeight() * .09f;
-
             if (y >= cardY && y <= cardY + cardH) {
-                int[] types = {
-                        SUNFLOWER,
-                        PEASHOOTER,
-                        GIGANUT,
-                        CHOMPER,
-                        REPEATER,
-                        MINE,
-                        BINU
-                };
+                int[] types = {SUNFLOWER, PEASHOOTER, GIGANUT, CHOMPER, REPEATER, MINE, BINU};
                 for (int i = 0; i < types.length; i++) {
                     float bx = getWidth() * (.01f + i * .075f);
-
-                    if (x >= bx &&
-                            x <= bx + getWidth() * .065f) {
-
+                    if (x >= bx && x <= bx + getWidth() * .065f) {
                         if (isPlantUnlocked(types[i])) {
                             selected = types[i];
                             tool = TOOL_NONE;
                         }
-
                         invalidate();
                         return true;
                     }
                 }
 
-                // Shovel
                 if (inside(x, y, .82f, .075f, .87f, .15f)) {
-                    tool = tool == TOOL_SHOVEL
-                            ? TOOL_NONE
-                            : TOOL_SHOVEL;
+                    tool = tool == TOOL_SHOVEL ? TOOL_NONE : TOOL_SHOVEL;
                     invalidate();
                     return true;
                 }
 
-                // Plant food
                 if (inside(x, y, .535f, .075f, .63f, .15f)) {
-                    if (food > 0) {
-                        tool = tool == TOOL_PLANTFOOD
-                                ? TOOL_NONE
-                                : TOOL_PLANTFOOD;
-                    }
-
+                    if (food > 0) tool = tool == TOOL_PLANTFOOD ? TOOL_NONE : TOOL_PLANTFOOD;
                     invalidate();
                     return true;
                 }
             }
 
-            // Buy plant food with coins
             if (inside(x, y, .64f, .075f, .81f, .15f)) {
                 if (coins >= 100) {
                     coins -= 100;
                     food++;
                     saveGame();
                 }
-
                 invalidate();
                 return true;
             }
 
-            // Board
-            if (x >= left &&
-                    x < left + COLS * cellW &&
-                    y >= top &&
-                    y < top + ROWS * cellH) {
-
+            if (x >= left && x < left + COLS * cellW &&
+                    y >= top && y < top + ROWS * cellH) {
                 int col = (int) ((x - left) / cellW);
                 int row = (int) ((y - top) / cellH);
 
-                if (row < 0 || row >= ROWS ||
-                        col < 0 || col >= COLS) {
-                    return true;
-                }
+                if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return true;
                 if (!activeRow(row)) return true;
 
                 if (tool == TOOL_SHOVEL) {
@@ -1938,29 +1942,17 @@ public class MainActivity extends Activity {
                     tool = TOOL_NONE;
                 } else if (tool == TOOL_PLANTFOOD) {
                     if (plants[row][col] != null &&
-                            plants[row][col].type != BINU &&
-                            food > 0) {
+                            plants[row][col].type != BINU && food > 0) {
                         usePlantFood(plants[row][col]);
                     }
                     tool = TOOL_NONE;
-                } else {
-                    if (plants[row][col] == null &&
-                            isPlantUnlocked(selected)) {
-
-                        int cost = plantCost(selected);
-
-                        if (sun >= cost) {
-                            if (selected == BINU) {
-                                sun -= cost;
-                                plants[row][col] =
-                                        new Plant(BINU, row, col);
-                                playBinuSound1();
-                            } else {
-                                sun -= cost;
-                                plants[row][col] =
-                                        new Plant(selected, row, col);
-                            }
-                        }
+                } else if (plants[row][col] == null &&
+                        isPlantUnlocked(selected)) {
+                    int cost = plantCost(selected);
+                    if (sun >= cost) {
+                        sun -= cost;
+                        plants[row][col] = new Plant(selected, row, col);
+                        if (selected == BINU) playBinuSound1();
                     }
                 }
 
