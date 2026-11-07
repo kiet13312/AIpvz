@@ -316,6 +316,9 @@ public class MainActivity extends Activity {
         long lastUpdate;
         long spawnClock;
         long lastSun;
+        long fpsWindowStart = System.nanoTime();
+        int fpsFrames;
+        int fpsLast;
 
         GameView() {
             super(MainActivity.this);
@@ -456,6 +459,7 @@ public class MainActivity extends Activity {
         @Override
         protected void onDraw(Canvas c) {
             super.onDraw(c);
+            recordFrameRate();
 
             if (screen == HOME) {
                 drawHome(c);
@@ -502,6 +506,17 @@ public class MainActivity extends Activity {
             if (screen == PLAY) {
                 updateGame();
                 postInvalidateOnAnimation();
+            }
+        }
+
+        private void recordFrameRate() {
+            long now = System.nanoTime();
+            fpsFrames++;
+            long elapsed = now - fpsWindowStart;
+            if (elapsed >= 1_000_000_000L) {
+                fpsLast = Math.round(fpsFrames * 1_000_000_000f / elapsed);
+                fpsFrames = 0;
+                fpsWindowStart = now;
             }
         }
 
@@ -591,6 +606,7 @@ public class MainActivity extends Activity {
             drawText(c, "ZOM " + killed + "/" + total, getWidth() * .39f, getHeight() * .055f, 15, Color.WHITE, Paint.Align.LEFT);
             drawText(c, "🪙 " + coins, getWidth() * .56f, getHeight() * .055f, 15, Color.YELLOW, Paint.Align.LEFT);
             drawText(c, "PF " + food, getWidth() * .72f, getHeight() * .055f, 15, Color.WHITE, Paint.Align.LEFT);
+            drawText(c, fpsLast + " FPS", getWidth() * .97f, getHeight() * .055f, 13, Color.WHITE, Paint.Align.RIGHT);
 
             drawCards(c);
             drawBoard(c);
@@ -849,7 +865,7 @@ public class MainActivity extends Activity {
             lastUpdate=now;
             if(now-lastSun>=20000L){
                 lastSun=now;int col=random.nextInt(COLS),row=random.nextInt(ROWS);
-                suns.add(new SunDrop(left+col*cellW+cellW/2f,top-24f,top+row*cellH+cellH*.62f));
+                addSunDrop(new SunDrop(left+col*cellW+cellW/2f,top-24f,top+row*cellH+cellH*.62f));
             }
             updatePlants(now);updatePlantAnimations(now);updateBinu(now);checkBinu(now);
             updatePeas(dt);updateZombies(now,dt);updateMowers(dt);updateSunDrops(dt);removeDead();
@@ -858,11 +874,25 @@ public class MainActivity extends Activity {
         }
 
         private void updateSunDrops(float dt) {
-            float fall=Math.max(1f,cellH*1.45f)*dt;
-            for(SunDrop drop:suns)if(drop.falling&&drop.y<drop.targetY){
-                drop.y=Math.min(drop.targetY,drop.y+fall);
-                if(drop.y>=drop.targetY)drop.falling=false;
+            long now = System.currentTimeMillis();
+            float fall = Math.max(1f, cellH * 1.45f) * dt;
+            for (int i = suns.size() - 1; i >= 0; i--) {
+                SunDrop drop = suns.get(i);
+                if (now >= drop.expiresAt) {
+                    suns.remove(i);
+                    continue;
+                }
+                if (drop.falling && drop.y < drop.targetY) {
+                    drop.y = Math.min(drop.targetY, drop.y + fall);
+                    if (drop.y >= drop.targetY) drop.falling = false;
+                }
             }
+        }
+
+        private void addSunDrop(SunDrop drop) {
+            // Cap on-screen drops so uncollected suns cannot grow the render list forever.
+            if (suns.size() >= 24) suns.remove(0);
+            suns.add(drop);
         }
 
         private void updatePlants(long now) {
@@ -884,7 +914,7 @@ public class MainActivity extends Activity {
                         long cd = plantFoodActive ? 1800 : 7000;
 
                         if (now - a.last >= cd) {
-                            suns.add(
+                            addSunDrop(
                                     new SunDrop(
                                             left + col * cellW + cellW / 2f,
                                             top + r * cellH + cellH * .22f
@@ -1928,6 +1958,9 @@ public class MainActivity extends Activity {
             drawText(c, "Lệnh mở toàn bộ bản đồ: /unlock_all_maps",
                     getWidth() / 2f, getHeight() * .38f, 17,
                     Color.rgb(170, 230, 190), Paint.Align.CENTER);
+            drawText(c, "FPS khi chơi gần nhất: " + fpsLast + " / 60",
+                    getWidth() / 2f, getHeight() * .87f, 15,
+                    fpsLast >= 58 ? Color.GREEN : Color.YELLOW, Paint.Align.CENTER);
             button(c, .30f, .46f, .70f, .57f, "NHẬP LỆNH ADMIN");
             button(c, .30f, .61f, .70f, .72f, "MỞ KHÓA 15 MAP");
             button(c, .04f, .84f, .20f, .94f, "QUAY LẠI");
@@ -2132,9 +2165,17 @@ public class MainActivity extends Activity {
         }
 
         class SunDrop {
-            float x,y,targetY; boolean falling;
-            SunDrop(float x,float y){this.x=x;this.y=y;this.targetY=y;this.falling=false;}
-            SunDrop(float x,float y,float targetY){this.x=x;this.y=y;this.targetY=targetY;this.falling=true;}
+            float x, y, targetY;
+            long expiresAt;
+            boolean falling;
+            SunDrop(float x, float y) {
+                this.x=x; this.y=y; this.targetY=y; this.falling=false;
+                this.expiresAt=System.currentTimeMillis()+12000L;
+            }
+            SunDrop(float x, float y, float targetY) {
+                this.x=x; this.y=y; this.targetY=targetY; this.falling=true;
+                this.expiresAt=System.currentTimeMillis()+20000L;
+            }
         }
 
         class Mower {
