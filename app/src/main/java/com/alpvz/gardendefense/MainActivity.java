@@ -566,12 +566,12 @@ public class MainActivity extends Activity {
             p.setColor(Color.rgb(137,83,39));c.drawRect(0,0,getWidth(),top*.24f,p);
             p.setColor(Color.rgb(231,183,89));c.drawRect(0,top-2,getWidth(),top,p);
 
-            drawText(c, "☀ " + sun, 14, 34, 23, Color.YELLOW, Paint.Align.LEFT);
+            drawText(c, "☀ " + sun, 14, getHeight() * .055f, 16, Color.YELLOW, Paint.Align.LEFT);
             drawText(c, isBossLevel(level) ? "MÀN " + level + " • BOSS" : "MÀN " + level,
-                    getWidth() * .27f, 34, 20, isBossLevel(level) ? Color.YELLOW : Color.WHITE, Paint.Align.LEFT);
-            drawText(c, "ZOM " + killed + "/" + total, getWidth() * .47f, 34, 20, Color.WHITE, Paint.Align.LEFT);
-            drawText(c, "🪙 " + coins, getWidth() * .68f, 34, 20, Color.YELLOW, Paint.Align.LEFT);
-            drawText(c, "PF " + food, getWidth() * .86f, 34, 20, Color.WHITE, Paint.Align.LEFT);
+                    getWidth() * .22f, getHeight() * .055f, 15, isBossLevel(level) ? Color.YELLOW : Color.WHITE, Paint.Align.LEFT);
+            drawText(c, "ZOM " + killed + "/" + total, getWidth() * .39f, getHeight() * .055f, 15, Color.WHITE, Paint.Align.LEFT);
+            drawText(c, "🪙 " + coins, getWidth() * .56f, getHeight() * .055f, 15, Color.YELLOW, Paint.Align.LEFT);
+            drawText(c, "PF " + food, getWidth() * .72f, getHeight() * .055f, 15, Color.WHITE, Paint.Align.LEFT);
 
             drawCards(c);
             drawBoard(c);
@@ -582,17 +582,17 @@ public class MainActivity extends Activity {
             drawSuns(c);
             drawMowers(c);
 
-            button(c, .94f, .075f, .99f, .15f, speed == 2 ? "×2" : "▶");
-            button(c, .88f, .075f, .93f, .15f, "Ⅱ");
+            button(c, .94f, .105f, .99f, .21f, speed == 2 ? "×2" : "▶");
+            button(c, .88f, .105f, .93f, .21f, "Ⅱ");
 
             drawProgress(c);
         }
 
         private void drawProgress(Canvas c) {
             float x = getWidth() * .18f;
-            float y = getHeight() * .215f;
+            float y = getHeight() * .225f;
             float w = getWidth() * .64f;
-            float h = 10;
+            float h = 4;
 
             p.setColor(Color.DKGRAY);
             c.drawRoundRect(x, y, x + w, y + h, 8, 8, p);
@@ -614,8 +614,8 @@ public class MainActivity extends Activity {
         private void drawCards(Canvas c) {
             for(int i=0;i<cardTypes.length;i++){
                 int type=cardTypes[i];
-                float x=getWidth()*(.01f+i*.075f),y=getHeight()*.075f;
-                float w=getWidth()*.065f,h=getHeight()*.09f;
+                float x=getWidth()*(.01f+i*.075f),y=getHeight()*.105f;
+                float w=getWidth()*.065f,h=getHeight()*.105f;
                 p.setColor(Color.rgb(83,49,28));c.drawRoundRect(x,y,x+w,y+h,8,8,p);
                 p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2f);
                 p.setColor(selected==type&&tool==TOOL_NONE?Color.YELLOW:Color.rgb(221,179,99));
@@ -625,16 +625,16 @@ public class MainActivity extends Activity {
                 else drawText(c,"🔒",x+w/2f,y+h*.62f,18,Color.DKGRAY,Paint.Align.CENTER);
             }
             p.setColor(tool==TOOL_SHOVEL?Color.YELLOW:Color.rgb(91,54,30));
-            c.drawRoundRect(getWidth()*.82f,getHeight()*.075f,getWidth()*.87f,getHeight()*.15f,8,8,p);
+            c.drawRoundRect(getWidth()*.82f,getHeight()*.105f,getWidth()*.87f,getHeight()*.21f,8,8,p);
             p.setStyle(Paint.Style.STROKE);p.setColor(Color.rgb(232,184,91));
-            c.drawRoundRect(getWidth()*.82f,getHeight()*.075f,getWidth()*.87f,getHeight()*.15f,8,8,p);p.setStyle(Paint.Style.FILL);
+            c.drawRoundRect(getWidth()*.82f,getHeight()*.075f,getWidth()*.87f,getHeight()*.21f,8,8,p);p.setStyle(Paint.Style.FILL);
             drawText(c,"XẺNG",getWidth()*.845f,getHeight()*.122f,12,Color.WHITE,Paint.Align.CENTER);
             p.setColor(tool==TOOL_PLANTFOOD?Color.YELLOW:Color.rgb(91,54,30));
-            c.drawRoundRect(getWidth()*.535f,getHeight()*.075f,getWidth()*.63f,getHeight()*.15f,8,8,p);
+            c.drawRoundRect(getWidth()*.535f,getHeight()*.105f,getWidth()*.63f,getHeight()*.21f,8,8,p);
             p.setStyle(Paint.Style.STROKE);p.setColor(Color.rgb(232,184,91));
             c.drawRoundRect(getWidth()*.535f,getHeight()*.075f,getWidth()*.63f,getHeight()*.15f,8,8,p);p.setStyle(Paint.Style.FILL);
             drawText(c,"PF "+food,getWidth()*.582f,getHeight()*.122f,12,Color.WHITE,Paint.Align.CENTER);
-            p.setColor(Color.rgb(91,54,30));c.drawRoundRect(getWidth()*.64f,getHeight()*.075f,getWidth()*.81f,getHeight()*.15f,8,8,p);
+            p.setColor(Color.rgb(91,54,30));c.drawRoundRect(getWidth()*.64f,getHeight()*.105f,getWidth()*.81f,getHeight()*.15f,8,8,p);
             p.setStyle(Paint.Style.STROKE);p.setColor(Color.rgb(232,184,91));
             c.drawRoundRect(getWidth()*.64f,getHeight()*.075f,getWidth()*.81f,getHeight()*.15f,8,8,p);p.setStyle(Paint.Style.FILL);
             drawText(c,"MUA PF",getWidth()*.725f,getHeight()*.105f,11,Color.WHITE,Paint.Align.CENTER);
@@ -1651,13 +1651,13 @@ public class MainActivity extends Activity {
                 return true;
             }
 
-            if (inside(x, y, .88f, .075f, .93f, .15f)) {
+            if (inside(x, y, .88f, .105f, .93f, .21f)) {
                 screen = PAUSE;
                 invalidate();
                 return true;
             }
 
-            if (inside(x, y, .94f, .075f, .99f, .15f)) {
+            if (inside(x, y, .94f, .105f, .99f, .21f)) {
                 speed = speed == 1 ? 2 : 1;
                 invalidate();
                 return true;
@@ -1676,8 +1676,8 @@ public class MainActivity extends Activity {
                 }
             }
 
-            float cardY = getHeight() * .075f;
-            float cardH = getHeight() * .09f;
+            float cardY = getHeight() * .105f;
+            float cardH = getHeight() * .105f;
             if (y >= cardY && y <= cardY + cardH) {
                 int[] types = {SUNFLOWER, PEASHOOTER, GIGANUT, CHOMPER, REPEATER, MINE, BINU};
                 for (int i = 0; i < types.length; i++) {
@@ -1692,20 +1692,20 @@ public class MainActivity extends Activity {
                     }
                 }
 
-                if (inside(x, y, .82f, .075f, .87f, .15f)) {
+                if (inside(x, y, .82f, .105f, .87f, .21f)) {
                     tool = tool == TOOL_SHOVEL ? TOOL_NONE : TOOL_SHOVEL;
                     invalidate();
                     return true;
                 }
 
-                if (inside(x, y, .535f, .075f, .63f, .15f)) {
+                if (inside(x, y, .535f, .105f, .63f, .21f)) {
                     if (food > 0) tool = tool == TOOL_PLANTFOOD ? TOOL_NONE : TOOL_PLANTFOOD;
                     invalidate();
                     return true;
                 }
             }
 
-            if (inside(x, y, .64f, .075f, .81f, .15f)) {
+            if (inside(x, y, .64f, .105f, .81f, .21f)) {
                 if (coins >= 100) {
                     coins -= 100;
                     food++;
