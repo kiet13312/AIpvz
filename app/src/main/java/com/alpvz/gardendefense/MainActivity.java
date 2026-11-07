@@ -850,6 +850,9 @@ public class MainActivity extends Activity {
                     :(card&&gigaCardScaled!=null?gigaCardScaled:gigaFieldScaled);
                 if(bitmap==null)bitmap=plant!=null&&plant.foodUsed?gigaFoodImg:giganutImg;
             } else if(type==BINU) bitmap=binuImg;
+            else if(type==CABBAGE_PULT) bitmap=cabbagePultImg;
+            else if(type==KERNEL_PULT) bitmap=kernelPultImg;
+            else if(type==MELON_PULT) bitmap=melonPultImg;
             else if(type==REPEATER) bitmap=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?repeaterFoodImg:repeaterImg;
             else {
                 Bitmap[] frames=type==SUNFLOWER?sunflowerFrames:type==PEASHOOTER?peaFrames:
@@ -896,6 +899,13 @@ public class MainActivity extends Activity {
 
         private void drawPeas(Canvas c) {
             for (Pea q : peas) {
+                if(q.kind>0){
+                    p.setColor(q.kind==1?Color.rgb(111,173,56):q.kind==2?Color.rgb(255,196,48):q.kind==3?Color.rgb(255,225,125):Color.rgb(40,155,57));
+                    float radius=q.kind==4?14f:q.kind==3?8f:7f;
+                    c.drawCircle(q.x,q.y,radius,p);
+                    if(q.kind==4){p.setColor(Color.rgb(30,75,30));c.drawLine(q.x-6,q.y-4,q.x+6,q.y+4,p);c.drawLine(q.x-5,q.y+5,q.x+5,q.y-5,p);}
+                    continue;
+                }
                 float size = q.big ? 18 : 10;
                 Bitmap image = q.big && bulletBigScaled != null ? bulletBigScaled
                         : bulletSmallScaled != null ? bulletSmallScaled : bulletImg;
@@ -1005,6 +1015,12 @@ public class MainActivity extends Activity {
                     if(a.foodUsed&&a.foodShotsRemaining>0){int n=0;while(a.foodShotsRemaining>0&&now>=a.nextFoodShotAt&&n<6){fire(r,col,20,false);a.foodShotsRemaining--;a.nextFoodShotAt+=34L;n++;}
                         if(a.foodShotsRemaining==0&&!a.foodGiantShotDone){fire(r,col,400,true);a.foodGiantShotDone=true;a.shootUntil=now+450L;}}
                     else if(!a.foodUsed&&now-a.last>=1500L&&rowHasZombie(r)){firePair(r,col,20);a.last=now;a.animFrame=1;a.animClock=now;a.shootUntil=now+300L;}
+                }else if(a.type==CABBAGE_PULT){
+                    if(!a.foodUsed&&now-a.last>=3000L&&rowHasZombie(r)){fireLobbed(r,col,40,1,0,0L);a.last=now;a.shootUntil=now+500L;}
+                }else if(a.type==KERNEL_PULT){
+                    if(!a.foodUsed&&now-a.last>=3000L&&rowHasZombie(r)){boolean butter=random.nextFloat()<.25f;fireLobbed(r,col,butter?40:20,butter?3:2,0,butter?5000L:0L);a.last=now;a.shootUntil=now+500L;}
+                }else if(a.type==MELON_PULT){
+                    if(!a.foodUsed&&now-a.last>=3000L&&rowHasZombie(r)){fireLobbed(r,col,80,4,40,0L);a.last=now;a.shootUntil=now+650L;}
                 }else if(a.type==CHOMPER){
                     if(a.chompTarget!=null&&now>=a.attackResolveAt){if(!a.chompTarget.dummy)a.chompTarget.hp=0;a.chompTarget=null;}
                     if(!a.foodUsed&&now>=a.nextAttackAt&&now>=a.shootUntil){Zombie z=nearestZombie(r,col,cellW*1.5f);if(z!=null){a.chompTarget=z;a.attackResolveAt=now+420L;a.nextAttackAt=now+17000L;a.animFrame=1;a.animClock=now;a.shootUntil=now+1100L;}}
@@ -1018,6 +1034,15 @@ public class MainActivity extends Activity {
                 private void fire(int row,int col,int damage,boolean big){
             if(peas.size()>=120)peas.remove(0);
             peas.add(new Pea(left+col*cellW+cellW*.56f,top+row*cellH+cellH*.50f,row,damage,big,false,1));
+        }
+
+        private void fireLobbed(int row,int col,int damage,int kind,int splash,long stunMs){
+            float startX=left+(col+.56f)*cellW,startY=top+(row+.50f)*cellH;
+            Zombie target=null;float nearest=Float.MAX_VALUE;
+            for(Zombie z:zombies)if(!z.dummy&&z.hp>0&&z.row==row&&z.x>startX&&z.x-startX<nearest){target=z;nearest=z.x-startX;}
+            if(target==null)return;
+            if(peas.size()>=120)peas.remove(0);
+            peas.add(new Pea(startX,startY,row,damage,kind,splash,stunMs,target.x,target.y));
         }
 
         private void firePair(int row,int col,int damage){
@@ -1227,14 +1252,30 @@ public class MainActivity extends Activity {
         }
 
                 private void updatePeas(float dt){
-            for(int i=peas.size()-1;i>=0;i--){Pea q=peas.get(i);q.x+=q.direction*cellW*8.5f*dt;Zombie hit=null;
+            for(int i=peas.size()-1;i>=0;i--){Pea q=peas.get(i);
+                if(q.kind>0){
+                    q.progress=Math.min(1f,q.progress+dt/q.duration);
+                    q.x=q.startX+(q.targetX-q.startX)*q.progress;
+                    q.y=q.startY+(q.targetY-q.startY)*q.progress-(float)Math.sin(q.progress*Math.PI)*cellH*.78f;
+                    if(q.progress>=1f){
+                        Zombie hit=null;float best=Float.MAX_VALUE;
+                        for(Zombie z:zombies)if(z.hp>0&&!z.dummy&&z.row==q.row&&Math.abs(z.x-q.targetX)<best){hit=z;best=Math.abs(z.x-q.targetX);}
+                        if(hit!=null){hit.hp-=q.damage;if(q.stunMs>0)hit.stunnedUntil=System.currentTimeMillis()+q.stunMs;
+                            if(q.splashDamage>0)for(Zombie z:zombies)if(z.hp>0&&!z.dummy&&Math.abs(z.row-q.row)<=1&&Math.abs(z.x-q.targetX)<=cellW*.85f&&z!=hit)z.hp-=q.splashDamage;}
+                        peas.remove(i);
+                    }
+                    continue;
+                }
+                q.x+=q.direction*cellW*8.5f*dt;Zombie hit=null;
                 for(Zombie z:zombies)if(z.hp>0&&z.row==q.row&&Math.abs(z.x-q.x)<cellW*.30f){hit=z;break;}
-                if(hit!=null){if(!hit.dummy)hit.hp-=q.damage;peas.remove(i);}else if(q.x>getWidth()+40)peas.remove(i);}
+                if(hit!=null){if(!hit.dummy)hit.hp-=q.damage;peas.remove(i);}else if(q.x>getWidth()+40)peas.remove(i);
+            }
         }
 
                         private void updateZombies(long now, float dt) {
             for (Zombie z : zombies) {
                 if (z.hp <= 0 || z.dummy) continue;
+                if(now<z.stunnedUntil)continue;
                 Plant plant = plantInFront(z);
                 if (plant != null) {
                     if (now - z.lastAttack >= 800L) {
@@ -1517,6 +1558,9 @@ public class MainActivity extends Activity {
                     if(rr<0||rr>=ROWS||cc<0||cc>=COLS||!activeRow(rr)||plants[rr][cc]!=null)continue;
                     Plant clone=new Plant(MINE,rr,cc);clone.armed=true;clone.armTime=now;plants[rr][cc]=clone;made++;}
             }else if(a.type==BINU){a.plantFoodUntil=now+5000L;binuFoodBoost=true;binuSound1Finished=true;}
+            else if(a.type==CABBAGE_PULT){a.plantFoodUntil=now+1800L;a.shootUntil=now+1800L;for(Zombie z:zombies)if(z.hp>0&&!z.dummy)z.hp-=80f;}
+            else if(a.type==KERNEL_PULT){a.plantFoodUntil=now+1800L;a.shootUntil=now+1800L;for(Zombie z:zombies)if(z.hp>0&&!z.dummy){z.hp-=40f;z.stunnedUntil=now+8000L;}}
+            else if(a.type==MELON_PULT){a.plantFoodUntil=now+1800L;a.shootUntil=now+1800L;for(Zombie z:zombies)if(z.hp>0&&!z.dummy){z.hp-=200f;for(Zombie other:zombies)if(other!=z&&other.hp>0&&!other.dummy&&Math.abs(other.row-z.row)<=1&&Math.abs(other.x-z.x)<=cellW*.85f)other.hp-=20f;}}
             saveGame();
         }
 
@@ -1936,6 +1980,7 @@ public class MainActivity extends Activity {
             boolean dummy;
 
             long lastAttack;
+            long stunnedUntil;
 
             Zombie(int row,int type,boolean boss){
                 this.row=row;this.type=type;this.boss=boss;x=left+COLS*cellW+cellW;y=top+row*cellH+cellH*.58f;
@@ -1956,6 +2001,9 @@ public class MainActivity extends Activity {
 
             boolean big;
             boolean fromZombie;
+            int kind,splashDamage;
+            long stunMs;
+            float startX,startY,targetX,targetY,progress,duration=.72f;
 
             Pea(
                     float x,
@@ -1973,6 +2021,11 @@ public class MainActivity extends Activity {
                 this.big = big;
                 this.fromZombie = fromZombie;
                 this.direction = direction;
+            }
+
+            Pea(float x,float y,int row,int damage,int kind,int splashDamage,long stunMs,float targetX,float targetY){
+                this.x=x;this.y=y;this.row=row;this.damage=damage;this.kind=kind;this.splashDamage=splashDamage;this.stunMs=stunMs;
+                this.startX=x;this.startY=y;this.targetX=targetX;this.targetY=targetY;this.big=kind==4;
             }
         }
 
