@@ -258,6 +258,8 @@ public class MainActivity extends Activity {
         Bitmap[] peaFrames = new Bitmap[6], sunflowerFrames = new Bitmap[6], chomperFrames = new Bitmap[6], repeaterFrames = new Bitmap[6];
         Bitmap[] mineFrames = new Bitmap[3];
         Bitmap gardenBackground;
+        Bitmap zombieNormalScaled, zombieBossScaled, bulletSmallScaled, bulletBigScaled;
+        Bitmap gigaFieldScaled, gigaCardScaled, gigaFoodFieldScaled, gigaFoodCardScaled;
         Bitmap binuImg;
         Bitmap binu1Img;
         Bitmap binu2Img;
@@ -329,7 +331,7 @@ public class MainActivity extends Activity {
             unlocked = Math.max(1, Math.min(MAX_LEVEL, save.getInt("unlocked", 1)));
             unlocked = Math.max(unlocked, level);
             sun = 500;
-            coins = Math.max(0, save.getInt("coins", 99999));
+            coins = Math.max(0, save.getInt("coins", 0));
             food = Math.max(10000, save.getInt("food", 10000));
 
             lastUpdate = System.currentTimeMillis();
@@ -411,8 +413,8 @@ public class MainActivity extends Activity {
             chomperImg = chomperFrames[0] != null ? chomperFrames[0] : oldChomper;
             repeaterImg = repeaterFrames[0] != null ? repeaterFrames[0] : oldRepeater;
             mineImg = mineFrames[0] != null ? mineFrames[0] : oldMine;
-            peaFoodImg = peaFrames[5] != null ? peaFrames[5] : loadImage("peashootplantfood");
-            repeaterFoodImg = repeaterFrames[5] != null ? repeaterFrames[5] : loadImage("repeaterplantfood");
+            peaFoodImg = loadImage("peashootplantfood");
+            repeaterFoodImg = loadImage("repeaterplantfood");
             giganutImg = loadImage("giganut");
             gigaFoodImg = loadImage("giganutplantfood");
             zombieImg = loadImage("zomplatz");
@@ -427,10 +429,27 @@ public class MainActivity extends Activity {
             top = h * 0.25f;
             cellW = (w * 0.78f) / COLS;
             cellH = (h * 0.70f) / ROWS;
+            float plantSize = Math.max(1f, Math.min(cellW, cellH));
+            zombieNormalScaled = scaleBitmap(zombieImg, cellW * .68f, cellH * .82f);
+            zombieBossScaled = scaleBitmap(zombieImg, cellW * 1.20f, cellH * 1.20f);
+            bulletSmallScaled = scaleBitmap(bulletImg, 20f, 20f);
+            bulletBigScaled = scaleBitmap(bulletImg, 36f, 36f);
+            gigaFieldScaled = scaleBitmap(giganutImg, plantSize * .74f, plantSize * .74f);
+            gigaCardScaled = scaleBitmap(giganutImg, 44f, 44f);
+            gigaFoodFieldScaled = scaleBitmap(gigaFoodImg, plantSize * .74f, plantSize * .74f);
+            gigaFoodCardScaled = scaleBitmap(gigaFoodImg, 44f, 44f);
             for (int r = 0; r < ROWS; r++) {
-                if (mowers[r] != null && !mowers[r].active) {
-                    mowers[r].x = left - cellW * .40f;
-                }
+                if (mowers[r] != null && !mowers[r].active) mowers[r].x = left - cellW * .40f;
+            }
+        }
+
+        private Bitmap scaleBitmap(Bitmap src, float width, float height) {
+            if (src == null || width <= 0f || height <= 0f) return null;
+            try {
+                return Bitmap.createScaledBitmap(src, Math.max(1, Math.round(width)),
+                        Math.max(1, Math.round(height)), true);
+            } catch (Throwable ignored) {
+                return src;
             }
         }
 
@@ -705,7 +724,13 @@ public class MainActivity extends Activity {
 
         private void drawPlant(Canvas c,int type,float x,float y,float size,Plant plant) {
             Bitmap b=null; long now=System.currentTimeMillis();
-            if(type==GIGANUT) b=plant!=null&&plant.foodUsed?gigaFoodImg:giganutImg;
+            if(type==GIGANUT) {
+                boolean card = size < Math.min(cellW, cellH) * .55f;
+                b = plant != null && plant.foodUsed
+                        ? (card && gigaFoodCardScaled != null ? gigaFoodCardScaled : gigaFoodFieldScaled)
+                        : (card && gigaCardScaled != null ? gigaCardScaled : gigaFieldScaled);
+                if (b == null) b = plant != null && plant.foodUsed ? gigaFoodImg : giganutImg;
+            }
             else if(type==BINU) b=binuImg;
             else {
                 Bitmap[] frames=type==SUNFLOWER?sunflowerFrames:type==PEASHOOTER?peaFrames:
@@ -714,7 +739,7 @@ public class MainActivity extends Activity {
                 if(plant!=null){
                     if((type==PEASHOOTER||type==REPEATER)&&(plant.foodUsed||now<plant.shootUntil)) frame=5;
                     else if(type==SUNFLOWER&&plant.foodUsed&&now<plant.plantFoodUntil) frame=5;
-                    else if(type==CHOMPER&&now<plant.shootUntil) frame=5;
+                    else if(type==CHOMPER&&now<plant.shootUntil) frame=Math.max(1,Math.min(5,plant.animFrame));
                     else if(type==MINE&&plant.armed) frame=plant.animFrame%3;
                     else if(type==MINE) frame=0;
                     else frame=Math.max(0,Math.min(4,plant.animFrame));
@@ -734,16 +759,38 @@ public class MainActivity extends Activity {
         }
 
         private void drawZombies(Canvas c) {
-            for(Zombie z:zombies){float w=z.boss?cellW*1.20f:cellW*.68f,h=z.boss?cellH*1.20f:cellH*.82f;
-                if(zombieImg!=null){spriteRect.set(z.x-w/2f,z.y-h*.55f,z.x+w/2f,z.y+h*.45f);c.drawBitmap(zombieImg,null,spriteRect,p);}
-                else{p.setColor(Color.rgb(80,80,80));spriteRect.set(z.x-w/2f,z.y-h/2f,z.x+w/2f,z.y+h/2f);c.drawOval(spriteRect,p);}
-                drawHp(c,z.x-w/2f,z.y-h*.65f,w,z.hp,z.maxHp);
+            for (Zombie z : zombies) {
+                float w = z.boss ? cellW * 1.20f : cellW * .68f;
+                float h = z.boss ? cellH * 1.20f : cellH * .82f;
+                Bitmap image = z.boss && zombieBossScaled != null ? zombieBossScaled
+                        : zombieNormalScaled != null ? zombieNormalScaled : zombieImg;
+                if (image != null) {
+                    spriteRect.set(z.x - w / 2f, z.y - h * .55f,
+                            z.x + w / 2f, z.y + h * .45f);
+                    c.drawBitmap(image, null, spriteRect, p);
+                } else {
+                    p.setColor(Color.rgb(80, 80, 80));
+                    spriteRect.set(z.x - w / 2f, z.y - h / 2f,
+                            z.x + w / 2f, z.y + h / 2f);
+                    c.drawOval(spriteRect, p);
+                }
+                drawHp(c, z.x - w / 2f, z.y - h * .65f, w, z.hp, z.maxHp);
             }
         }
 
         private void drawPeas(Canvas c) {
-            for(Pea q:peas){float size=q.big?18:10;if(bulletImg!=null){spriteRect.set(q.x-size,q.y-size,q.x+size,q.y+size);c.drawBitmap(bulletImg,null,spriteRect,p);}
-                else{p.setColor(Color.GREEN);c.drawCircle(q.x,q.y,size*.7f,p);}}
+            for (Pea q : peas) {
+                float size = q.big ? 18 : 10;
+                Bitmap image = q.big && bulletBigScaled != null ? bulletBigScaled
+                        : bulletSmallScaled != null ? bulletSmallScaled : bulletImg;
+                if (image != null) {
+                    spriteRect.set(q.x - size, q.y - size, q.x + size, q.y + size);
+                    c.drawBitmap(image, null, spriteRect, p);
+                } else {
+                    p.setColor(Color.GREEN);
+                    c.drawCircle(q.x, q.y, size * .7f, p);
+                }
+            }
         }
 
         private void drawSuns(Canvas c) {
@@ -881,8 +928,9 @@ public class MainActivity extends Activity {
                             if (z != null) {
                                 z.hp = 0;
                                 a.last = now;
-                                a.animFrame = 3;
-                                a.shootUntil = now + 500L;
+                                a.animFrame = 1;
+                                a.animClock = now;
+                                a.shootUntil = now + 650L;
                             }
                         }
                     }
@@ -944,11 +992,21 @@ public class MainActivity extends Activity {
         }
 
         private void updatePlantAnimations(long now) {
-            for(int r=0;r<ROWS;r++)for(int col=0;col<COLS;col++){
-                Plant a=plants[r][col];
-                if(a==null||a.type==GIGANUT||a.type==BINU||now<a.shootUntil)continue;
-                long interval=(a.type==PEASHOOTER||a.type==REPEATER)?115L:190L;
-                if(now-a.animClock>=interval){a.animClock=now;a.animFrame=(a.animFrame+1)%(a.type==MINE?3:5);}
+            for (int r = 0; r < ROWS; r++) for (int col = 0; col < COLS; col++) {
+                Plant a = plants[r][col];
+                if (a == null || a.type == GIGANUT || a.type == BINU) continue;
+                boolean action = now < a.shootUntil;
+                if (action && a.type != CHOMPER) continue;
+                long interval = (a.type == PEASHOOTER || a.type == REPEATER) ? 115L : 145L;
+                if (now - a.animClock >= interval) {
+                    a.animClock = now;
+                    if (a.type == CHOMPER) {
+                        if (action) a.animFrame = Math.min(5, a.animFrame + 1);
+                        else a.animFrame = (a.animFrame + 1) % 5;
+                    } else {
+                        a.animFrame = (a.animFrame + 1) % (a.type == MINE ? 3 : 5);
+                    }
+                }
             }
         }
 
@@ -1448,7 +1506,8 @@ public class MainActivity extends Activity {
                 a.plantFoodUntil = now + 5000L;
                 a.last = now - 1000L;
             } else if (a.type == CHOMPER) {
-                a.animFrame = 4;
+                a.animFrame = 1;
+                a.animClock = now;
                 a.shootUntil = now + 650L;
                 Zombie z = nearestZombie(a.row, a.col, cellW * 2f);
                 if (z != null && !z.boss) z.hp = 0;
