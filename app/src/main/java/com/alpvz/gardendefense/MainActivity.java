@@ -7,6 +7,7 @@ import android.text.InputType;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.graphics.*;
+import android.graphics.drawable.Drawable;
 import android.media.*;
 import android.view.*;
 import android.widget.TextView;
@@ -240,13 +241,19 @@ public class MainActivity extends Activity {
         static final int TOOL_SHOVEL = 1;
         static final int TOOL_PLANTFOOD = 2;
 
-        static final int MAX_LEVEL = 15;
+        static final int MAX_LEVEL = 200;
+        static final int LEVELS_PER_WORLD = 20;
+        static final int WORLD_COUNT = 10;
         static final int MINIGAME_MENU = 6;
         static final int MINIGAME_PLAY = 7;
         static final int MINIGAME_RESULT = 8;
         static final int ADMIN = 9;
+        static final int DAILY_QUEST = 10;
+        static final int DAILY_REWARDS = 11;
+        static final int WORLD = 12;
 
         final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint spritePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
         final RectF spriteRect = new RectF();
         final Random random = new Random();
@@ -263,6 +270,7 @@ public class MainActivity extends Activity {
         Bitmap giganutImg;
         Bitmap chomperImg;
         Bitmap repeaterImg;
+        Bitmap mowerImg;
         Bitmap mineImg;
         Bitmap peaFoodImg;
         Bitmap repeaterFoodImg;
@@ -289,6 +297,8 @@ public class MainActivity extends Activity {
         int screen = HOME;
         int level = 1;
         int unlocked = 1;
+        int selectedWorld = 0;
+        int worldPage = 0;
 
         int selected = PEASHOOTER;
         int tool = TOOL_NONE;
@@ -303,6 +313,13 @@ public class MainActivity extends Activity {
 
         int speed = 1;
         boolean sandboxMode = false;
+        String dailyDate = "";
+        int dailyStreak = 1;
+        int dailyWins = 0;
+        int dailySuns = 0;
+        int dailyKills = 0;
+        boolean dailyQuestClaimed = false;
+        boolean dailyRewardClaimed = false;
 
         final ArrayList<MiniTarget> miniTargets = new ArrayList<>();
         int miniMode = 1;
@@ -350,6 +367,15 @@ public class MainActivity extends Activity {
             level = Math.max(1, Math.min(MAX_LEVEL, save.getInt("level", 1)));
             unlocked = Math.max(1, Math.min(MAX_LEVEL, save.getInt("unlocked", 1)));
             unlocked = Math.max(unlocked, level);
+            selectedWorld = Math.min(WORLD_COUNT - 1, (level - 1) / LEVELS_PER_WORLD);
+            dailyDate = save.getString("dailyDate", "");
+            dailyStreak = Math.max(1, save.getInt("dailyStreak", 1));
+            dailyWins = Math.max(0, save.getInt("dailyWins", 0));
+            dailySuns = Math.max(0, save.getInt("dailySuns", 0));
+            dailyKills = Math.max(0, save.getInt("dailyKills", 0));
+            dailyQuestClaimed = save.getBoolean("dailyQuestClaimed", false);
+            dailyRewardClaimed = save.getBoolean("dailyRewardClaimed", false);
+            refreshDaily();
             sun = 500;
             coins = Math.max(0, save.getInt("coins", 0));
             food = Math.max(10000, save.getInt("food", 10000));
@@ -377,6 +403,21 @@ public class MainActivity extends Activity {
                 return null;
             }
         }
+        private Bitmap loadVectorImage(String name, int width, int height) {
+            int id = getResources().getIdentifier(name, "drawable", getPackageName());
+            if (id == 0) return null;
+            try {
+                Drawable drawable = getResources().getDrawable(id);
+                Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(bitmap);
+                drawable.setBounds(0, 0, width, height);
+                drawable.draw(canvas);
+                return bitmap;
+            } catch (Throwable ignored) {
+                return null;
+            }
+        }
+
         private Bitmap loadBase64Bitmap(String name) {
             int id = getResources().getIdentifier(name, "raw", getPackageName());
             if (id == 0) return null;
@@ -430,7 +471,9 @@ public class MainActivity extends Activity {
             sunflowerImg = sunflowerFrames[0] != null ? sunflowerFrames[0] : oldSun;
             peashooterImg = peaFrames[0] != null ? peaFrames[0] : oldPea;
             chomperImg = chomperFrames[0] != null ? chomperFrames[0] : oldChomper;
-            repeaterImg = oldRepeater;
+            repeaterImg = loadVectorImage("repeater_new", 96, 96);
+            if (repeaterImg == null) repeaterImg = oldRepeater;
+            mowerImg = loadVectorImage("lawn_mower", 160, 96);
             mineImg = mineFrames[0] != null ? mineFrames[0] : oldMine;
             peaFoodImg = loadImage("peashootplantfood");
             repeaterFoodImg = loadImage("repeaterplantfood");
@@ -713,34 +756,50 @@ public class MainActivity extends Activity {
             drawPlant(c, type, x, y, size, null);
         }
 
-                private void drawPlant(Canvas c,int type,float x,float y,float size,Plant plant) {
-            Bitmap b=null; long now=System.currentTimeMillis();
+                        private void drawPlant(Canvas c,int type,float x,float y,float size,Plant plant) {
+            Bitmap bitmap=null;
+            long now=System.currentTimeMillis();
             if(type==GIGANUT){
                 boolean card=size<Math.min(cellW,cellH)*.55f;
-                b=plant!=null&&plant.foodUsed?(card&&gigaFoodCardScaled!=null?gigaFoodCardScaled:gigaFoodFieldScaled):(card&&gigaCardScaled!=null?gigaCardScaled:gigaFieldScaled);
-                if(b==null)b=plant!=null&&plant.foodUsed?gigaFoodImg:giganutImg;
-            }else if(type==BINU)b=binuImg;
-            else if(type==REPEATER)b=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?repeaterFoodImg:repeaterImg;
-            else{
-                Bitmap[] frames=type==SUNFLOWER?sunflowerFrames:type==PEASHOOTER?peaFrames:type==CHOMPER?chomperFrames:type==MINE?mineFrames:null;
+                bitmap=plant!=null&&plant.foodUsed
+                    ?(card&&gigaFoodCardScaled!=null?gigaFoodCardScaled:gigaFoodFieldScaled)
+                    :(card&&gigaCardScaled!=null?gigaCardScaled:gigaFieldScaled);
+                if(bitmap==null)bitmap=plant!=null&&plant.foodUsed?gigaFoodImg:giganutImg;
+            } else if(type==BINU) bitmap=binuImg;
+            else if(type==REPEATER) bitmap=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?repeaterFoodImg:repeaterImg;
+            else {
+                Bitmap[] frames=type==SUNFLOWER?sunflowerFrames:type==PEASHOOTER?peaFrames:
+                        type==CHOMPER?chomperFrames:type==MINE?mineFrames:null;
                 int frame=0;
                 if(plant!=null){
-                    if(type==PEASHOOTER){if(plant.foodUsed&&now<plant.plantFoodUntil)frame=5;else if(now<plant.shootUntil)frame=Math.max(1,Math.min(4,plant.animFrame));}
-                    else if(type==SUNFLOWER&&now<plant.shootUntil)frame=5;
+                    if(type==PEASHOOTER){
+                        if(plant.foodUsed&&now<plant.plantFoodUntil)frame=5;
+                        else if(now<plant.shootUntil)frame=Math.max(1,Math.min(4,plant.animFrame));
+                    } else if(type==SUNFLOWER&&now<plant.shootUntil)frame=5;
                     else if(type==CHOMPER&&now<plant.shootUntil)frame=Math.max(1,Math.min(5,plant.animFrame));
                     else if(type==MINE)frame=plant.armed?1:0;
                 }
-                if(frames!=null&&frame<frames.length)b=frames[frame];
-                if(b==null)b=type==SUNFLOWER?sunflowerImg:type==PEASHOOTER?peashooterImg:type==CHOMPER?chomperImg:type==MINE?mineImg:null;
+                if(frames!=null&&frame<frames.length)bitmap=frames[frame];
+                if(bitmap==null)bitmap=type==SUNFLOWER?sunflowerImg:type==PEASHOOTER?peashooterImg:
+                        type==CHOMPER?chomperImg:type==MINE?mineImg:null;
             }
-            if(b!=null){
+            if(bitmap!=null){
                 float kick=plant!=null&&now<plant.shootUntil&&(type==PEASHOOTER||type==REPEATER||type==CHOMPER)?1.07f:1f;
-                spriteRect.set(x-size*kick/2f,y-size/kick/2f,x+size*kick/2f,y+size/kick/2f);c.drawBitmap(b,null,spriteRect,p);
+                spriteRect.set(x-size*kick/2f,y-size/kick/2f,x+size*kick/2f,y+size/kick/2f);
+                // Never reuse the board-overlay Paint: inactive-row dimming was tinting every plant sprite.
+                spritePaint.setAlpha(255);
+                spritePaint.setColorFilter(null);
+                spritePaint.setFilterBitmap(true);
+                c.drawBitmap(bitmap,null,spriteRect,spritePaint);
                 if(plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil){
-                    p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(2f,size*.035f));p.setColor(Color.argb(210,255,221,90));c.drawCircle(x,y,size*.49f,p);p.setStyle(Paint.Style.FILL);
-                }return;
+                    p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(2f,size*.035f));
+                    p.setColor(Color.argb(210,255,221,90));c.drawCircle(x,y,size*.49f,p);p.setStyle(Paint.Style.FILL);
+                }
+                return;
             }
-            p.setColor(type==SUNFLOWER?Color.YELLOW:type==GIGANUT?Color.rgb(145,95,55):type==CHOMPER?Color.rgb(145,70,180):Color.rgb(55,175,70));c.drawCircle(x,y,size*.42f,p);
+            p.setColor(type==SUNFLOWER?Color.YELLOW:type==GIGANUT?Color.rgb(145,95,55):
+                    type==CHOMPER?Color.rgb(145,70,180):Color.rgb(55,175,70));
+            c.drawCircle(x,y,size*.42f,p);
         }
 
                 private void drawZombies(Canvas c){
@@ -776,54 +835,23 @@ public class MainActivity extends Activity {
             }
         }
 
-                        private void drawMowers(Canvas c) {
-            for (Mower m : mowers) {
-                if (m == null || (m.used && !m.active && m.x > getWidth())) continue;
-
-                // Baseline sits just left of the first plant cell, in the stone strip.
-                float y = top + (m.row + 0.80f) * cellH;
-                float l = m.x - cellW * .37f;
-                float r = m.x + cellW * .37f;
-                float t = y - cellH * .19f;
-                float b = y + cellH * .025f;
-                float wheel = Math.max(4f, cellH * .065f);
-
-                p.setStyle(Paint.Style.FILL);
-                p.setColor(Color.argb(95, 15, 18, 12));
-                c.drawOval(l - 2f, y + wheel * .40f, r + 4f, y + wheel * 1.15f, p);
-
-                // Wheels and hubs.
-                p.setColor(Color.rgb(24, 26, 27));
-                c.drawCircle(l + cellW * .17f, y + wheel * .45f, wheel, p);
-                c.drawCircle(r - cellW * .15f, y + wheel * .45f, wheel, p);
-                p.setColor(Color.rgb(195, 199, 188));
-                c.drawCircle(l + cellW * .17f, y + wheel * .45f, wheel * .42f, p);
-                c.drawCircle(r - cellW * .15f, y + wheel * .45f, wheel * .42f, p);
-
-                // Deck, engine and front cutting guard.
-                p.setColor(m.used ? Color.rgb(104, 68, 53) : Color.rgb(205, 48, 35));
-                c.drawRoundRect(l, t, r, b, 7f, 7f, p);
-                p.setColor(Color.rgb(44, 137, 60));
-                c.drawRoundRect(l + cellW * .14f, t - cellH * .10f,
-                        r - cellW * .12f, y - cellH * .015f, 6f, 6f, p);
-                p.setColor(Color.rgb(246, 197, 62));
-                c.drawRoundRect(r - cellW * .02f, y - cellH * .045f,
-                        r + cellW * .10f, y + cellH * .035f, 3f, 3f, p);
-
-                // Handle.
-                p.setColor(Color.rgb(49, 54, 57));
-                p.setStrokeWidth(Math.max(3f, cellW * .035f));
-                p.setStrokeCap(Paint.Cap.ROUND);
-                c.drawLine(l + cellW * .10f, t + cellH * .02f,
-                        l - cellW * .12f, t - cellH * .20f, p);
-                c.drawLine(l - cellW * .12f, t - cellH * .20f,
-                        l - cellW * .24f, t - cellH * .20f, p);
-                p.setStrokeCap(Paint.Cap.BUTT);
-
-                // Metallic highlight.
-                p.setColor(Color.rgb(255, 219, 135));
-                c.drawRoundRect(l + cellW * .08f, t + cellH * .035f,
-                        l + cellW * .18f, t + cellH * .06f, 2f, 2f, p);
+                                private void drawMowers(Canvas c) {
+            for (Mower mower : mowers) {
+                if (mower == null || (mower.used && !mower.active && mower.x > getWidth())) continue;
+                float y=top+(mower.row+.80f)*cellH;
+                if(mowerImg!=null){
+                    float width=cellW*.94f,height=cellH*.62f;
+                    spriteRect.set(mower.x-width*.5f,y-height*.55f,mower.x+width*.5f,y+height*.45f);
+                    spritePaint.setAlpha(255);spritePaint.setColorFilter(null);spritePaint.setFilterBitmap(true);
+                    c.drawBitmap(mowerImg,null,spriteRect,spritePaint);
+                    continue;
+                }
+                float l=mower.x-cellW*.37f,r=mower.x+cellW*.37f,t=y-cellH*.19f,b=y+cellH*.025f;
+                float wheel=Math.max(4f,cellH*.065f);
+                p.setColor(Color.rgb(25,27,27));c.drawCircle(l+cellW*.17f,y+wheel*.45f,wheel,p);
+                c.drawCircle(r-cellW*.15f,y+wheel*.45f,wheel,p);
+                p.setColor(Color.rgb(205,48,35));c.drawRoundRect(l,t,r,b,7f,7f,p);
+                p.setColor(Color.rgb(44,137,60));c.drawRoundRect(l+cellW*.14f,t-cellH*.10f,r-cellW*.12f,y-cellH*.015f,6f,6f,p);
             }
         }
 
