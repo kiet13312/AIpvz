@@ -250,6 +250,9 @@ public class MainActivity extends Activity {
         static final int REPEATER = 5;
         static final int MINE = 6;
         static final int BINU = 7;
+        static final int CABBAGE_PULT = 8;
+        static final int KERNEL_PULT = 9;
+        static final int MELON_PULT = 10;
 
         static final int HOME = 0;
         static final int LEVEL = 1;
@@ -286,7 +289,7 @@ public class MainActivity extends Activity {
         final ArrayList<Pea> peas = new ArrayList<>();
         final ArrayList<SunDrop> suns = new ArrayList<>();
         final Mower[] mowers = new Mower[ROWS];
-        final int[] cardTypes = {SUNFLOWER, PEASHOOTER, GIGANUT, CHOMPER, REPEATER, MINE, BINU};
+        final int[] cardTypes = {SUNFLOWER, PEASHOOTER, GIGANUT, CHOMPER, REPEATER, MINE, BINU, CABBAGE_PULT, KERNEL_PULT, MELON_PULT};
 
         Bitmap sunflowerImg;
         Bitmap peashooterImg;
@@ -294,6 +297,7 @@ public class MainActivity extends Activity {
         Bitmap chomperImg;
         Bitmap repeaterImg;
         Bitmap mowerImg;
+        Bitmap cabbagePultImg, kernelPultImg, melonPultImg;
         Bitmap mineImg;
         Bitmap peaFoodImg;
         Bitmap repeaterFoodImg;
@@ -494,6 +498,9 @@ public class MainActivity extends Activity {
             sunflowerImg = sunflowerFrames[0] != null ? sunflowerFrames[0] : oldSun;
             peashooterImg = peaFrames[0] != null ? peaFrames[0] : oldPea;
             chomperImg = chomperFrames[0] != null ? chomperFrames[0] : oldChomper;
+            cabbagePultImg = loadVectorImage("cabbage_pult", 96, 96);
+            kernelPultImg = loadVectorImage("kernel_pult", 96, 96);
+            melonPultImg = loadVectorImage("melon_pult", 96, 96);
             repeaterImg = loadVectorImage("repeater_new", 96, 96);
             if (repeaterImg == null) repeaterImg = oldRepeater;
             mowerImg = loadVectorImage("lawn_mower", 160, 96);
@@ -748,8 +755,8 @@ public class MainActivity extends Activity {
         private void drawCards(Canvas c) {
             for(int i=0;i<cardTypes.length;i++){
                 int type=cardTypes[i];
-                float x=getWidth()*(.01f+i*.075f),y=getHeight()*.105f;
-                float w=getWidth()*.065f,h=getHeight()*.105f;
+                float x=getWidth()*(.01f+i*.052f),y=getHeight()*.105f;
+                float w=getWidth()*.047f,h=getHeight()*.105f;
                 p.setColor(Color.rgb(83,49,28));c.drawRoundRect(x,y,x+w,y+h,8,8,p);
                 p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2f);
                 p.setColor(selected==type&&tool==TOOL_NONE?Color.YELLOW:Color.rgb(221,179,99));
@@ -1519,6 +1526,9 @@ public class MainActivity extends Activity {
             if(type==CHOMPER)return level>=4;
             if(type==REPEATER)return level>=5;
             if(type==BINU)return true;
+            if(type==CABBAGE_PULT)return level>=6;
+            if(type==KERNEL_PULT)return level>=8;
+            if(type==MELON_PULT)return level>=12;
             return false;
         }
 
@@ -1530,6 +1540,9 @@ public class MainActivity extends Activity {
             if (type == REPEATER) return 200;
             if (type == MINE) return 25;
             if (type == BINU) return 450;
+            if (type == CABBAGE_PULT) return 100;
+            if (type == KERNEL_PULT) return 100;
+            if (type == MELON_PULT) return 325;
             return 99999;
         }
 
@@ -1739,9 +1752,8 @@ public class MainActivity extends Activity {
                 sunIt.remove();saveGame();invalidate();return true;}}
             float cy=getHeight()*.105f,ch=getHeight()*.105f;
             if(y>=cy&&y<=cy+ch){
-                int[] types={SUNFLOWER,PEASHOOTER,GIGANUT,CHOMPER,REPEATER,MINE,BINU};
-                for(int i=0;i<types.length;i++){float bx=getWidth()*(.01f+i*.075f);
-                    if(x>=bx&&x<=bx+getWidth()*.065f){if(isPlantUnlocked(types[i])){selected=types[i];tool=TOOL_NONE;}invalidate();return true;}}
+                for(int i=0;i<cardTypes.length;i++){float bx=getWidth()*(.01f+i*.052f);
+                    if(x>=bx&&x<=bx+getWidth()*.047f){if(isPlantUnlocked(cardTypes[i])){selected=cardTypes[i];tool=TOOL_NONE;}invalidate();return true;}}
                 if(inside(x,y,.82f,.105f,.87f,.21f)){tool=tool==TOOL_SHOVEL?TOOL_NONE:TOOL_SHOVEL;invalidate();return true;}
                 if(inside(x,y,.535f,.105f,.63f,.21f)){if(food>0)tool=tool==TOOL_PLANTFOOD?TOOL_NONE:TOOL_PLANTFOOD;invalidate();return true;}
             }
