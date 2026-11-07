@@ -843,7 +843,7 @@ public class MainActivity extends Activity {
                     if(type==PEASHOOTER){
                         if(plant.foodUsed&&now<plant.plantFoodUntil)frame=5;
                         else if(now<plant.shootUntil)frame=Math.max(1,Math.min(4,plant.animFrame));
-                    } else if(type==SUNFLOWER&&now<plant.shootUntil)frame=5;
+                    } else if(type==SUNFLOWER)frame=0; // Keep the planted Sunflower fully bright; frame 5 is a dim transition frame.
                     else if(type==CHOMPER&&now<plant.shootUntil)frame=Math.max(1,Math.min(5,plant.animFrame));
                     else if(type==MINE)frame=plant.armed?1:0;
                 }
