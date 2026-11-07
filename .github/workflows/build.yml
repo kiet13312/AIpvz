@@ -41,11 +41,14 @@ jobs:
           ffmpeg -y -i app/src/main/res/raw/win.mp4 -map 0:v:0 -map 0:a:0? -c:v libx264 -profile:v baseline -level 3.0 -pix_fmt yuv420p -preset veryfast -crf 24 -c:a aac -b:a 96k -movflags +faststart /tmp/win-android.mp4
           mv /tmp/win-android.mp4 app/src/main/res/raw/win.mp4
 
+      - name: Download CC0 plant artwork
+        run: bash scripts/download-plant-art.sh
+
       - name: Build APK
         run: gradle :app:assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: GardenDefense-v0.6-APK
+          name: GardenDefense-v0.7-APK
           path: app/build/outputs/apk/debug/*.apk
