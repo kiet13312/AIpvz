@@ -275,6 +275,8 @@ public class MainActivity extends Activity {
 
         final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Paint spritePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        // Isolated paint for plant art so board dimming, mower rendering and other UI draws cannot tint it.
+        final Paint plantPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
         final RectF spriteRect = new RectF();
         final Random random = new Random();
@@ -824,7 +826,21 @@ public class MainActivity extends Activity {
             drawPlant(c, type, x, y, size, null);
         }
 
-                        private void drawPlant(Canvas c,int type,float x,float y,float size,Plant plant) {
+                        private void drawPlantBitmap(Canvas c, Bitmap bitmap, RectF bounds) {
+            // Every plant render starts from a fully opaque, untinted source-over paint.
+            // Do not share this Paint with the board, mower, bullet or overlay renderers.
+            plantPaint.setColor(Color.WHITE);
+            plantPaint.setAlpha(255);
+            plantPaint.setColorFilter(null);
+            plantPaint.setShader(null);
+            plantPaint.setXfermode(null);
+            plantPaint.setStyle(Paint.Style.FILL);
+            plantPaint.setFilterBitmap(true);
+            plantPaint.setDither(true);
+            c.drawBitmap(bitmap, null, bounds, plantPaint);
+        }
+
+        private void drawPlant(Canvas c,int type,float x,float y,float size,Plant plant) {
             Bitmap bitmap=null;
             long now=System.currentTimeMillis();
             if(type==GIGANUT){
@@ -855,10 +871,7 @@ public class MainActivity extends Activity {
                 float kick=plant!=null&&now<plant.shootUntil&&(type==PEASHOOTER||type==REPEATER||type==CHOMPER)?1.07f:1f;
                 spriteRect.set(x-size*kick/2f,y-size/kick/2f,x+size*kick/2f,y+size/kick/2f);
                 // Never reuse the board-overlay Paint: inactive-row dimming was tinting every plant sprite.
-                spritePaint.setAlpha(255);
-                spritePaint.setColorFilter(null);
-                spritePaint.setFilterBitmap(true);
-                c.drawBitmap(bitmap,null,spriteRect,spritePaint);
+                drawPlantBitmap(c, bitmap, spriteRect);
                 if(plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil){
                     p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(2f,size*.035f));
                     p.setColor(Color.argb(210,255,221,90));c.drawCircle(x,y,size*.49f,p);p.setStyle(Paint.Style.FILL);
@@ -1037,7 +1050,7 @@ public class MainActivity extends Activity {
             float x = binuJumping ? binuX : left + binuCol * cellW + cellW / 2f;
             float y = binuJumping ? binuY : top + binuRow * cellH + cellH / 2f;
             spriteRect.set(x-cellW*.37f,y-cellH*.42f,x+cellW*.37f,y+cellH*.42f);
-            c.drawBitmap(b,null,spriteRect,p);
+            drawPlantBitmap(c, b, spriteRect);
         }
 
         private void playBinuSound1() {
