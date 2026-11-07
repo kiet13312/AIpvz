@@ -624,21 +624,23 @@ public class MainActivity extends Activity {
                 if(isPlantUnlocked(type))drawPlant(c,type,x+w/2f,y+h/2f,Math.min(w,h)*.72f);
                 else drawText(c,"🔒",x+w/2f,y+h*.62f,18,Color.DKGRAY,Paint.Align.CENTER);
             }
+            float y=getHeight()*.105f, bottom=getHeight()*.21f;
             p.setColor(tool==TOOL_SHOVEL?Color.YELLOW:Color.rgb(91,54,30));
-            c.drawRoundRect(getWidth()*.82f,getHeight()*.105f,getWidth()*.87f,getHeight()*.21f,8,8,p);
+            c.drawRoundRect(getWidth()*.82f,y,getWidth()*.87f,bottom,8,8,p);
             p.setStyle(Paint.Style.STROKE);p.setColor(Color.rgb(232,184,91));
-            c.drawRoundRect(getWidth()*.82f,getHeight()*.075f,getWidth()*.87f,getHeight()*.21f,8,8,p);p.setStyle(Paint.Style.FILL);
-            drawText(c,"XẺNG",getWidth()*.845f,getHeight()*.122f,12,Color.WHITE,Paint.Align.CENTER);
+            c.drawRoundRect(getWidth()*.82f,y,getWidth()*.87f,bottom,8,8,p);p.setStyle(Paint.Style.FILL);
+            drawText(c,"XẺNG",getWidth()*.845f,getHeight()*.168f,12,Color.WHITE,Paint.Align.CENTER);
             p.setColor(tool==TOOL_PLANTFOOD?Color.YELLOW:Color.rgb(91,54,30));
-            c.drawRoundRect(getWidth()*.535f,getHeight()*.105f,getWidth()*.63f,getHeight()*.21f,8,8,p);
+            c.drawRoundRect(getWidth()*.535f,y,getWidth()*.63f,bottom,8,8,p);
             p.setStyle(Paint.Style.STROKE);p.setColor(Color.rgb(232,184,91));
-            c.drawRoundRect(getWidth()*.535f,getHeight()*.075f,getWidth()*.63f,getHeight()*.15f,8,8,p);p.setStyle(Paint.Style.FILL);
-            drawText(c,"PF "+food,getWidth()*.582f,getHeight()*.122f,12,Color.WHITE,Paint.Align.CENTER);
-            p.setColor(Color.rgb(91,54,30));c.drawRoundRect(getWidth()*.64f,getHeight()*.105f,getWidth()*.81f,getHeight()*.15f,8,8,p);
+            c.drawRoundRect(getWidth()*.535f,y,getWidth()*.63f,bottom,8,8,p);p.setStyle(Paint.Style.FILL);
+            drawText(c,"PF "+food,getWidth()*.582f,getHeight()*.168f,12,Color.WHITE,Paint.Align.CENTER);
+            p.setColor(Color.rgb(91,54,30));
+            c.drawRoundRect(getWidth()*.64f,y,getWidth()*.81f,bottom,8,8,p);
             p.setStyle(Paint.Style.STROKE);p.setColor(Color.rgb(232,184,91));
-            c.drawRoundRect(getWidth()*.64f,getHeight()*.075f,getWidth()*.81f,getHeight()*.15f,8,8,p);p.setStyle(Paint.Style.FILL);
-            drawText(c,"MUA PF",getWidth()*.725f,getHeight()*.105f,11,Color.WHITE,Paint.Align.CENTER);
-            drawText(c,"100 xu",getWidth()*.725f,getHeight()*.138f,10,Color.YELLOW,Paint.Align.CENTER);
+            c.drawRoundRect(getWidth()*.64f,y,getWidth()*.81f,bottom,8,8,p);p.setStyle(Paint.Style.FILL);
+            drawText(c,"MUA PF",getWidth()*.725f,getHeight()*.15f,11,Color.WHITE,Paint.Align.CENTER);
+            drawText(c,"100 xu",getWidth()*.725f,getHeight()*.185f,10,Color.YELLOW,Paint.Align.CENTER);
         }
 
         private void drawBoard(Canvas c) {
