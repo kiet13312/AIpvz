@@ -1151,16 +1151,18 @@ public class MainActivity extends Activity {
         }
 
                 private void updateMowers(float dt) {
-            for (Mower m : mowers) {
-                if (!m.active) continue;
-                m.x += cellW * 17f * dt;
+            for (Mower mower : mowers) {
+                if (mower == null || !mower.active) continue;
+                float previousX = mower.x;
+                mower.x += cellW * 17f * dt;
+                float minX = Math.min(previousX, mower.x) - cellW * .66f;
+                float maxX = Math.max(previousX, mower.x) + cellW * .66f;
                 for (Zombie z : zombies) {
-                    if (!z.dummy && z.hp > 0 && z.row == m.row
-                            && Math.abs(z.x - m.x) < cellW * .62f) {
-                        z.hp = 0;
-                    }
+                    if (z.dummy || z.hp <= 0 || z.row != mower.row) continue;
+                    // Swept collision prevents a fast mower skipping over a zombie between frames.
+                    if (z.x >= minX && z.x <= maxX) z.hp = 0;
                 }
-                if (m.x > getWidth() + cellW) m.active = false;
+                if (mower.x > getWidth() + cellW) mower.active = false;
             }
         }
 
