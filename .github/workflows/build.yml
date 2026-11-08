@@ -37,10 +37,24 @@ jobs:
 
       - name: Verify compressed GameView source
         run: |
-          set -euo pipefail
-          gzip -t app/src/main/java/com/alpvz/gardendefense/GameView.java.gz
-          echo "Restored GameView bytes:"
-          gzip -dc app/src/main/java/com/alpvz/gardendefense/GameView.java.gz | wc -c
+          python3 - <<'PY'
+          import pathlib
+          import zlib
+
+          path = pathlib.Path("app/src/main/java/com/alpvz/gardendefense/GameView.java.gz")
+          archive = path.read_bytes()
+          if len(archive) < 18 or archive[:3] != b"\x1f\x8b\x08" or archive[3] != 0:
+              raise SystemExit("Invalid or unsupported GameView GZIP header")
+
+          inflater = zlib.decompressobj(-zlib.MAX_WBITS)
+          source = inflater.decompress(archive[10:-8]) + inflater.flush()
+          if not inflater.eof:
+              raise SystemExit("GameView DEFLATE stream is incomplete")
+          if not source.startswith(b"package com.alpvz.gardendefense;") or b"class GameView" not in source:
+              raise SystemExit("Restored GameView source failed validation")
+
+          print(f"Restored GameView bytes: {len(source)}")
+          PY
 
       - name: Build APK
         shell: bash
@@ -59,6 +73,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: GardenDefense-APK
