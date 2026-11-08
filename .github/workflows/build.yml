@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - "**"
 
 jobs:
   build:
@@ -32,49 +32,23 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --licenses
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Verify compressed GameView source
+      - name: Re-encode video for Android compatibility
         run: |
-          python3 - <<'PY'
-          import pathlib
-          import zlib
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -y -i app/src/main/res/raw/win.mp4 -map 0:v:0 -map 0:a:0? -c:v libx264 -profile:v baseline -level 3.0 -pix_fmt yuv420p -preset veryfast -crf 24 -c:a aac -b:a 96k -movflags +faststart /tmp/win-android.mp4
+          mv /tmp/win-android.mp4 app/src/main/res/raw/win.mp4
 
-          path = pathlib.Path("app/src/main/java/com/alpvz/gardendefense/GameView.java.gz")
-          archive = path.read_bytes()
-          if len(archive) < 18 or archive[:3] != b"\x1f\x8b\x08" or archive[3] != 0:
-              raise SystemExit("Invalid or unsupported GameView GZIP header")
-
-          inflater = zlib.decompressobj(-zlib.MAX_WBITS)
-          source = inflater.decompress(archive[10:-8]) + inflater.flush()
-          if not inflater.eof:
-              raise SystemExit("GameView DEFLATE stream is incomplete")
-          if not source.startswith(b"package com.alpvz.gardendefense;") or b"class GameView" not in source:
-              raise SystemExit("Restored GameView source failed validation")
-
-          print(f"Restored GameView bytes: {len(source)}")
-          PY
+      - name: Download CC0 plant artwork
+        run: bash scripts/download-plant-art.sh
 
       - name: Build APK
-        shell: bash
-        run: |
-          set +e
-          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/gradle-build.log"
-          result=${PIPESTATUS[0]}
-          exit "$result"
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: GardenDefense-Build-Log
-          path: ${{ runner.temp }}/gradle-build.log
-          if-no-files-found: warn
+        run: gradle :app:assembleDebug --no-daemon
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: GardenDefense-APK
+          name: GardenDefense-v0.7-APK
           path: app/build/outputs/apk/debug/*.apk
