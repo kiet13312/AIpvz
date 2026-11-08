@@ -10,8 +10,8 @@ android {
         applicationId 'com.alpvz.gardendefense'
         minSdk 23
         targetSdk 35
-        versionCode 1
-        versionName '0.1'
+        versionCode 3
+        versionName '0.3'
     }
 
     buildTypes {
@@ -23,4 +23,30 @@ android {
             minifyEnabled false
         }
     }
+}
+
+// Restore the compressed engine source before Java compilation.
+def compressedGameView = file('src/main/java/com/alpvz/gardendefense/GameView.java.gz')
+def restoredGameView = file('src/main/java/com/alpvz/gardendefense/GameView.java')
+
+def restoreGameView = tasks.register('restoreGameView') {
+    inputs.file(compressedGameView)
+    outputs.file(restoredGameView)
+
+    doLast {
+        if (!compressedGameView.exists()) {
+            throw new GradleException('Missing compressed GameView.java.gz')
+        }
+
+        restoredGameView.parentFile.mkdirs()
+        new java.util.zip.GZIPInputStream(new java.io.FileInputStream(compressedGameView)).withCloseable { input ->
+            restoredGameView.withOutputStream { output ->
+                input.transferTo(output)
+            }
+        }
+    }
+}
+
+tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach {
+    dependsOn(restoreGameView)
 }
