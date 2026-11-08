@@ -127,7 +127,7 @@ final class Art {
     /** s = kích thước ô (px). t = thời gian. shot = giây kể từ lần bắn/hành động gần nhất. */
     static void plant(Canvas c, Paint p, int type, float cx, float cy, float s,
                       float t, float shot, boolean pf, boolean armed) {
-        if (drawGardenPlant(c, p, type, cx, cy, s, t, shot, food)) return;
+        if (drawGardenPlant(c, p, type, cx, cy, s, t, shot, pf)) return;
 
         c.save();
         c.translate(cx, cy);
