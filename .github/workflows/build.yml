@@ -35,8 +35,28 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Verify compressed GameView source
+        run: |
+          set -euo pipefail
+          gzip -t app/src/main/java/com/alpvz/gardendefense/GameView.java.gz
+          echo "Restored GameView bytes:"
+          gzip -dc app/src/main/java/com/alpvz/gardendefense/GameView.java.gz | wc -c
+
       - name: Build APK
-        run: gradle :app:assembleDebug --no-daemon
+        shell: bash
+        run: |
+          set +e
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/gradle-build.log"
+          result=${PIPESTATUS[0]}
+          exit "$result"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: GardenDefense-Build-Log
+          path: ${{ runner.temp }}/gradle-build.log
+          if-no-files-found: warn
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
