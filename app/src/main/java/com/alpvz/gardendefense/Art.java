@@ -127,6 +127,8 @@ final class Art {
     /** s = kích thước ô (px). t = thời gian. shot = giây kể từ lần bắn/hành động gần nhất. */
     static void plant(Canvas c, Paint p, int type, float cx, float cy, float s,
                       float t, float shot, boolean pf, boolean armed) {
+        if (drawGardenPlant(c, p, type, cx, cy, s, t, shot, food)) return;
+
         c.save();
         c.translate(cx, cy);
         float k = s / 100f;
@@ -475,4 +477,183 @@ final class Art {
         c.drawOval(R, p);
         p.setStyle(Paint.Style.FILL);
     }
+
+    // Bộ tạo hình riêng cho 4 cây mới và các trạng thái Plant Food.
+    private static boolean drawGardenPlant(Canvas c, Paint p, int type, float cx, float cy,
+                                           float size, float t, float shot, boolean food) {
+        if (type != REP && type != CAB && type != KER && type != MEL) return false;
+        c.save();
+        c.translate(cx, cy);
+        float pulse = 1f + 0.018f * (float)Math.sin(t * 2.6f);
+        c.scale(size * 0.01f * pulse, size * 0.01f * pulse);
+
+        if (food) {
+            gdOval(c,p,-47,-47,47,47,0x5539F45C);
+            gdOval(c,p,-40,-40,40,40,0x4439F45C);
+        }
+
+        switch (type) {
+            case REP: {
+                gdLeaf(c,p,-20,31,22,9,-18,0xFF4B9D35);
+                gdLeaf(c,p,19,31,23,9,18,0xFF4B9D35);
+                gdLeaf(c,p,0,34,23,8,0,0xFF66B83D);
+                gdLine(c,p,0,23,0,0,0xFF347A32,8);
+                int count = food ? 4 : 2;
+                for (int i=0;i<count;i++) {
+                    float x = food ? (i%2==0?-18:12) : (i==0?-14:13);
+                    float y = food ? (i<2?-25:-4) : -19;
+                    gdOval(c,p,x-17,y-14,x+13,y+14,0xFF70C943);
+                    gdOval(c,p,x-17,y-14,x+13,y+14,0xFF285B2B,3, true);
+                    gdOval(c,p,x+2,y-9,x+29,y+9,0xFF8BD84D);
+                    gdOval(c,p,x+2,y-9,x+29,y+9,0xFF285B2B,3, true);
+                    gdOval(c,p,x+22,y-5,x+28,y+5,0xFF24432C);
+                    gdOval(c,p,x-7,y-8,x-1,y-1,0xFFFFFFFF);
+                    gdOval(c,p,x-5,y-7,x-2,y-2,0xFF172A18);
+                }
+                if (food) {
+                    for (int i=0;i<5;i++) gdOval(c,p,28+(i%2)*5,-30+i*11,34+(i%2)*5,-24+i*11,0xFF9CF15A);
+                } else {
+                    gdOval(c,p,38,-25,46,-17,0xFF9DE94C);
+                    gdOval(c,p,47,-25,55,-17,0xFF9DE94C);
+                }
+                break;
+            }
+            case CAB: {
+                gdLeaf(c,p,-25,29,25,10,-20,0xFF448F32);
+                gdLeaf(c,p,17,31,25,10,20,0xFF4D9C35);
+                gdOval(c,p,-12,-2,11,31,0xFF63B23A);
+                Path stalk = new Path();
+                stalk.moveTo(-2,18); stalk.quadTo(2,-12,19,-28);
+                gdPath(c,p,stalk,0xFF3C8732,6);
+                gdLeaf(c,p,-12,15,19,8,-25,0xFF69C348);
+                gdLeaf(c,p,17,5,17,8,35,0xFF5CAC38);
+                gdCabbage(c,p,18,-31,food?19:16);
+                gdOval(c,p,-7,5,0,14,0xFFFFFFFF);
+                gdOval(c,p,3,5,10,14,0xFFFFFFFF);
+                gdOval(c,p,-4,7,-1,12,0xFF1B321A);
+                gdOval(c,p,6,7,9,12,0xFF1B321A);
+                if (food) {
+                    gdCabbage(c,p,38,-3,8);
+                    gdCabbage(c,p,-34,-23,7);
+                    gdCabbage(c,p,36,-43,7);
+                } else {
+                    gdCabbage(c,p,42,-42,6);
+                }
+                break;
+            }
+            case KER: {
+                gdLeaf(c,p,-23,29,25,10,-18,0xFF3F8B30);
+                gdLeaf(c,p,20,30,26,10,18,0xFF4A9A36);
+                gdLeaf(c,p,-22,7,20,8,-45,0xFF5EB63D);
+                gdLeaf(c,p,23,3,21,8,40,0xFF60B83D);
+                gdOval(c,p,-20,-39,20,31,0xFFFFC52D);
+                gdOval(c,p,-20,-39,20,31,0xFF8D5A19,3,true);
+                for (int row=0;row<6;row++) {
+                    for (int col=0;col<3;col++) {
+                        float x=-12+col*12+(row%2)*2;
+                        float y=-29+row*10;
+                        gdOval(c,p,x-4,y-4,x+4,y+4,0xFFFFE66A);
+                        gdOval(c,p,x-3,y-3,x+1,y+1,0xFFFFF3A0);
+                    }
+                }
+                gdLine(c,p,12,-8,34,-24,0xFF3D8A31,5);
+                gdButter(c,p,30,-29,food?15:10);
+                if (food) {
+                    gdButter(c,p,-33,-29,9);
+                    gdButter(c,p,37,7,8);
+                    gdButter(c,p,-33,5,8);
+                    gdOval(c,p,0,-48,5,-43,0xFFFFF5B0);
+                } else {
+                    gdOval(c,p,34,-12,42,-4,0xFFFFD34C);
+                }
+                gdOval(c,p,-9,-13,-3,-5,0xFFFFFFFF);
+                gdOval(c,p,4,-13,10,-5,0xFFFFFFFF);
+                gdOval(c,p,-6,-11,-3,-6,0xFF202A1A);
+                gdOval(c,p,7,-11,10,-6,0xFF202A1A);
+                break;
+            }
+            case MEL: {
+                gdLeaf(c,p,-24,31,25,10,-20,0xFF418D32);
+                gdLeaf(c,p,22,31,26,10,20,0xFF4A9C35);
+                gdOval(c,p,-18,-4,18,32,0xFF66B83D);
+                gdOval(c,p,-26,-43,27,3,0xFF2C7735);
+                gdOval(c,p,-23,-40,24,0,0xFF64B943);
+                gdOval(c,p,-23,-40,24,0,0xFF245C2B,3,true);
+                for (int x=-14;x<=14;x+=14) {
+                    Path stripe = new Path();
+                    stripe.moveTo(x,-38); stripe.quadTo(x-7,-19,x,-2);
+                    gdPath(c,p,stripe,0xFF2A7837,4);
+                }
+                gdLeaf(c,p,-27,8,17,7,-38,0xFF57AC38);
+                gdLeaf(c,p,28,7,19,7,38,0xFF57AC38);
+                gdOval(c,p,-9,9,-2,17,0xFFFFFFFF);
+                gdOval(c,p,5,9,12,17,0xFFFFFFFF);
+                gdOval(c,p,-6,11,-3,16,0xFF142B19);
+                gdOval(c,p,8,11,11,16,0xFF142B19);
+                if (food) {
+                    gdMelon(c,p,35,-35,9);
+                    gdMelon(c,p,40,0,8);
+                    gdMelon(c,p,-36,-8,8);
+                } else {
+                    gdMelon(c,p,40,-31,6);
+                }
+                break;
+            }
+        }
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(0xFFFFFFFF);
+        p.setAlpha(255);
+        c.restore();
+        return true;
+    }
+
+    private static void gdOval(Canvas c, Paint p, float l, float t, float r, float b, int color) {
+        gdOval(c,p,l,t,r,b,color,0,false);
+    }
+    private static void gdOval(Canvas c, Paint p, float l, float t, float r, float b,
+                               int color, float width, boolean stroke) {
+        p.setAntiAlias(true);
+        p.setStyle(stroke ? Paint.Style.STROKE : Paint.Style.FILL);
+        p.setColor(color);
+        if (stroke) p.setStrokeWidth(width);
+        c.drawOval(l,t,r,b,p);
+        p.setStyle(Paint.Style.FILL);
+    }
+    private static void gdLeaf(Canvas c, Paint p, float x, float y, float rx, float ry,
+                               float angle, int color) {
+        c.save(); c.rotate(angle,x,y);
+        gdOval(c,p,x-rx,y-ry,x+rx,y+ry,color);
+        gdOval(c,p,x-rx,y-ry,x+rx,y+ry,0xFF285B2B,2.2f,true);
+        c.restore();
+    }
+    private static void gdLine(Canvas c, Paint p, float x1, float y1, float x2, float y2,
+                               int color, float width) {
+        p.setAntiAlias(true); p.setStyle(Paint.Style.STROKE); p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeWidth(width); p.setColor(color); c.drawLine(x1,y1,x2,y2,p);
+        p.setStyle(Paint.Style.FILL);
+    }
+    private static void gdPath(Canvas c, Paint p, Path path, int color, float width) {
+        p.setAntiAlias(true); p.setStyle(Paint.Style.STROKE); p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeJoin(Paint.Join.ROUND); p.setStrokeWidth(width); p.setColor(color);
+        c.drawPath(path,p); p.setStyle(Paint.Style.FILL);
+    }
+    private static void gdButter(Canvas c, Paint p, float x, float y, float radius) {
+        p.setAntiAlias(true); p.setStyle(Paint.Style.FILL); p.setColor(0xFFFFD95B);
+        c.drawRoundRect(x-radius,y-radius*.7f,x+radius,y+radius*.7f,radius*.22f,radius*.22f,p);
+        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2); p.setColor(0xFFAB7A22);
+        c.drawRoundRect(x-radius,y-radius*.7f,x+radius,y+radius*.7f,radius*.22f,radius*.22f,p);
+        p.setStyle(Paint.Style.FILL);
+    }
+    private static void gdCabbage(Canvas c, Paint p, float x, float y, float radius) {
+        gdOval(c,p,x-radius,y-radius,x+radius,y+radius,0xFF61B83C);
+        gdOval(c,p,x-radius*.65f,y-radius*.82f,x+radius*.7f,y+radius*.82f,0xFF85D14D);
+        gdOval(c,p,x-radius*.25f,y-radius*.62f,x+radius*.45f,y+radius*.4f,0xFFB0E96B);
+        gdOval(c,p,x-radius,y-radius,x+radius,y+radius,0xFF2D6930,2,true);
+    }
+    private static void gdMelon(Canvas c, Paint p, float x, float y, float radius) {
+        gdOval(c,p,x-radius,y-radius*.65f,x+radius,y+radius*.65f,0xFF2B7939);
+        gdOval(c,p,x-radius*.78f,y-radius*.51f,x+radius*.78f,y+radius*.51f,0xFF5DBB43);
+        gdOval(c,p,x-radius,y-radius*.65f,x+radius,y+radius*.65f,0xFF205A30,2,true);
+    }
+
 }
