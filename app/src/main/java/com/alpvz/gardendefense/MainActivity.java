@@ -304,12 +304,17 @@ public class MainActivity extends Activity {
         Bitmap repeaterFoodImg;
         Bitmap gigaFoodImg;
         Bitmap zombieImg;
+        Bitmap zombieAltImg;
         Bitmap bulletImg;
         Bitmap[] peaAnim = new Bitmap[10];
-        Bitmap[] peaFrames = new Bitmap[6], sunflowerFrames = new Bitmap[6], chomperFrames = new Bitmap[6];
+        Bitmap[] peaFrames = new Bitmap[6], repeaterFrames = new Bitmap[6],
+                sunflowerFrames = new Bitmap[6], chomperFrames = new Bitmap[6];
         Bitmap[] mineFrames = new Bitmap[3];
         Bitmap gardenBackground;
-        Bitmap zombieNormalScaled, zombieBossScaled, bulletSmallScaled, bulletBigScaled;
+        Bitmap zombieNormalScaled, zombieBossScaled, zombieVinhHungScaled, bulletSmallScaled, bulletBigScaled;
+        final ColorFilter zombieArmorFilter = new PorterDuffColorFilter(Color.rgb(210, 166, 104), PorterDuff.Mode.MULTIPLY);
+        final ColorFilter zombieShadowFilter = new PorterDuffColorFilter(Color.rgb(155, 132, 190), PorterDuff.Mode.MULTIPLY);
+        final ColorFilter zombieStunFilter = new PorterDuffColorFilter(Color.rgb(125, 205, 255), PorterDuff.Mode.MULTIPLY);
         Bitmap gigaFieldScaled, gigaCardScaled, gigaFoodFieldScaled, gigaFoodCardScaled;
         Bitmap binuImg;
         Bitmap binu1Img;
@@ -492,6 +497,7 @@ public class MainActivity extends Activity {
             Bitmap oldChomper = loadImage("chomper"), oldRepeater = loadImage("repeater");
             Bitmap oldMine = loadImage("min");
             peaFrames = loadFrames("plant_pea", 6);
+            repeaterFrames = makeRepeaterFrames(peaFrames);
             sunflowerFrames = loadFrames("plant_sun", 6);
             chomperFrames = loadFrames("plant_chomper", 6);
             mineFrames = loadFrames("plant_mine", 3);
@@ -514,6 +520,7 @@ public class MainActivity extends Activity {
             giganutImg = loadImage("giganut");
             gigaFoodImg = loadImage("giganutplantfood");
             zombieImg = loadImage("zomplatz");
+            zombieAltImg = loadImage("zomvinhhung");
             bulletImg = loadImage("gigapea");
             binuImg = loadImage("binu"); binu1Img = loadImage("binu1");
             binu2Img = loadImage("binu2"); binu3Img = loadImage("binu3"); binu4Img = loadImage("binu4");
@@ -614,6 +621,7 @@ public class MainActivity extends Activity {
             float plantSize = Math.max(1f, Math.min(cellW, cellH));
             zombieNormalScaled = scaleBitmap(zombieImg, cellW * .68f, cellH * .82f);
             zombieBossScaled = scaleBitmap(zombieImg, cellW * 1.20f, cellH * 1.20f);
+            zombieVinhHungScaled = scaleBitmap(zombieAltImg, cellW * .72f, cellH * .86f);
             bulletSmallScaled = scaleBitmap(bulletImg, 20f, 20f);
             bulletBigScaled = scaleBitmap(bulletImg, 36f, 36f);
             gigaFieldScaled = scaleBitmap(giganutImg, plantSize * .74f, plantSize * .74f);
@@ -922,77 +930,198 @@ public class MainActivity extends Activity {
         }
 
                         private void drawPlantBitmap(Canvas c, Bitmap bitmap, RectF bounds) {
-            // Every plant render starts from a fully opaque, untinted source-over paint.
-            // Do not share this Paint with the board, mower, bullet or overlay renderers.
+            drawPlantBitmap(c, bitmap, bounds, false);
+        }
+
+        private void drawPlantBitmap(Canvas c, Bitmap bitmap, RectF bounds, boolean foodTint) {
+            // Keep plant rendering isolated from the shared board and sprite paints.
             plantPaint.setColor(Color.WHITE);
             plantPaint.setAlpha(255);
-            plantPaint.setColorFilter(null);
+            plantPaint.setColorFilter(foodTint
+                    ? new LightingColorFilter(Color.rgb(255, 255, 175), 0) : null);
             plantPaint.setShader(null);
             plantPaint.setXfermode(null);
             plantPaint.setStyle(Paint.Style.FILL);
             plantPaint.setFilterBitmap(true);
             plantPaint.setDither(true);
             c.drawBitmap(bitmap, null, bounds, plantPaint);
+            plantPaint.setColorFilter(null);
         }
 
-        private void drawPlant(Canvas c,int type,float x,float y,float size,Plant plant) {
-            Bitmap bitmap=null;
-            long now=System.currentTimeMillis();
-            if(type==GIGANUT){
-                boolean card=size<Math.min(cellW,cellH)*.55f;
-                bitmap=plant!=null&&plant.foodUsed
-                    ?(card&&gigaFoodCardScaled!=null?gigaFoodCardScaled:gigaFoodFieldScaled)
-                    :(card&&gigaCardScaled!=null?gigaCardScaled:gigaFieldScaled);
-                if(bitmap==null)bitmap=plant!=null&&plant.foodUsed?gigaFoodImg:giganutImg;
-            } else if(type==BINU) bitmap=binuImg;
-            else if(type==CABBAGE_PULT) bitmap=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?cabbagePultFoodImg:cabbagePultImg;
-            else if(type==KERNEL_PULT) bitmap=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?kernelPultFoodImg:kernelPultImg;
-            else if(type==MELON_PULT) bitmap=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?melonPultFoodImg:melonPultImg;
-            else if(type==REPEATER) bitmap=plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil?repeaterFoodImg:repeaterImg;
-            else {
-                Bitmap[] frames=type==SUNFLOWER?sunflowerFrames:type==PEASHOOTER?peaFrames:
-                        type==CHOMPER?chomperFrames:type==MINE?mineFrames:null;
-                int frame=0;
-                if(plant!=null){
-                    if(type==PEASHOOTER){
-                        if(plant.foodUsed&&now<plant.plantFoodUntil)frame=5;
-                        else if(now<plant.shootUntil)frame=Math.max(1,Math.min(4,plant.animFrame));
-                    } else if(type==SUNFLOWER)frame=0; // Keep the planted Sunflower fully bright; frame 5 is a dim transition frame.
-                    else if(type==CHOMPER&&now<plant.shootUntil)frame=Math.max(1,Math.min(5,plant.animFrame));
-                    else if(type==MINE)frame=plant.armed?1:0;
+        private void drawPlant(Canvas c, int type, float x, float y, float size, Plant plant) {
+            Bitmap bitmap = null;
+            long now = System.currentTimeMillis();
+            boolean foodActive = plant != null && plant.foodUsed &&
+                    (type == GIGANUT || now < plant.plantFoodUntil || plant.foodShotsRemaining > 0);
+            boolean tintFood = false;
+
+            if (type == GIGANUT) {
+                boolean card = size < Math.min(cellW, cellH) * .55f;
+                bitmap = foodActive
+                        ? (card && gigaFoodCardScaled != null ? gigaFoodCardScaled : gigaFoodFieldScaled)
+                        : (card && gigaCardScaled != null ? gigaCardScaled : gigaFieldScaled);
+                if (bitmap == null) bitmap = foodActive ? gigaFoodImg : giganutImg;
+            } else if (type == BINU) {
+                bitmap = binuImg;
+                tintFood = foodActive;
+            } else if (type == SUNFLOWER) {
+                bitmap = sunflowerImg;
+                tintFood = foodActive;
+            } else if (type == PEASHOOTER) {
+                if (foodActive && peaFoodImg != null) {
+                    bitmap = peaFoodImg;
+                } else {
+                    int frame = plant != null && now < plant.shootUntil
+                            ? Math.max(1, Math.min(4, plant.animFrame)) : 0;
+                    if (peaFrames != null && frame < peaFrames.length) bitmap = peaFrames[frame];
+                    if (bitmap == null) bitmap = peashooterImg;
                 }
-                if(frames!=null&&frame<frames.length)bitmap=frames[frame];
-                if(bitmap==null)bitmap=type==SUNFLOWER?sunflowerImg:type==PEASHOOTER?peashooterImg:
-                        type==CHOMPER?chomperImg:type==MINE?mineImg:null;
+                tintFood = foodActive && peaFoodImg == null;
+            } else if (type == REPEATER) {
+                if (foodActive && repeaterFoodImg != null) {
+                    bitmap = repeaterFoodImg;
+                } else if (plant != null && now < plant.shootUntil &&
+                        repeaterFrames != null && plant.animFrame < repeaterFrames.length &&
+                        repeaterFrames[Math.max(0, plant.animFrame)] != null) {
+                    bitmap = repeaterFrames[Math.max(0, plant.animFrame)];
+                } else {
+                    bitmap = repeaterImg;
+                }
+                tintFood = foodActive && repeaterFoodImg == null;
+            } else if (type == CABBAGE_PULT) {
+                bitmap = foodActive && cabbagePultFoodImg != null ? cabbagePultFoodImg : cabbagePultImg;
+                tintFood = foodActive && cabbagePultFoodImg == null;
+            } else if (type == KERNEL_PULT) {
+                bitmap = foodActive && kernelPultFoodImg != null ? kernelPultFoodImg : kernelPultImg;
+                tintFood = foodActive && kernelPultFoodImg == null;
+            } else if (type == MELON_PULT) {
+                bitmap = foodActive && melonPultFoodImg != null ? melonPultFoodImg : melonPultImg;
+                tintFood = foodActive && melonPultFoodImg == null;
+            } else if (type == CHOMPER || type == MINE) {
+                Bitmap[] frames = type == CHOMPER ? chomperFrames : mineFrames;
+                int frame = 0;
+                if (plant != null) {
+                    if (type == CHOMPER && now < plant.shootUntil)
+                        frame = Math.max(1, Math.min(5, plant.animFrame));
+                    else if (type == MINE) frame = plant.armed ? 1 : 0;
+                }
+                if (frames != null && frame < frames.length) bitmap = frames[frame];
+                if (bitmap == null) bitmap = type == CHOMPER ? chomperImg : mineImg;
+                tintFood = foodActive;
             }
-            if(bitmap!=null){
-                float kick=plant!=null&&now<plant.shootUntil&&(type==PEASHOOTER||type==REPEATER||type==CHOMPER)?1.07f:1f;
-                spriteRect.set(x-size*kick/2f,y-size/kick/2f,x+size*kick/2f,y+size/kick/2f);
-                // Never reuse the board-overlay Paint: inactive-row dimming was tinting every plant sprite.
-                drawPlantBitmap(c, bitmap, spriteRect);
-                if(plant!=null&&plant.foodUsed&&now<plant.plantFoodUntil){
-                    p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(2f,size*.035f));
-                    p.setColor(Color.argb(210,255,221,90));c.drawCircle(x,y,size*.49f,p);p.setStyle(Paint.Style.FILL);
+
+            if (bitmap != null) {
+                float pulse = 0f;
+                boolean attacking = plant != null && now < plant.shootUntil;
+                if (attacking) {
+                    long duration = Math.max(1L, plant.shootUntil - plant.animClock);
+                    float progress = Math.max(0f, Math.min(1f,
+                            (now - plant.animClock) / (float) duration));
+                    pulse = (float) Math.sin(progress * Math.PI);
+                }
+                float kick = 1f;
+                float angle = 0f;
+                if (type == PEASHOOTER || type == REPEATER || type == CHOMPER) {
+                    kick += pulse * .075f;
+                    angle = -3.5f * pulse;
+                } else if (type == CABBAGE_PULT || type == KERNEL_PULT || type == MELON_PULT) {
+                    kick += pulse * .035f;
+                    angle = -17f * pulse;
+                } else if (type == SUNFLOWER && foodActive) {
+                    kick += .025f * (float) Math.sin(now / 90.0);
+                }
+
+                spriteRect.set(x - size * kick / 2f, y - size / kick / 2f,
+                        x + size * kick / 2f, y + size / kick / 2f);
+                c.save();
+                if (angle != 0f) c.rotate(angle, x, y);
+                drawPlantBitmap(c, bitmap, spriteRect, tintFood);
+                c.restore();
+
+                if (foodActive) {
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(Math.max(2f, size * .035f));
+                    p.setColor(Color.argb(210, 255, 221, 90));
+                    c.drawCircle(x, y, size * (.49f + .015f * (float) Math.sin(now / 110.0)), p);
+                    p.setStyle(Paint.Style.FILL);
                 }
                 return;
             }
-            p.setColor(type==SUNFLOWER?Color.YELLOW:type==GIGANUT?Color.rgb(145,95,55):
-                    type==CHOMPER?Color.rgb(145,70,180):Color.rgb(55,175,70));
-            c.drawCircle(x,y,size*.42f,p);
+            p.setColor(type == SUNFLOWER ? Color.YELLOW : type == GIGANUT ? Color.rgb(145, 95, 55)
+                    : type == CHOMPER ? Color.rgb(145, 70, 180) : Color.rgb(55, 175, 70));
+            c.drawCircle(x, y, size * .42f, p);
         }
 
                 private void drawZombies(Canvas c){
-            for(Zombie z:zombies){
-                float w=z.boss?cellW*1.20f:cellW*.68f,h=z.boss?cellH*1.20f:cellH*.82f;
-                Bitmap image=z.boss&&zombieBossScaled!=null?zombieBossScaled:zombieNormalScaled!=null?zombieNormalScaled:zombieImg;
-                if(image!=null){spriteRect.set(z.x-w/2f,z.y-h*.55f,z.x+w/2f,z.y+h*.45f);c.drawBitmap(image,null,spriteRect,p);}
-                else{p.setColor(Color.rgb(80,80,80));spriteRect.set(z.x-w/2f,z.y-h/2f,z.x+w/2f,z.y+h/2f);c.drawOval(spriteRect,p);}
-                if(z.dummy)drawText(c,"∞ HP",z.x,z.y-h*.66f,13,Color.YELLOW,Paint.Align.CENTER);
-                else drawHp(c,z.x-w/2f,z.y-h*.65f,w,z.hp,z.maxHp);
+            long now = System.currentTimeMillis();
+            for (Zombie z : zombies) {
+                float widthScale = z.boss ? 1.20f : z.type == 4 ? .88f : z.type == 5 ? .61f : .68f;
+                float heightScale = z.boss ? 1.20f : z.type == 4 ? 1.02f : z.type == 5 ? .72f : .82f;
+                float w = cellW * widthScale;
+                float h = cellH * heightScale;
+                Bitmap image = z.boss && zombieBossScaled != null ? zombieBossScaled
+                        : z.type == 3 && zombieVinhHungScaled != null ? zombieVinhHungScaled
+                        : zombieNormalScaled != null ? zombieNormalScaled : zombieImg;
+
+                float phase = (now - z.bornAt) / 145.0f + z.row * .55f + z.type;
+                float bob = z.dummy ? 0f : (float) Math.sin(phase) * h * .025f;
+                boolean biting = z.lastAttack > 0L && now - z.lastAttack < 280L && plantInFront(z) != null;
+                boolean hitFlash = z.lastHitAt > 0L && now - z.lastHitAt < 135L;
+                float lean = biting ? -8f : hitFlash ? 6f : (float) Math.sin(phase * .45f) * 2.2f;
+                ColorFilter filter = now < z.stunnedUntil ? zombieStunFilter
+                        : z.type == 4 ? zombieArmorFilter
+                        : z.type == 5 ? zombieShadowFilter : null;
+
+                if (image != null) {
+                    spriteRect.set(z.x - w / 2f, z.y + bob - h * .55f,
+                            z.x + w / 2f, z.y + bob + h * .45f);
+                    c.save();
+                    c.rotate(lean, z.x, z.y + bob);
+                    spritePaint.setColor(Color.WHITE);
+                    spritePaint.setAlpha(hitFlash ? 205 : 255);
+                    spritePaint.setColorFilter(filter);
+                    spritePaint.setFilterBitmap(true);
+                    c.drawBitmap(image, null, spriteRect, spritePaint);
+                    c.restore();
+                    spritePaint.setAlpha(255);
+                    spritePaint.setColorFilter(null);
+                } else {
+                    p.setColor(z.type == 4 ? Color.rgb(130, 91, 55) :
+                            z.type == 5 ? Color.rgb(100, 75, 145) : Color.rgb(80, 80, 80));
+                    spriteRect.set(z.x - w / 2f, z.y + bob - h / 2f,
+                            z.x + w / 2f, z.y + bob + h / 2f);
+                    c.drawOval(spriteRect, p);
+                }
+
+                if (z.type == 4 && !z.boss) {
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(Math.max(2f, cellW * .025f));
+                    p.setColor(Color.rgb(255, 204, 110));
+                    c.drawCircle(z.x, z.y + bob - h * .04f, Math.min(w, h) * .43f, p);
+                    p.setStyle(Paint.Style.FILL);
+                }
+                if (now < z.stunnedUntil) {
+                    p.setColor(Color.argb(145, 115, 220, 255));
+                    c.drawCircle(z.x + w * .33f, z.y + bob - h * .42f, 3.5f, p);
+                    c.drawCircle(z.x - w * .25f, z.y + bob - h * .52f, 2.5f, p);
+                }
+
+                if (z.dummy) {
+                    drawText(c, "∞ HP", z.x, z.y + bob - h * .66f, 13, Color.YELLOW, Paint.Align.CENTER);
+                } else {
+                    drawHp(c, z.x - w / 2f, z.y + bob - h * .65f, w, z.hp, z.maxHp);
+                    if (z.type == 3 || z.type == 4 || z.type == 5) {
+                        String label = z.type == 3 ? "VĨNH HÙNG" : z.type == 4 ? "GIÁP" : "BÓNG MA";
+                        drawText(c, label, z.x, z.y + bob - h * .76f, 8,
+                                z.type == 4 ? Color.rgb(255, 220, 120) :
+                                z.type == 5 ? Color.rgb(205, 185, 255) : Color.WHITE,
+                                Paint.Align.CENTER);
+                    }
+                }
             }
         }
 
-        private void drawPeas(Canvas c) {
+                private void drawPeas(Canvas c) {
             for (Pea q : peas) {
                 if(q.kind>0){
                     p.setColor(q.kind==1?Color.rgb(111,173,56):q.kind==2?Color.rgb(255,196,48):q.kind==3?Color.rgb(255,225,125):Color.rgb(40,155,57));
@@ -1102,20 +1231,48 @@ public class MainActivity extends Activity {
                 Plant a=plants[r][col];if(a==null)continue;
                 if(a.foodUsed&&a.type!=GIGANUT&&a.plantFoodUntil>0&&now>=a.plantFoodUntil&&a.foodShotsRemaining<=0){a.foodUsed=false;a.plantFoodUntil=0;a.foodGiantShotDone=false;}
                 if(a.type==SUNFLOWER){
-                    if(now-a.last>=7000L){if(!sandboxMode)addSunDrop(new SunDrop(left+col*cellW+cellW/2f,top+r*cellH+cellH*.22f));a.last=now;a.shootUntil=now+500L;a.animFrame=5;}
+                    if(now-a.last>=7000L){
+                        if(!sandboxMode)addSunDrop(new SunDrop(left+col*cellW+cellW/2f,top+r*cellH+cellH*.22f));
+                        a.last=now;a.shootUntil=now+500L;a.animClock=now;a.animFrame=1;
+                    }
                 }else if(a.type==PEASHOOTER){
-                    if(a.foodUsed&&a.foodShotsRemaining>0){int n=0;while(a.foodShotsRemaining>0&&now>=a.nextFoodShotAt&&n<5){fire(r,col,20,false);a.foodShotsRemaining--;a.nextFoodShotAt+=55L;n++;}}
-                    else if(!a.foodUsed&&now-a.last>=1500L&&rowHasZombie(r)){fire(r,col,20,false);a.last=now;a.animFrame=1;a.animClock=now;a.shootUntil=now+360L;}
+                    if(a.foodUsed&&a.foodShotsRemaining>0){
+                        int n=0;
+                        while(a.foodShotsRemaining>0&&now>=a.nextFoodShotAt&&n<5){
+                            fire(r,col,20,false);a.foodShotsRemaining--;a.nextFoodShotAt+=55L;n++;
+                        }
+                        if(n>0)animatePlantShot(a,now,145L);
+                    }else if(!a.foodUsed&&now-a.last>=1500L&&rowHasZombie(r,col)){
+                        fire(r,col,20,false);a.last=now;animatePlantShot(a,now,360L);
+                    }
                 }else if(a.type==REPEATER){
-                    if(a.foodUsed&&a.foodShotsRemaining>0){int n=0;while(a.foodShotsRemaining>0&&now>=a.nextFoodShotAt&&n<6){fire(r,col,20,false);a.foodShotsRemaining--;a.nextFoodShotAt+=34L;n++;}
-                        if(a.foodShotsRemaining==0&&!a.foodGiantShotDone){fire(r,col,400,true);a.foodGiantShotDone=true;a.shootUntil=now+450L;}}
-                    else if(!a.foodUsed&&now-a.last>=1500L&&rowHasZombie(r)){firePair(r,col,20);a.last=now;a.animFrame=1;a.animClock=now;a.shootUntil=now+300L;}
+                    if(a.foodUsed&&a.foodShotsRemaining>0){
+                        int n=0;
+                        while(a.foodShotsRemaining>0&&now>=a.nextFoodShotAt&&n<6){
+                            fire(r,col,20,false);a.foodShotsRemaining--;a.nextFoodShotAt+=34L;n++;
+                        }
+                        if(n>0)animatePlantShot(a,now,145L);
+                        if(a.foodShotsRemaining==0&&!a.foodGiantShotDone){
+                            fire(r,col,400,true);a.foodGiantShotDone=true;animatePlantShot(a,now,450L);
+                        }
+                    }else if(!a.foodUsed&&now-a.last>=1500L&&rowHasZombie(r,col)){
+                        firePair(r,col,20);a.last=now;animatePlantShot(a,now,330L);
+                    }
                 }else if(a.type==CABBAGE_PULT){
-                    if(!a.foodUsed&&now-a.last>=3000L&&rowHasZombie(r)){fireLobbed(r,col,40,1,0,0L);a.last=now;a.shootUntil=now+500L;}
+                    if(!a.foodUsed&&now-a.last>=3000L&&rowHasZombie(r,col)&&fireLobbed(r,col,40,1,0,0L)){
+                        a.last=now;animatePlantShot(a,now,560L);
+                    }
                 }else if(a.type==KERNEL_PULT){
-                    if(!a.foodUsed&&now-a.last>=3000L&&rowHasZombie(r)){boolean butter=random.nextFloat()<.25f;fireLobbed(r,col,butter?40:20,butter?3:2,0,butter?5000L:0L);a.last=now;a.shootUntil=now+500L;}
+                    if(!a.foodUsed&&now-a.last>=3000L&&rowHasZombie(r,col)){
+                        boolean butter=random.nextFloat()<.25f;
+                        if(fireLobbed(r,col,butter?40:20,butter?3:2,0,butter?5000L:0L)){
+                            a.last=now;animatePlantShot(a,now,560L);
+                        }
+                    }
                 }else if(a.type==MELON_PULT){
-                    if(!a.foodUsed&&now-a.last>=3000L&&rowHasZombie(r)){fireLobbed(r,col,80,4,40,0L);a.last=now;a.shootUntil=now+650L;}
+                    if(!a.foodUsed&&now-a.last>=3000L&&rowHasZombie(r,col)&&fireLobbed(r,col,80,4,40,0L)){
+                        a.last=now;animatePlantShot(a,now,680L);
+                    }
                 }else if(a.type==CHOMPER){
                     if(a.chompTarget!=null&&now>=a.attackResolveAt){if(!a.chompTarget.dummy)a.chompTarget.hp=0;a.chompTarget=null;}
                     if(!a.foodUsed&&now>=a.nextAttackAt&&now>=a.shootUntil){Zombie z=nearestZombie(r,col,cellW*1.5f);if(z!=null){a.chompTarget=z;a.attackResolveAt=now+420L;a.nextAttackAt=now+17000L;a.animFrame=1;a.animClock=now;a.shootUntil=now+1100L;}}
@@ -1131,13 +1288,14 @@ public class MainActivity extends Activity {
             peas.add(new Pea(left+col*cellW+cellW*.56f,top+row*cellH+cellH*.50f,row,damage,big,false,1));
         }
 
-        private void fireLobbed(int row,int col,int damage,int kind,int splash,long stunMs){
+        private boolean fireLobbed(int row,int col,int damage,int kind,int splash,long stunMs){
             float startX=left+(col+.56f)*cellW,startY=top+(row+.50f)*cellH;
             Zombie target=null;float nearest=Float.MAX_VALUE;
             for(Zombie z:zombies)if(!z.dummy&&z.hp>0&&z.row==row&&z.x>startX&&z.x-startX<nearest){target=z;nearest=z.x-startX;}
-            if(target==null)return;
+            if(target==null)return false;
             if(peas.size()>=120)peas.remove(0);
             peas.add(new Pea(startX,startY,row,damage,kind,splash,stunMs,target.x,target.y));
+            return true;
         }
 
         private void firePair(int row,int col,int damage){
@@ -1147,10 +1305,17 @@ public class MainActivity extends Activity {
             peas.add(new Pea(x,y+cellH*.055f,row,damage,false,false,1));
         }
 
+        private void animatePlantShot(Plant plant, long now, long durationMs) {
+            plant.animFrame = 1;
+            plant.animClock = now;
+            plant.shootUntil = now + durationMs;
+        }
+
                 private void updatePlantAnimations(long now){
             for(int r=0;r<ROWS;r++)for(int col=0;col<COLS;col++){
                 Plant a=plants[r][col];if(a==null||a.type==GIGANUT||a.type==BINU||a.type==MINE)continue;
                 if(a.type==PEASHOOTER){if(now<a.shootUntil&&now-a.animClock>=75L){a.animClock=now;a.animFrame=Math.min(4,a.animFrame+1);}else if(now>=a.shootUntil)a.animFrame=0;}
+                else if(a.type==REPEATER){if(now<a.shootUntil&&now-a.animClock>=65L){a.animClock=now;a.animFrame=Math.min(5,a.animFrame+1);}else if(now>=a.shootUntil)a.animFrame=0;}
                 else if(a.type==CHOMPER){if(now<a.shootUntil&&now-a.animClock>=155L){a.animClock=now;a.animFrame=Math.min(5,a.animFrame+1);}else if(now>=a.shootUntil)a.animFrame=0;}
                 else if(a.type==SUNFLOWER&&now>=a.shootUntil)a.animFrame=0;
             }
@@ -1170,7 +1335,7 @@ public class MainActivity extends Activity {
             float x = binuJumping ? binuX : left + binuCol * cellW + cellW / 2f;
             float y = binuJumping ? binuY : top + binuRow * cellH + cellH / 2f;
             spriteRect.set(x-cellW*.37f,y-cellH*.42f,x+cellW*.37f,y+cellH*.42f);
-            drawPlantBitmap(c, b, spriteRect);
+            drawPlantBitmap(c, b, spriteRect, binuFoodBoost);
         }
 
         private void playBinuSound1() {
@@ -1355,15 +1520,22 @@ public class MainActivity extends Activity {
                     if(q.progress>=1f){
                         Zombie hit=null;float best=Float.MAX_VALUE;
                         for(Zombie z:zombies)if(z.hp>0&&!z.dummy&&z.row==q.row&&Math.abs(z.x-q.targetX)<best){hit=z;best=Math.abs(z.x-q.targetX);}
-                        if(hit!=null){hit.hp-=q.damage;if(q.stunMs>0)hit.stunnedUntil=System.currentTimeMillis()+q.stunMs;
-                            if(q.splashDamage>0)for(Zombie z:zombies)if(z.hp>0&&!z.dummy&&Math.abs(z.row-q.row)<=1&&Math.abs(z.x-q.targetX)<=cellW*.85f&&z!=hit)z.hp-=q.splashDamage;}
+                        if(hit!=null){
+                            long hitAt=System.currentTimeMillis();
+                            hit.hp-=q.damage;hit.lastHitAt=hitAt;
+                            if(q.stunMs>0)hit.stunnedUntil=hitAt+q.stunMs;
+                            if(q.splashDamage>0)for(Zombie z:zombies)
+                                if(z.hp>0&&!z.dummy&&Math.abs(z.row-q.row)<=1&&Math.abs(z.x-q.targetX)<=cellW*.85f&&z!=hit){
+                                    z.hp-=q.splashDamage;z.lastHitAt=hitAt;
+                                }
+                        }
                         peas.remove(i);
                     }
                     continue;
                 }
                 q.x+=q.direction*cellW*8.5f*dt;Zombie hit=null;
                 for(Zombie z:zombies)if(z.hp>0&&z.row==q.row&&Math.abs(z.x-q.x)<cellW*.30f){hit=z;break;}
-                if(hit!=null){if(!hit.dummy)hit.hp-=q.damage;peas.remove(i);}else if(q.x>getWidth()+40)peas.remove(i);
+                if(hit!=null){if(!hit.dummy){hit.hp-=q.damage;hit.lastHitAt=System.currentTimeMillis();}peas.remove(i);}else if(q.x>getWidth()+40)peas.remove(i);
             }
         }
 
@@ -1420,13 +1592,17 @@ public class MainActivity extends Activity {
                     isBossLevel(level) &&
                     spawned == total - 1;
 
-            zombies.add(
-                    new Zombie(
-                            row,
-                            random.nextInt(3),
-                            boss
-                    )
-            );
+            zombies.add(new Zombie(row, boss ? 0 : chooseZombieType(), boss));
+        }
+
+        private int chooseZombieType() {
+            int roll = random.nextInt(100);
+            if (level >= 16 && roll < 10) return 5;       // Bóng ma: rất nhanh, ít máu.
+            if (level >= 11 && roll < 25) return 4;       // Zombie giáp: chậm, nhiều máu.
+            if (level >= 6 && roll < 43) return 3;        // Vĩnh Hùng: sprite riêng, cân bằng.
+            if (level >= 3 && roll < 62) return 2;        // Zombie chạy.
+            if (roll < 82) return 1;                      // Zombie trâu.
+            return 0;                                     // Zombie thường.
         }
 
                         private void removeDead() {
@@ -1444,8 +1620,10 @@ public class MainActivity extends Activity {
             if(earned)saveGame();
         }
 
-                private boolean rowHasZombie(int row){
-            for(Zombie z:zombies)if(!z.dummy&&z.hp>0&&z.row==row&&z.x>left)return true;
+                private boolean rowHasZombie(int row, int col){
+            float muzzleX = left + (col + .56f) * cellW;
+            for(Zombie z:zombies)
+                if(!z.dummy&&z.hp>0&&z.row==row&&z.x>muzzleX+cellW*.12f)return true;
             return false;
         }
 
@@ -2081,13 +2259,30 @@ public class MainActivity extends Activity {
 
             long lastAttack;
             long stunnedUntil;
+            long bornAt;
+            long lastHitAt;
 
             Zombie(int row,int type,boolean boss){
-                this.row=row;this.type=type;this.boss=boss;x=left+COLS*cellW+cellW;y=top+row*cellH+cellH*.58f;
-                if(boss){maxHp=2200f+Math.max(0,(level/5)-1)*600f;speed=cellW*.052f;damage=32+(level/5)*2;}
-                else if(type==1){maxHp=340f+level*14f;speed=cellW*.070f;damage=22;}
-                else if(type==2){maxHp=130f+level*8f;speed=cellW*.155f;damage=14;}
-                else{maxHp=220f+level*13f;speed=cellW*.105f;damage=18;}hp=maxHp;
+                this.row=row;this.type=type;this.boss=boss;
+                x=left+COLS*cellW+cellW;y=top+row*cellH+cellH*.58f;
+                bornAt=System.currentTimeMillis();
+                if(boss){
+                    maxHp=2200f+Math.max(0,(level/5)-1)*600f;
+                    speed=cellW*.052f;damage=32+(level/5)*2;
+                }else if(type==1){
+                    maxHp=340f+level*14f;speed=cellW*.070f;damage=22;
+                }else if(type==2){
+                    maxHp=130f+level*8f;speed=cellW*.155f;damage=14;
+                }else if(type==3){
+                    maxHp=380f+level*16f;speed=cellW*.084f;damage=22;
+                }else if(type==4){
+                    maxHp=700f+level*28f;speed=cellW*.048f;damage=36;
+                }else if(type==5){
+                    maxHp=190f+level*10f;speed=cellW*.190f;damage=15;
+                }else{
+                    maxHp=220f+level*13f;speed=cellW*.105f;damage=18;
+                }
+                hp=maxHp;
             }
         }
 
