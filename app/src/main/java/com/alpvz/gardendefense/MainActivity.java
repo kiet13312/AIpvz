@@ -505,18 +505,27 @@ public class MainActivity extends Activity {
             sunflowerImg = sunflowerFrames[0] != null ? sunflowerFrames[0] : oldSun;
             peashooterImg = peaFrames[0] != null ? peaFrames[0] : oldPea;
             chomperImg = chomperFrames[0] != null ? chomperFrames[0] : oldChomper;
-            cabbagePultImg = loadVectorImage("cabbage_pult", 96, 96);
-            kernelPultImg = loadVectorImage("kernel_pult", 96, 96);
-            melonPultImg = loadVectorImage("melon_pult", 96, 96);
-            cabbagePultFoodImg = loadVectorImage("cabbage_pult_food", 96, 96);
-            kernelPultFoodImg = loadVectorImage("kernel_pult_food", 96, 96);
-            melonPultFoodImg = loadVectorImage("melon_pult_food", 96, 96);
-            repeaterImg = loadVectorImage("repeater_new", 96, 96);
+            // Load the newly cut transparent sprites first; vector art is only a safe fallback.
+            cabbagePultImg = loadImage("gd_cabbage");
+            if (cabbagePultImg == null) cabbagePultImg = loadVectorImage("cabbage_pult", 96, 96);
+            kernelPultImg = loadImage("gd_kernel");
+            if (kernelPultImg == null) kernelPultImg = loadVectorImage("kernel_pult", 96, 96);
+            melonPultImg = loadImage("gd_melon");
+            if (melonPultImg == null) melonPultImg = loadVectorImage("melon_pult", 96, 96);
+            cabbagePultFoodImg = loadImage("gd_cabbage_food");
+            if (cabbagePultFoodImg == null) cabbagePultFoodImg = loadVectorImage("cabbage_pult_food", 96, 96);
+            kernelPultFoodImg = loadImage("gd_kernel_food");
+            if (kernelPultFoodImg == null) kernelPultFoodImg = loadVectorImage("kernel_pult_food", 96, 96);
+            melonPultFoodImg = loadImage("gd_melon_food");
+            if (melonPultFoodImg == null) melonPultFoodImg = loadVectorImage("melon_pult_food", 96, 96);
+            repeaterImg = loadImage("gd_repeater");
+            if (repeaterImg == null) repeaterImg = loadVectorImage("repeater_new", 96, 96);
             if (repeaterImg == null) repeaterImg = oldRepeater;
             mowerImg = loadVectorImage("lawn_mower", 160, 96);
             mineImg = mineFrames[0] != null ? mineFrames[0] : oldMine;
             peaFoodImg = loadImage("peashootplantfood");
-            repeaterFoodImg = loadImage("repeaterplantfood");
+            repeaterFoodImg = loadImage("gd_repeater_food");
+            if (repeaterFoodImg == null) repeaterFoodImg = loadImage("repeaterplantfood");
             giganutImg = loadImage("giganut");
             gigaFoodImg = loadImage("giganutplantfood");
             zombieImg = loadImage("zomplatz");
@@ -524,7 +533,7 @@ public class MainActivity extends Activity {
             bulletImg = loadImage("gigapea");
             binuImg = loadImage("binu"); binu1Img = loadImage("binu1");
             binu2Img = loadImage("binu2"); binu3Img = loadImage("binu3"); binu4Img = loadImage("binu4");
-            loadDownloadedPultArtwork();
+            // Do not call the legacy downloaded-art loader: it overwrites the new sprites above.
         }
 
 
@@ -978,15 +987,8 @@ public class MainActivity extends Activity {
                 }
                 tintFood = foodActive && peaFoodImg == null;
             } else if (type == REPEATER) {
-                if (foodActive && repeaterFoodImg != null) {
-                    bitmap = repeaterFoodImg;
-                } else if (plant != null && now < plant.shootUntil &&
-                        repeaterFrames != null && plant.animFrame < repeaterFrames.length &&
-                        repeaterFrames[Math.max(0, plant.animFrame)] != null) {
-                    bitmap = repeaterFrames[Math.max(0, plant.animFrame)];
-                } else {
-                    bitmap = repeaterImg;
-                }
+                // Keep the new double-headed Repeater art visible during its whole attack cycle.
+                bitmap = foodActive && repeaterFoodImg != null ? repeaterFoodImg : repeaterImg;
                 tintFood = foodActive && repeaterFoodImg == null;
             } else if (type == CABBAGE_PULT) {
                 bitmap = foodActive && cabbagePultFoodImg != null ? cabbagePultFoodImg : cabbagePultImg;
@@ -1025,14 +1027,16 @@ public class MainActivity extends Activity {
                     kick += pulse * .075f;
                     angle = -3.5f * pulse;
                 } else if (type == CABBAGE_PULT || type == KERNEL_PULT || type == MELON_PULT) {
-                    kick += pulse * .035f;
-                    angle = -17f * pulse;
+                    kick += pulse * .055f;
+                    angle = -19f * pulse;
                 } else if (type == SUNFLOWER && foodActive) {
                     kick += .025f * (float) Math.sin(now / 90.0);
                 }
 
-                spriteRect.set(x - size * kick / 2f, y - size / kick / 2f,
-                        x + size * kick / 2f, y + size / kick / 2f);
+                float verticalKick = (type == CABBAGE_PULT || type == KERNEL_PULT || type == MELON_PULT)
+                        ? 1f - pulse * .035f : 1f / kick;
+                spriteRect.set(x - size * kick / 2f, y - size * verticalKick / 2f,
+                        x + size * kick / 2f, y + size * verticalKick / 2f);
                 c.save();
                 if (angle != 0f) c.rotate(angle, x, y);
                 drawPlantBitmap(c, bitmap, spriteRect, tintFood);
