@@ -895,7 +895,7 @@ public class MainActivity extends Activity {
                 for (int col = 0; col < COLS; col++) {
                     Plant plant = plants[row][col];
                     if (plant == null) continue;
-                    if (plant.type == BINU && (binuWaiting || binuJumping)) continue;
+                    if (plant.type == BINU && (binuWaiting || binuJumping || binuLaserActive)) continue;
                     // Plant art, HP bar and tap target all share the exact cell center.
                     float x = left + (col + 0.5f) * cellW;
                     float y = top + (row + 0.5f) * cellH;
@@ -1303,20 +1303,18 @@ public class MainActivity extends Activity {
         }
 
         private void drawBinu(Canvas c) {
-            if (!binuWaiting && !binuJumping) return;
-            if (binuRow < 0 || binuCol < 0) return;
-            Bitmap b = binuImg;
-            if (binuJumping) {
-                if (binuFrame == 1) b = binu1Img;
-                else if (binuFrame == 2) b = binu2Img;
-                else if (binuFrame == 3) b = binu3Img;
-                else if (binuFrame >= 4) b = binu4Img;
+            if(binuLaserActive&&binuLaserRow>=0&&binuLaserCol>=0){
+                float ox=left+binuLaserCol*cellW+cellW*.47f,oy=top+binuLaserRow*cellH+cellH*.39f;
+                if(binuImg!=null){spriteRect.set(ox-cellW*.37f,oy-cellH*.42f,ox+cellW*.37f,oy+cellH*.42f);drawPlantBitmap(c,binuImg,spriteRect,true);}
+                long elapsed=System.currentTimeMillis()-binuLaserStartAt;float angle=elapsed<=500L?0f:(float)((elapsed-500L)/2000.0*Math.PI*4.0);
+                float reach=(float)Math.hypot(getWidth(),getHeight()),ex=ox+(float)Math.cos(angle)*reach,ey=oy+(float)Math.sin(angle)*reach;
+                p.setStyle(Paint.Style.STROKE);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeWidth(Math.max(8f,cellH*.10f));p.setColor(Color.argb(100,90,255,130));c.drawLine(ox,oy,ex,ey,p);
+                p.setStrokeWidth(Math.max(3f,cellH*.035f));p.setColor(Color.rgb(220,255,225));c.drawLine(ox,oy,ex,ey,p);p.setStyle(Paint.Style.FILL);return;
             }
-            if (b == null) return;
-            float x = binuJumping ? binuX : left + binuCol * cellW + cellW / 2f;
-            float y = binuJumping ? binuY : top + binuRow * cellH + cellH / 2f;
-            spriteRect.set(x-cellW*.37f,y-cellH*.42f,x+cellW*.37f,y+cellH*.42f);
-            drawPlantBitmap(c, b, spriteRect, binuFoodBoost);
+            if(!binuWaiting&&!binuJumping)return;if(binuRow<0||binuCol<0)return;
+            Bitmap b=binuImg;if(binuJumping){if(binuFrame==1)b=binu1Img;else if(binuFrame==2)b=binu2Img;else if(binuFrame==3)b=binu3Img;else if(binuFrame>=4)b=binu4Img;}
+            if(b==null)return;float x=binuJumping?binuX:left+binuCol*cellW+cellW/2f,y=binuJumping?binuY:top+binuRow*cellH+cellH/2f;
+            spriteRect.set(x-cellW*.37f,y-cellH*.42f,x+cellW*.37f,y+cellH*.42f);drawPlantBitmap(c,b,spriteRect,binuFoodBoost);
         }
 
         private void playBinuSound1() {
@@ -1394,6 +1392,7 @@ public class MainActivity extends Activity {
                 );
 
                 if (binuSound2Player == null) return;
+                try { if(android.os.Build.VERSION.SDK_INT>=23) binuSound2Player.setPlaybackParams(binuSound2Player.getPlaybackParams().setSpeed(1.5f)); } catch(Exception ignored) {}
 
                 binuSound2Player.setOnCompletionListener(
                         mp -> {
@@ -1437,30 +1436,21 @@ public class MainActivity extends Activity {
         }
 
         private void updateBinu(long now) {
-            if (binuWaiting && !binuJumping && now >= binuDetectAt && binuSound1Finished) {
-                startBinuJump(now);
+            if(binuLaserActive){
+                long elapsed=now-binuLaserStartAt;
+                if(elapsed>=2500L){for(Zombie z:zombies)if(!z.dummy)z.hp=0;binuLaserActive=false;binuFoodBoost=false;playBinuSound2();}
+                return;
             }
-            if (!binuJumping) return;
-            long elapsed = now - binuClock;
-            float t = Math.max(0f, Math.min(1f, elapsed / 480f));
-            float smooth = t * t * (3f - 2f * t);
-            binuX = binuStartX + (binuTargetX - binuStartX) * smooth;
-            binuY = binuStartY + (binuTargetY - binuStartY) * smooth;
-            binuFrame = Math.max(1, Math.min(4, (int)(elapsed / 120L) + 1));
-            if (elapsed >= 480L) {
-                binuX = binuTargetX;
-                binuY = binuTargetY;
-                smashBinu();
-                binuJumping = false;
-                binuWaiting = false;
-                binuFrame = 0;
-                binuRow = -1;
-                binuCol = -1;
-            }
+            if(binuWaiting&&!binuJumping&&now>=binuDetectAt)startBinuJump(now);
+            if(!binuJumping)return;
+            long elapsed=now-binuClock;float t=Math.max(0f,Math.min(1f,elapsed/480f));float smooth=t*t*(3f-2f*t);
+            binuX=binuStartX+(binuTargetX-binuStartX)*smooth;binuY=binuStartY+(binuTargetY-binuStartY)*smooth;
+            binuFrame=Math.max(1,Math.min(4,(int)(elapsed/120L)+1));
+            if(elapsed>=480L){binuX=binuTargetX;binuY=binuTargetY;smashBinu();binuJumping=false;binuWaiting=false;binuFrame=0;binuRow=-1;binuCol=-1;playBinuSound2();}
         }
 
                         private void checkBinu(long now){
-            if(binuWaiting||binuJumping)return;
+            if(binuWaiting||binuJumping||binuLaserActive)return;
             for(int r=0;r<ROWS;r++)for(int col=0;col<COLS;col++){
                 Plant a=plants[r][col];if(a==null||a.type!=BINU)continue;
                 float bx=left+col*cellW+cellW/2f,by=top+r*cellH+cellH/2f;
@@ -1468,8 +1458,7 @@ public class MainActivity extends Activity {
                 Zombie nearest=null;float best=Float.MAX_VALUE;
                 for(Zombie z:zombies){if(z.hp<=0||z.dummy||z.row!=r)continue;float d=Math.abs(z.x-bx);
                     if(d<=cellW*(boost?2.25f:1.30f)&&d<best){nearest=z;best=d;}}
-                if(nearest!=null){binuRow=r;binuCol=col;binuWaiting=true;binuFoodBoost=boost;binuDetectAt=now+(boost?350L:2000L);binuX=bx;binuY=by;
-                    if(boost)binuSound1Finished=true;return;}
+                if(nearest!=null){binuRow=r;binuCol=col;binuWaiting=true;binuFoodBoost=boost;binuDetectAt=now+(boost?350L:2000L);binuX=bx;binuY=by;return;}
             }
         }
 
@@ -1481,7 +1470,7 @@ public class MainActivity extends Activity {
                 if(d<=cellW*(binuFoodBoost?2.7f:1.8f)&&d<best){target=z;best=d;}}
             if(target==null){binuWaiting=false;binuFoodBoost=false;return;}
             binuStartX=sx;binuStartY=sy;binuTargetX=target.x;binuTargetY=target.y;binuX=sx;binuY=sy;
-            plants[binuRow][binuCol]=null;binuJumping=true;binuFrame=1;binuClock=now;playBinuSound2();
+            plants[binuRow][binuCol]=null;binuJumping=true;binuFrame=1;binuClock=now;
         }
 
                         private void smashBinu(){
@@ -1729,7 +1718,9 @@ public class MainActivity extends Activity {
             binuDetectAt = 0L;
             binuWaiting = false;
             binuJumping = false;
-            binuSound1Finished = false;
+            binuLaserActive = false;
+            binuLaserRow = binuLaserCol = -1;
+            binuSound1Finished = true;
             binuX = binuY = binuStartX = binuStartY = binuTargetX = binuTargetY = 0f;
             stopBinuSound1();
             stopBinuSound2();
@@ -1937,12 +1928,12 @@ public class MainActivity extends Activity {
             }
             if(screen==MINIGAME_MENU){
                 if(inside(x,y,.035f,.87f,.19f,.97f))screen=HOME;
-                else for(int i=0;i<6;i++){int col=i%3,row=i/3;float bx=.12f+col*.26f,by=.23f+row*.30f;
-                    if(inside(x,y,bx,by,bx+.22f,by+.22f)){startMiniGame(i+1);break;}}
+                else for(int i=0;i<7;i++){int col=i==6?1:i%3,row=i==6?2:i/3;float bx=i==6?.39f:.12f+col*.26f,by=i==6?.70f:.20f+row*.25f;if(inside(x,y,bx,by,bx+.22f,by+.19f)){startMiniGame(i+1);break;}}
                 invalidate();return true;
             }
             if(screen==MINIGAME_PLAY){
                 if(inside(x,y,.88f,.04f,.98f,.15f)){screen=MINIGAME_MENU;miniTargets.clear();invalidate();return true;}
+                if(miniMode==7)return true;
                 Iterator<MiniTarget> it=miniTargets.iterator();
                 while(it.hasNext()){MiniTarget target=it.next();if(Math.hypot(x-target.x,y-target.y)<=target.radius*1.35f){
                     miniScore+=miniMode==1?10:miniMode==2?20:15;it.remove();invalidate();return true;}}
@@ -2003,7 +1994,7 @@ public class MainActivity extends Activity {
         }
 
                         private void startMiniGame(int mode) {
-            miniMode=Math.max(1,Math.min(6,mode));miniScore=0;miniTargets.clear();
+            miniMode=Math.max(1,Math.min(7,mode));miniScore=0;miniTargets.clear();miniBowlingLaunches=0;miniBowlingLastBall=System.currentTimeMillis()+700L;
             miniStartedAt=System.currentTimeMillis();miniLastSpawn=miniStartedAt;miniLastFrame=miniStartedAt;screen=MINIGAME_PLAY;
         }
 
@@ -2011,6 +2002,7 @@ public class MainActivity extends Activity {
             long now=System.currentTimeMillis();
             if(now-miniStartedAt>=30000L){screen=MINIGAME_RESULT;coins=Math.min(99999999,coins+miniScore/10);saveGame();return;}
             float dt=Math.min(.05f,Math.max(0f,(now-miniLastFrame)/1000f));miniLastFrame=now;
+            if(miniMode==7){updateBowling(now,dt);return;}
             long interval=miniMode==1?620L:miniMode==2?820L:miniMode==3?540L:miniMode==4?720L:miniMode==5?650L:500L;
             if(now-miniLastSpawn>=interval&&miniTargets.size()<24){
                 miniLastSpawn=now;float radius=Math.max(18f,Math.min(getWidth(),getHeight())*.035f);
@@ -2019,44 +2011,35 @@ public class MainActivity extends Activity {
                 else if(miniMode==3)miniTargets.add(new MiniTarget(-radius,getHeight()*(.22f+random.nextFloat()*.65f),radius,3,getWidth()*.48f));
                 else if(miniMode==4)miniTargets.add(new MiniTarget(getWidth()*(.08f+random.nextFloat()*.84f),-radius,radius,4,getHeight()*.34f));
                 else if(miniMode==5)miniTargets.add(new MiniTarget(getWidth()+radius,getHeight()*(.24f+random.nextFloat()*.65f),radius,5,getWidth()*.40f));
-                else miniTargets.add(new MiniTarget(random.nextBoolean()?-radius:getWidth()+radius,
-                        getHeight()*(.18f+random.nextFloat()*.62f),radius,random.nextInt(5)+1,getWidth()*.55f));
+                else miniTargets.add(new MiniTarget(random.nextBoolean()?-radius:getWidth()+radius,getHeight()*(.18f+random.nextFloat()*.62f),radius,random.nextInt(5)+1,getWidth()*.55f));
             }
-            Iterator<MiniTarget> it=miniTargets.iterator();
-            while(it.hasNext()){
-                MiniTarget target=it.next();
-                if(miniMode==1||miniMode==4){target.y+=target.speed*dt;if(target.y>getHeight()+target.radius)it.remove();}
-                else if(miniMode==2||miniMode==5){target.x-=target.speed*dt;if(target.x< -target.radius)it.remove();}
-                else if(miniMode==3){target.x+=target.speed*dt;if(target.x>getWidth()+target.radius)it.remove();}
-                else{target.x+=target.x<0?target.speed*dt:-target.speed*dt;target.y+=target.speed*dt*.12f;
-                    if(target.x< -target.radius||target.x>getWidth()+target.radius||target.y>getHeight()+target.radius)it.remove();}
-            }
+            Iterator<MiniTarget> it=miniTargets.iterator();while(it.hasNext()){MiniTarget t=it.next();if(miniMode==1||miniMode==4){t.y+=t.speed*dt;if(t.y>getHeight()+t.radius)it.remove();}else if(miniMode==2||miniMode==5){t.x-=t.speed*dt;if(t.x< -t.radius)it.remove();}else if(miniMode==3){t.x+=t.speed*dt;if(t.x>getWidth()+t.radius)it.remove();}else{t.x+=t.x<0?t.speed*dt:-t.speed*dt;t.y+=t.speed*dt*.12f;if(t.x< -t.radius||t.x>getWidth()+t.radius||t.y>getHeight()+t.radius)it.remove();}}
+        }
+
+        private void updateBowling(long now,float dt){
+            float radius=Math.max(22f,Math.min(getWidth(),getHeight())*.043f);int zombieCount=0;for(MiniTarget t:miniTargets)if(t.kind==2)zombieCount++;
+            if(now-miniLastSpawn>=2100L&&zombieCount<5){miniLastSpawn=now;int lane=random.nextInt(5);float y=getHeight()*(.26f+lane*.13f);miniTargets.add(new MiniTarget(getWidth()+radius,y,radius,2,getWidth()*.075f));}
+            if(now-miniBowlingLastBall>=2300L&&miniTargets.size()<12){miniBowlingLastBall=now;miniBowlingLaunches++;boolean pf=miniBowlingLaunches%4==0&&food>0;if(pf){food--;saveGame();}int lane=random.nextInt(5);float y=getHeight()*(.26f+lane*.13f);MiniTarget ball=new MiniTarget(-radius,y,radius,4,getWidth()*.62f);ball.foodBall=pf;miniTargets.add(ball);}
+            for(MiniTarget t:miniTargets){if(t.kind==2)t.x-=t.speed*dt;else t.x+=t.speed*dt;}
+            for(int i=miniTargets.size()-1;i>=0;i--){MiniTarget ball=miniTargets.get(i);if(ball.kind!=4)continue;MiniTarget hit=null;for(MiniTarget z:miniTargets)if(z.kind==2&&Math.abs(z.x-ball.x)<radius*1.8f&&Math.abs(z.y-ball.y)<radius*1.7f){hit=z;break;}if(hit==null)continue;
+                if(!ball.foodBall){miniTargets.remove(ball);miniTargets.remove(hit);miniScore+=20;}else{int count=0;for(int j=miniTargets.size()-1;j>=0;j--){MiniTarget z=miniTargets.get(j);if(z.kind==2&&Math.abs(z.x-ball.x)<=radius*2.8f&&Math.abs(z.y-ball.y)<=radius*2.5f){miniTargets.remove(j);count++;}}miniTargets.remove(ball);miniScore+=Math.max(1,count)*25;}}
+            for(Iterator<MiniTarget> it=miniTargets.iterator();it.hasNext();){MiniTarget t=it.next();if(t.x< -radius*2f||t.x>getWidth()+radius*2f)it.remove();}
         }
 
                         private void drawMiniGameMenu(Canvas c) {
-            drawBackdrop(c,45);
-            drawText(c,"VƯỜN MINI GAME",getWidth()/2f,getHeight()*.10f,29,Color.WHITE,Paint.Align.CENTER);
-            drawText(c,"6 thử thách ngắn • Chạm mục tiêu để kiếm xu",getWidth()/2f,getHeight()*.16f,14,Color.YELLOW,Paint.Align.CENTER);
-            String[] labels={"SUN RUSH","ZOMBIE TAP","PEA RUSH","NUT CATCH","PF HUNT","MIXED RUSH"};
-            for(int i=0;i<6;i++){int col=i%3,row=i/3;float x=.12f+col*.26f,y=.23f+row*.30f;button(c,x,y,x+.22f,y+.22f,labels[i]);}
-            button(c,.035f,.87f,.19f,.97f,"QUAY LẠI");
+            drawBackdrop(c,38);drawText(c,"VƯỜN MINI GAME",getWidth()/2f,getHeight()*.085f,29,Color.WHITE,Paint.Align.CENTER);
+            drawText(c,"7 thử thách ngắn • Chạm mục tiêu hoặc đánh bowling",getWidth()/2f,getHeight()*.14f,14,Color.YELLOW,Paint.Align.CENTER);
+            String[] labels={"SUN RUSH","ZOMBIE TAP","PEA RUSH","NUT CATCH","PF HUNT","MIXED RUSH","GIGANUT BOWLING"};
+            for(int i=0;i<7;i++){int col=i==6?1:i%3,row=i==6?2:i/3;float x=i==6?.39f:.12f+col*.26f,y=i==6?.70f:.20f+row*.25f;button(c,x,y,x+.22f,y+.19f,labels[i]);}
+            button(c,.035f,.88f,.19f,.97f,"QUAY LẠI");
         }
 
                         private void drawMiniGame(Canvas c) {
-            drawBackdrop(c,35);
-            long remain=Math.max(0L,30000L-(System.currentTimeMillis()-miniStartedAt));
-            String[] labels={"","SUN RUSH","ZOMBIE TAP","PEA RUSH","NUT CATCH","PF HUNT","MIXED RUSH"};
-            drawText(c,labels[miniMode],getWidth()*.06f,getHeight()*.10f,22,Color.WHITE,Paint.Align.LEFT);
-            drawText(c,"ĐIỂM "+miniScore,getWidth()*.50f,getHeight()*.10f,20,Color.YELLOW,Paint.Align.CENTER);
-            drawText(c,"GIÂY "+(remain/1000L),getWidth()*.82f,getHeight()*.10f,19,Color.WHITE,Paint.Align.CENTER);
-            button(c,.88f,.04f,.98f,.15f,"THOÁT");
-            for(MiniTarget target:miniTargets){
-                Bitmap image=target.kind==1?sunflowerImg:target.kind==2?zombieImg:target.kind==3?bulletImg:
-                        target.kind==4?giganutImg:peaFoodImg;
-                if(image!=null){spriteRect.set(target.x-target.radius,target.y-target.radius,target.x+target.radius,target.y+target.radius);
-                    spritePaint.setAlpha(255);spritePaint.setColorFilter(null);c.drawBitmap(image,null,spriteRect,spritePaint);}
-                else{p.setColor(target.kind==1?Color.YELLOW:target.kind==2?Color.GRAY:Color.GREEN);c.drawCircle(target.x,target.y,target.radius,p);}
-            }
+            drawBackdrop(c,35);long remain=Math.max(0L,30000L-(System.currentTimeMillis()-miniStartedAt));String[] labels={"","SUN RUSH","ZOMBIE TAP","PEA RUSH","NUT CATCH","PF HUNT","MIXED RUSH","GIGANUT BOWLING"};
+            drawText(c,labels[miniMode],getWidth()*.06f,getHeight()*.10f,22,Color.WHITE,Paint.Align.LEFT);drawText(c,"ĐIỂM "+miniScore,getWidth()*.50f,getHeight()*.10f,20,Color.YELLOW,Paint.Align.CENTER);drawText(c,"GIÂY "+(remain/1000L),getWidth()*.82f,getHeight()*.10f,19,Color.WHITE,Paint.Align.CENTER);button(c,.88f,.04f,.98f,.15f,"THOÁT");
+            if(miniMode==7){for(int lane=0;lane<5;lane++){float y=getHeight()*(.26f+lane*.13f);p.setColor(Color.argb(70,255,255,255));p.setStrokeWidth(2);c.drawLine(0,y,getWidth(),y,p);}drawText(c,"Giganut hạ 1 zombie • PF nổ 3×3",getWidth()*.50f,getHeight()*.91f,14,Color.YELLOW,Paint.Align.CENTER);}
+            for(MiniTarget t:miniTargets){Bitmap image;if(miniMode==7)image=t.kind==2?zombieImg:(t.foodBall?gigaFoodImg:giganutImg);else image=t.kind==1?sunflowerImg:t.kind==2?zombieImg:t.kind==3?bulletImg:t.kind==4?giganutImg:peaFoodImg;
+                if(image!=null){spriteRect.set(t.x-t.radius,t.y-t.radius,t.x+t.radius,t.y+t.radius);spritePaint.setAlpha(255);spritePaint.setColorFilter(null);c.drawBitmap(image,null,spriteRect,spritePaint);}else{p.setColor(t.kind==1?Color.YELLOW:t.kind==2?Color.GRAY:Color.GREEN);c.drawCircle(t.x,t.y,t.radius,p);}}
         }
 
         private void drawMiniGameResult(Canvas c) {
@@ -2153,6 +2136,7 @@ public class MainActivity extends Activity {
             float radius;
             int kind;
             float speed;
+            boolean foodBall;
 
             MiniTarget(float x, float y, float radius, int kind, float speed) {
                 this.x = x;
